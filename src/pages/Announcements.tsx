@@ -1,7 +1,8 @@
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent } from '@/components/ui/card';
-import { mockAnnouncements } from '@/data/mockData';
-import { AlertCircle, Bell } from 'lucide-react';
+import { getAnnouncements } from '@/lib/firestoreService';
+import { Bell } from 'lucide-react';
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-IN', {
@@ -12,6 +13,27 @@ function formatDate(dateString: string): string {
 }
 
 const Announcements = () => {
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadAnnouncements();
+  }, []);
+
+  const loadAnnouncements = async () => {
+    try {
+      const data = await getAnnouncements();
+      const sorted = data.sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      setAnnouncements(sorted);
+    } catch (error) {
+      console.error('Error loading announcements:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="container py-8 space-y-6">
@@ -25,37 +47,32 @@ const Announcements = () => {
           </p>
         </div>
 
-        <div className="space-y-4">
-          {mockAnnouncements.map((announcement) => (
-            <Card
-              key={announcement.id}
-              className={
-                announcement.important
-                  ? 'border-l-4 border-l-accent'
-                  : ''
-              }
-            >
-              <CardContent className="pt-5">
-                <div className="flex items-start gap-3">
-                  {announcement.important && (
-                    <AlertCircle className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-                  )}
-                  <div className="space-y-1 flex-1">
-                    <div className="flex items-start justify-between gap-4">
-                      <h3 className="font-semibold">{announcement.title}</h3>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {formatDate(announcement.date)}
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {announcement.content}
-                    </p>
-                  </div>
+        {loading ? (
+          <p className="text-center text-muted-foreground py-8">Loading announcements...</p>
+        ) : announcements.length > 0 ? (
+          <div className="divide-y rounded-md border">
+            {announcements.map((announcement) => (
+              <div key={announcement.id} className="p-4">
+                <div className="flex items-start justify-between">
+                  <h3 className="font-medium">
+                    {announcement.title}
+                    {announcement.important && (
+                      <span className="ml-2 text-xs text-red-600">(Important)</span>
+                    )}
+                  </h3>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {formatDate(announcement.date)}
+                  </span>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {announcement.content}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-center text-muted-foreground py-8">No announcements yet.</p>
+        )}
       </div>
     </Layout>
   );

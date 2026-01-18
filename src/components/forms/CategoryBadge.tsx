@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import type { FormCategory } from '@/data/mockData';
+import type { FormCategory } from '@/types';
 
 interface CategoryBadgeProps {
   category: FormCategory;

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from './StatusBadge';
 import { CategoryBadge } from './CategoryBadge';
-import type { FormEntry } from '@/data/mockData';
+import type { FormEntry } from '@/types';
 
 interface FormCardProps {
   form: FormEntry;
@@ -15,6 +15,16 @@ function formatDate(dateString: string): string {
     month: 'short',
     year: 'numeric',
   });
+}
+
+function formatTime(timeString?: string): string {
+  if (!timeString) return '';
+  const [hours, minutes] = timeString.split(':');
+  const hour = parseInt(hours);
+  const min = parseInt(minutes);
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+  return `${displayHour}:${min.toString().padStart(2, '0')} ${period}`;
 }
 
 export function FormCard({ form }: FormCardProps) {
@@ -39,9 +49,14 @@ export function FormCard({ form }: FormCardProps) {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Calendar className="h-3.5 w-3.5" />
             <span>
-              {formatDate(form.startDate)} — {formatDate(form.endDate)}
+              {formatDate(form.startDate)} {form.startTime && `at ${formatTime(form.startTime)}`}
             </span>
           </div>
+          {form.startDate !== form.endDate || form.startTime !== form.endTime ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground pl-5">
+              → {formatDate(form.endDate)} {form.endTime && `at ${formatTime(form.endTime)}`}
+            </div>
+          ) : null}
           <Button
             variant={isOpen ? 'default' : 'secondary'}
             size="sm"

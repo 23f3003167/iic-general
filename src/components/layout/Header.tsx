@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { FileText, MessageSquare, HelpCircle, BookOpen, Shield } from 'lucide-react';
+import { FileText, MessageSquare, HelpCircle, BookOpen, Phone, Mail } from 'lucide-react';
 
 const navItems = [
   { path: '/', label: 'Forms', icon: FileText },
@@ -14,25 +14,8 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card">
-      {/* Top bar */}
-      <div className="bg-primary text-primary-foreground">
-        <div className="container flex h-8 items-center justify-between text-sm">
-          <span>IIC - Placement Training Portal</span>
-          <span className="hidden sm:inline">iic@study.iitm.ac.in</span>
-        </div>
-      </div>
-      
-      {/* Main nav */}
+      {/* Main nav (logo and top bar removed) */}
       <div className="container flex h-14 items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded bg-primary text-primary-foreground font-bold text-lg">
-            IIC
-          </div>
-          <span className="hidden font-semibold sm:inline-block">
-            Industry Interaction Cell
-          </span>
-        </Link>
-
         <nav className="flex items-center gap-1">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
@@ -53,19 +36,29 @@ export function Header() {
               </Link>
             );
           })}
-          <Link
-            to="/admin"
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md transition-colors ml-2 border',
-              location.pathname.startsWith('/admin')
-                ? 'bg-accent text-accent-foreground border-accent'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted border-border'
-            )}
-          >
-            <Shield className="h-4 w-4" />
-            <span className="hidden md:inline">Admin</span>
-          </Link>
         </nav>
+        
+        {/* Support links in the corner */}
+        <div className="flex items-center gap-3">
+          <a
+            href="https://placements.study.iitm.ac.in/support/raiseticket"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+            title="Raise a Support Ticket"
+          >
+            <MessageSquare className="h-4 w-4" />
+            <span className="hidden md:inline">Support Ticket</span>
+          </a>
+          <a
+            href="mailto:iic@study.iitm.ac.in"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+            title="Support Email"
+          >
+            <Mail className="h-4 w-4" />
+            <span className="hidden md:inline">Support Mail</span>
+          </a>
+        </div>
       </div>
     </header>
   );

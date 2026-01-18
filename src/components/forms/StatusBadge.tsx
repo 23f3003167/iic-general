@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import type { FormStatus } from '@/data/mockData';
+import type { FormStatus } from '@/types';
 
 interface StatusBadgeProps {
   status: FormStatus;
