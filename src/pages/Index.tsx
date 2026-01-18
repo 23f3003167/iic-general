@@ -33,11 +33,17 @@ const Index = () => {
   return (
     <Layout>
       <div className="container py-8 space-y-6">
-        {/* Disclaimer Alert */}
-        <Alert className="border-l-4 border-l-amber-500 bg-amber-50">
-          <AlertCircle className="h-4 w-4 text-amber-600" />
-          <AlertDescription className="text-amber-800 text-sm">
-            <strong>Important:</strong> Only IIC Jan 2026 training students are allowed to fill the forms. Announcements and documents are applicable only for registered students.
+        {/* Information Banner */}
+        <Alert className="border-l-4 border-l-blue-600 bg-blue-50/50 shadow-sm">
+          <AlertCircle className="h-5 w-5 text-blue-600" />
+          <AlertDescription className="text-blue-900 text-sm leading-relaxed">
+            <div className="space-y-1">
+              <p className="font-semibold text-base">Student Eligibility Notice</p>
+              <p className="text-blue-800">
+                Only IIC Jan 2026 training students are authorized to fill the forms. 
+                Announcements and documents are exclusively available for registered students.
+              </p>
+            </div>
           </AlertDescription>
         </Alert>
 
