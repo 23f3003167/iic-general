@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { FileText, Megaphone, HelpCircle, BookOpen, LifeBuoy, Mail, Menu } from 'lucide-react';
+import { FileText, Megaphone, HelpCircle, BookOpen, LifeBuoy, Mail, Menu, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ const navItems = [
   { path: '/announcements', label: 'Announcements', icon: Megaphone },
   { path: '/faqs', label: 'FAQs', icon: HelpCircle },
   { path: '/documents', label: 'Documents', icon: BookOpen },
+  { path: '/chat', label: 'Chat', icon: MessageSquare },
 ];
 
 export function Header() {

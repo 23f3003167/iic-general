@@ -24,8 +24,9 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@root/*": ["./*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "chatbot"]
 }

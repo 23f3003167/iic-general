@@ -12,17 +12,24 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { FormEntry, Announcement, FAQ, Document } from '@/types';
+import { computeFormsStatus } from './statusCompute';
 
 // Forms CRUD
 export async function getForms(): Promise<FormEntry[]> {
   const q = query(collection(db, 'forms'), orderBy('startDate', 'desc'));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as FormEntry));
+  const forms = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as FormEntry));
+  // Auto-compute status based on current time
+  return computeFormsStatus(forms).map((form) => ({ ...form, id: form.id } as FormEntry));
 }
 
 export async function getForm(id: string): Promise<FormEntry | null> {
   const docSnap = await getDoc(doc(db, 'forms', id));
-  return docSnap.exists() ? ({ id: docSnap.id, ...docSnap.data() } as FormEntry) : null;
+  if (!docSnap.exists()) return null;
+  const form = { id: docSnap.id, ...docSnap.data() } as FormEntry;
+  // Auto-compute status based on current time
+  const computedForm = computeFormsStatus([form])[0];
+  return { ...computedForm, id: form.id } as FormEntry;
 }
 
 export async function createForm(form: Omit<FormEntry, 'id'>): Promise<string> {

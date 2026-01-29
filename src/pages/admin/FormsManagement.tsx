@@ -31,6 +31,7 @@ import {
   updateForm,
   deleteForm,
 } from '@/lib/firestoreService';
+import { computeFormStatus } from '@/lib/statusCompute';
 import type { FormEntry, FormCategory, FormStatus } from '@/types';
 import { StatusBadge } from '@/components/forms/StatusBadge';
 import { CategoryBadge } from '@/components/forms/CategoryBadge';
@@ -46,7 +47,7 @@ export function FormsManagement() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingForm, setEditingForm] = useState<FormEntry | null>(null);
   const [deletingFormId, setDeletingFormId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Omit<FormEntry, 'id'>>({
+  const [formData, setFormData] = useState<Omit<FormEntry, 'id' | 'status'>>({
     title: '',
     category: 'Other',
     description: '',
@@ -54,7 +55,6 @@ export function FormsManagement() {
     startTime: '',
     endDate: '',
     endTime: '',
-    status: 'Upcoming',
     formUrl: '',
   });
 
@@ -119,7 +119,6 @@ export function FormsManagement() {
         startTime: form.startTime || '',
         endDate: form.endDate,
         endTime: form.endTime || '',
-        status: form.status,
         formUrl: form.formUrl,
       });
     } else {
@@ -132,7 +131,6 @@ export function FormsManagement() {
         startTime: '',
         endDate: '',
         endTime: '',
-        status: 'Upcoming',
         formUrl: '',
       });
     }
@@ -317,22 +315,6 @@ export function FormsManagement() {
                     <SelectItem value="Training">Training</SelectItem>
                     <SelectItem value="Slot">Slot</SelectItem>
                     <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Status *</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value: FormStatus) => setFormData({ ...formData, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Open">Open</SelectItem>
-                    <SelectItem value="Upcoming">Upcoming</SelectItem>
-                    <SelectItem value="Closed">Closed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

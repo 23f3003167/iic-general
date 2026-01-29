@@ -4,12 +4,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { lazy, Suspense } from "react";
+import { usePreventDevTools } from "@/hooks/use-prevent-devtools";
 
 // Lazy load all pages for code splitting
 const Index = lazy(() => import("./pages/Index"));
 const Announcements = lazy(() => import("./pages/Announcements"));
 const FAQs = lazy(() => import("./pages/FAQs"));
 const Documents = lazy(() => import("./pages/Documents"));
+const ChatPage = lazy(() => import("./pages/ChatPage"));
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -23,7 +25,10 @@ const LoadingFallback = () => (
   </div>
 );
 
-const App = () => (
+const App = () => {
+  usePreventDevTools();
+
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -35,6 +40,7 @@ const App = () => (
             <Route path="/announcements" element={<Announcements />} />
             <Route path="/faqs" element={<FAQs />} />
             <Route path="/documents" element={<Documents />} />
+            <Route path="/chat" element={<ChatPage />} />
             <Route path="/admin" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/forms" element={<AdminDashboard />} />
@@ -47,6 +53,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;

@@ -11,7 +11,6 @@ export async function fetchAllowedEmails(): Promise<string[]> {
     }
     const data = snap.data();
     const emails = Array.isArray(data?.emails) ? data.emails : [];
-    console.log('Allowed emails fetched:', emails);
     return emails.map((e) => String(e).toLowerCase());
   } catch (error) {
     console.error('Error fetching allowed emails:', error);
