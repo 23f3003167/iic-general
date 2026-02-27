@@ -28,6 +28,32 @@ import {
 } from '@/lib/firestoreService';
 import type { Announcement } from '@/types';
 
+function formatAnnouncementContent(content: string): React.ReactNode {
+  // Split by asterisks and double asterisks for better formatting
+  const parts = content.split(/(\*\*.*?\*\*|\*.*?\*)/g);
+  
+  return parts.map((part, index) => {
+    // Bold text (**text**)
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index} className="font-semibold">{part.slice(2, -2)}</strong>;
+    }
+    // Italic or emphasis (*text*)
+    if (part.startsWith('*') && part.endsWith('*')) {
+      return <em key={index} className="italic">{part.slice(1, -1)}</em>;
+    }
+    // Regular text - split by newlines for better line breaks
+    if (part.trim()) {
+      return part.split('\n').map((line, lineIndex) => (
+        <span key={`${index}-${lineIndex}`}>
+          {line}
+          {lineIndex < part.split('\n').length - 1 && <br />}
+        </span>
+      ));
+    }
+    return null;
+  });
+}
+
 export function AnnouncementsManagement() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -250,7 +276,9 @@ export function AnnouncementsManagement() {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-sm">{announcement.content}</p>
+                <div className="prose prose-sm max-w-none text-sm leading-relaxed text-gray-700 dark:text-gray-300 space-y-2">
+                  {formatAnnouncementContent(announcement.content)}
+                </div>
               </CardContent>
             </Card>
           ))}

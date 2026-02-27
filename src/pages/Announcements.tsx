@@ -1,14 +1,41 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { getAnnouncements } from '@/lib/firestoreService';
-import { Bell } from 'lucide-react';
+import { Bell, AlertCircle } from 'lucide-react';
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-IN', {
     day: 'numeric',
-    month: 'short',
+    month: 'long',
     year: 'numeric',
+  });
+}
+
+function formatAnnouncementContent(content: string): React.ReactNode {
+  // Split by asterisks and double asterisks for better formatting
+  const parts = content.split(/(\*\*.*?\*\*|\*.*?\*)/g);
+  
+  return parts.map((part, index) => {
+    // Bold text (**text**)
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index} className="font-semibold">{part.slice(2, -2)}</strong>;
+    }
+    // Italic or emphasis (*text*)
+    if (part.startsWith('*') && part.endsWith('*')) {
+      return <em key={index} className="italic">{part.slice(1, -1)}</em>;
+    }
+    // Regular text - split by newlines for better line breaks
+    if (part.trim()) {
+      return part.split('\n').map((line, lineIndex) => (
+        <span key={`${index}-${lineIndex}`}>
+          {line}
+          {lineIndex < part.split('\n').length - 1 && <br />}
+        </span>
+      ));
+    }
+    return null;
   });
 }
 
@@ -50,24 +77,33 @@ const Announcements = () => {
         {loading ? (
           <p className="text-center text-muted-foreground py-8">Loading announcements...</p>
         ) : announcements.length > 0 ? (
-          <div className="divide-y rounded-md border">
+          <div className="space-y-4">
             {announcements.map((announcement) => (
-              <div key={announcement.id} className="p-4">
-                <div className="flex items-start justify-between">
-                  <h3 className="font-medium">
-                    {announcement.title}
-                    {announcement.important && (
-                      <span className="ml-2 text-xs text-red-600">(Important)</span>
-                    )}
-                  </h3>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {formatDate(announcement.date)}
-                  </span>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {announcement.content}
-                </p>
-              </div>
+              <Card key={announcement.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <CardTitle className="text-lg">{announcement.title}</CardTitle>
+                        {announcement.important && (
+                          <Badge variant="destructive" className="flex items-center gap-1 text-xs">
+                            <AlertCircle className="h-3 w-3" />
+                            Important
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {formatDate(announcement.date)}
+                      </p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="prose prose-sm max-w-none text-sm leading-relaxed text-gray-700 dark:text-gray-300 space-y-2">
+                    {formatAnnouncementContent(announcement.content)}
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         ) : (
