@@ -13,30 +13,35 @@ function formatDate(dateString: string): string {
   });
 }
 
-function formatAnnouncementContent(content: string): React.ReactNode {
+function formatAnnouncementContent(content: string): React.ReactNode[] {
   // Split by asterisks and double asterisks for better formatting
   const parts = content.split(/(\*\*.*?\*\*|\*.*?\*)/g);
+  const result: React.ReactNode[] = [];
   
-  return parts.map((part, index) => {
+  parts.forEach((part, index) => {
     // Bold text (**text**)
     if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={index} className="font-semibold">{part.slice(2, -2)}</strong>;
+      result.push(<strong key={index} className="font-semibold">{part.slice(2, -2)}</strong>);
     }
     // Italic or emphasis (*text*)
-    if (part.startsWith('*') && part.endsWith('*')) {
-      return <em key={index} className="italic">{part.slice(1, -1)}</em>;
+    else if (part.startsWith('*') && part.endsWith('*')) {
+      result.push(<em key={index} className="italic">{part.slice(1, -1)}</em>);
     }
     // Regular text - split by newlines for better line breaks
-    if (part.trim()) {
-      return part.split('\n').map((line, lineIndex) => (
-        <span key={`${index}-${lineIndex}`}>
-          {line}
-          {lineIndex < part.split('\n').length - 1 && <br />}
-        </span>
-      ));
+    else if (part.trim()) {
+      const lines = part.split('\n');
+      lines.forEach((line, lineIndex) => {
+        if (line) {
+          result.push(<span key={`${index}-${lineIndex}`}>{line}</span>);
+        }
+        if (lineIndex < lines.length - 1) {
+          result.push(<br key={`${index}-br-${lineIndex}`} />);
+        }
+      });
     }
-    return null;
   });
+  
+  return result;
 }
 
 const Announcements = () => {
