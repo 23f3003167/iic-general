@@ -7,10 +7,13 @@ import {
   Bell,
   HelpCircle,
   BookOpen,
+  MailCheck,
+  Wrench,
   LogOut,
   Home,
   Plus,
 } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -47,13 +50,19 @@ import FormsManagement from './FormsManagement';
 import AnnouncementsManagement from './AnnouncementsManagement';
 import FAQsManagement from './FAQsManagement';
 import DocumentsManagement from './DocumentsManagement';
+import TicketsManagement from './TicketsManagement';
+import ToolsManagement from './ToolsManagement';
+import EvaluatorsManagement from './EvaluatorsManagement';
 
 const adminNavItems = [
   { path: '/admin/dashboard', label: 'Overview', icon: Home },
   { path: '/admin/forms', label: 'Forms', icon: FileText },
   { path: '/admin/announcements', label: 'Announcements', icon: Bell },
+  { path: '/admin/tickets', label: 'Tickets', icon: MailCheck },
+  { path: '/admin/tools', label: 'Tools', icon: Wrench },
   { path: '/admin/faqs', label: 'FAQs', icon: HelpCircle },
   { path: '/admin/documents', label: 'Documents', icon: BookOpen },
+  { path: '/admin/evaluators', label: 'Evaluators', icon: CheckCircle2 },
 ];
 
 const AdminDashboard = () => {
@@ -248,10 +257,16 @@ const AdminDashboard = () => {
         return <FormsManagement />;
       case '/admin/announcements':
         return <AnnouncementsManagement />;
+      case '/admin/tickets':
+        return <TicketsManagement />;
+      case '/admin/tools':
+        return <ToolsManagement />;
       case '/admin/faqs':
         return <FAQsManagement />;
       case '/admin/documents':
         return <DocumentsManagement />;
+            case '/admin/evaluators':
+              return <EvaluatorsManagement />;
       default:
         return (
           <div className="space-y-6">

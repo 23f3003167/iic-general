@@ -45,8 +45,11 @@ const App = () => {
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/forms" element={<AdminDashboard />} />
             <Route path="/admin/announcements" element={<AdminDashboard />} />
+            <Route path="/admin/tickets" element={<AdminDashboard />} />
+            <Route path="/admin/tools" element={<AdminDashboard />} />
             <Route path="/admin/faqs" element={<AdminDashboard />} />
             <Route path="/admin/documents" element={<AdminDashboard />} />
+                        <Route path="/admin/evaluators" element={<AdminDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
