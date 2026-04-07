@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<style>
+
+body{
+font-family:Arial;
+padding:20px;
+}
+
+label{
+display:block;
+margin-top:12px;
+}
+
+input,select{
+width:100%;
+padding:6px;
+margin-top:4px;
+}
+
+button{
+margin-top:20px;
+padding:10px;
+width:100%;
+font-size:15px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h3>Create Slots</h3>
+
+<label>Date</label>
+<input type="date" id="date">
+
+<label>Start Time</label>
+<input type="time" id="start">
+
+<label>End Time</label>
+<input type="time" id="end">
+
+<label>Instructor</label>
+<select id="instructor"></select>
+
+<label>Domain</label>
+<select id="domain">
+<option>Data Science</option>
+<option>Programming</option>
+</select>
+
+<!-- <label>Plan</label>
+<select id="plan">
+<option>Data Science</option>
+<option>Programming</option>
+</select> -->
+
+<button onclick="submitForm()">Generate Slots</button>
+
+<p id="status"></p>
+
+<script>
+
+let instructors=[];
+
+function loadInstructors(){
+
+google.script.run.withSuccessHandler(function(data){
+
+instructors=data;
+
+const select=document.getElementById("instructor");
+
+data.forEach((inst,i)=>{
+
+const opt=document.createElement("option");
+
+opt.value=i;
+opt.text=inst.name;
+
+select.appendChild(opt);
+
+});
+
+}).getInstructors();
+
+}
+
+loadInstructors();
+
+function submitForm(){
+
+const idx=document.getElementById("instructor").value;
+
+const payload={
+
+date:document.getElementById("date").value,
+start:document.getElementById("start").value,
+end:document.getElementById("end").value,
+domain:document.getElementById("domain").value,
+// plan:document.getElementById("plan").value,
+email:instructors[idx].email
+
+};
+
+google.script.run.withSuccessHandler(function(count){
+
+document.getElementById("status").innerHTML=
+count+" slots created.";
+
+}).generateSlots(payload);
+
+}
+
+</script>
+
+</body>
+</html>

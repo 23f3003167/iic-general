@@ -19,25 +19,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Copy, Loader2, Wrench } from 'lucide-react';
+import { Copy, Loader2, Upload, Wrench } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { auth } from '@/lib/firebase';
 import {
   releaseBehaviouralSlots,
   getBehavioralInstructors,
   getPresentationInstructors,
+  getOneOnOneInstructors,
   releasePresentationSlots,
+  releaseOneOnOneSlots,
   getAiMenuOptions,
   getAiStudents,
   runAiMenuAction,
+  getPublishScoreActivities,
+  publishScoresToSheet,
   type AiMenuOption,
   type AiStudent,
   type InstructorOption,
+  type PublishScoreActivity,
   type ReleaseBehaviouralSlotsResponse,
 } from '@/lib/toolsService';
 
 const BA_SLOT_DURATION_MINUTES = 10;
 const PRESENTATION_SLOT_DURATION_MINUTES = 15;
+const ONE_ON_ONE_SLOT_DURATION_MINUTES = 30;
 const DEFAULT_AI_MENU_OPTIONS: AiMenuOption[] = [
   {
     key: 'evaluate_selected_student',
@@ -167,7 +173,9 @@ const ToolsManagement = () => {
   const [openSlotLauncher, setOpenSlotLauncher] = useState(false);
   const [openBehavioralTool, setOpenBehavioralTool] = useState(false);
   const [openPresentationTool, setOpenPresentationTool] = useState(false);
+  const [openOneOnOneTool, setOpenOneOnOneTool] = useState(false);
   const [openAiEvaluationTool, setOpenAiEvaluationTool] = useState(false);
+  const [openPublishScoresTool, setOpenPublishScoresTool] = useState(false);
 
   const [setAInput, setSetAInput] = useState('');
   const [setBInput, setSetBInput] = useState('');
@@ -192,6 +200,15 @@ const ToolsManagement = () => {
   const [isReleasingPresentationSlots, setIsReleasingPresentationSlots] = useState(false);
   const [presentationInstructors, setPresentationInstructors] = useState<InstructorOption[]>([]);
 
+  const [oneOnOneSlotDate, setOneOnOneSlotDate] = useState('');
+  const [oneOnOneStartTime, setOneOnOneStartTime] = useState('');
+  const [oneOnOneEndTime, setOneOnOneEndTime] = useState('');
+  const [oneOnOneInstructorNumber, setOneOnOneInstructorNumber] = useState('');
+  const [oneOnOneDomain, setOneOnOneDomain] = useState('Data Science');
+  const [oneOnOneSyncToForm, setOneOnOneSyncToForm] = useState(true);
+  const [isReleasingOneOnOneSlots, setIsReleasingOneOnOneSlots] = useState(false);
+  const [oneOnOneInstructors, setOneOnOneInstructors] = useState<InstructorOption[]>([]);
+
   const [aiSheetId, setAiSheetId] = useState(import.meta.env.VITE_AI_EVALUATION_SHEET_ID || '');
   const [aiSheetIdEditable, setAiSheetIdEditable] = useState(false);
   const [aiMenuOptions, setAiMenuOptions] = useState<AiMenuOption[]>(DEFAULT_AI_MENU_OPTIONS);
@@ -204,18 +221,26 @@ const ToolsManagement = () => {
   const [isLoadingAiStudents, setIsLoadingAiStudents] = useState(false);
   const [isRunningAiAction, setIsRunningAiAction] = useState(false);
 
+  const [publishScoreActivities, setPublishScoreActivities] = useState<PublishScoreActivity[]>([]);
+  const [selectedPublishScoreActivityKey, setSelectedPublishScoreActivityKey] = useState('');
+  const [publishScoresText, setPublishScoresText] = useState('');
+  const [isLoadingPublishScoreActivities, setIsLoadingPublishScoreActivities] = useState(false);
+  const [isPublishingScores, setIsPublishingScores] = useState(false);
+
   const [releaseHistory, setReleaseHistory] = useState<ReleaseHistoryEntry[]>([]);
 
   useEffect(() => {
     const loadInstructors = async () => {
       try {
-        const [ba, presentation] = await Promise.all([
+        const [ba, presentation, oneOnOne] = await Promise.all([
           getBehavioralInstructors(),
           getPresentationInstructors(),
+          getOneOnOneInstructors(),
         ]);
 
         setBehavioralInstructors(ba);
         setPresentationInstructors(presentation);
+        setOneOnOneInstructors(oneOnOne);
 
         if (ba.length > 0 && !ba.some((item) => item.number === instructorNumber)) {
           setInstructorNumber(ba[0].number);
@@ -226,6 +251,10 @@ const ToolsManagement = () => {
           !presentation.some((item) => item.number === presentationInstructorNumber)
         ) {
           setPresentationInstructorNumber(presentation[0].number);
+        }
+
+        if (oneOnOne.length > 0 && !oneOnOne.some((item) => item.number === oneOnOneInstructorNumber)) {
+          setOneOnOneInstructorNumber(oneOnOne[0].number);
         }
       } catch (error) {
         console.error(error);
@@ -247,6 +276,13 @@ const ToolsManagement = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openAiEvaluationTool]);
+
+  useEffect(() => {
+    if (openPublishScoresTool) {
+      loadPublishScoreActivities();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openPublishScoresTool]);
 
   const result = useMemo(() => {
     const setAEmails = extractEmails(setAInput);
@@ -299,6 +335,15 @@ const ToolsManagement = () => {
     setPresentationStudentAuthorizationEmails('');
   };
 
+  const clearOneOnOneSlotBooking = () => {
+    setOneOnOneSlotDate('');
+    setOneOnOneStartTime('');
+    setOneOnOneEndTime('');
+    setOneOnOneInstructorNumber(oneOnOneInstructors[0]?.number || '');
+    setOneOnOneDomain('Data Science');
+    setOneOnOneSyncToForm(true);
+  };
+
   const clearAiTool = () => {
     setSelectedAiOptionKey(aiMenuOptions[0]?.key || '');
     setAiSelectedRow('2');
@@ -306,6 +351,11 @@ const ToolsManagement = () => {
     setAiRangeEndRow('20');
     setAiSheetIdEditable(false);
     setAiStudents([]);
+  };
+
+  const clearPublishScoresTool = () => {
+    setSelectedPublishScoreActivityKey(publishScoreActivities[0]?.key || '');
+    setPublishScoresText('');
   };
 
   const copyList = async (label: string, items: string[]) => {
@@ -361,6 +411,86 @@ const ToolsManagement = () => {
       setIsLoadingAiMenu(false);
     }
   };
+
+  const loadPublishScoreActivities = async () => {
+    if (publishScoreActivities.length > 0) {
+      return;
+    }
+
+    setIsLoadingPublishScoreActivities(true);
+    try {
+      const activities = await getPublishScoreActivities();
+      setPublishScoreActivities(activities);
+      if (activities.length > 0 && !activities.some((activity) => activity.key === selectedPublishScoreActivityKey)) {
+        setSelectedPublishScoreActivityKey(activities[0].key);
+      }
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Could not load publish activities',
+        description: error instanceof Error ? error.message : 'Please verify Apps Script deployment.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingPublishScoreActivities(false);
+    }
+  };
+
+  const handlePublishScores = async () => {
+    if (!selectedPublishScoreActivityKey) {
+      toast({
+        title: 'Missing activity',
+        description: 'Choose the activity before publishing scores.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!publishScoresText.trim()) {
+      toast({
+        title: 'Missing rows',
+        description: 'Paste the email and score rows before publishing.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsPublishingScores(true);
+    try {
+      const response = await publishScoresToSheet({
+        activityKey: selectedPublishScoreActivityKey,
+        rowsText: publishScoresText,
+      });
+
+      const activity = publishScoreActivities.find((item) => item.key === selectedPublishScoreActivityKey);
+      toast({
+        title: 'Scores published',
+        description: `${response.rowsWritten} row(s) published to ${activity?.label || response.activity}. Duplicate email/score rows were cleaned automatically.`,
+      });
+
+      setPublishScoresText('');
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Publish failed',
+        description: error instanceof Error ? error.message : 'Could not publish scores.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsPublishingScores(false);
+    }
+  };
+
+  const selectedPublishScoreActivity = useMemo(
+    () => publishScoreActivities.find((item) => item.key === selectedPublishScoreActivityKey) || null,
+    [publishScoreActivities, selectedPublishScoreActivityKey],
+  );
+
+  const publishScoresPlaceholder = selectedPublishScoreActivity
+    ? selectedPublishScoreActivity.width === 2
+      ? 'student@example.com\t20'
+      : 'student@example.com\t32\t14\t14\t14'
+    : 'student@example.com\t20';
 
   const handleAiFetchStudents = async () => {
     if (!aiSheetId.trim()) {
@@ -574,10 +704,19 @@ const ToolsManagement = () => {
         ? ` Auth column ${response.authorizationColumn}: ${response.addedStudents ?? response.validStudents ?? 0} emails added.`
         : '';
       const resetSummary = response.resetFormResponses ? ' Form responses reset for reattempts.' : '';
+      const mailSummary = response.mailSummary
+        ? ` Mail: attempted ${response.mailSummary.attempted}, sent ${response.mailSummary.sent}, failed ${response.mailSummary.failed}.`
+        : '';
+      const mailFailureSummary = response.mailSummary && response.mailSummary.failed > 0 && response.mailSummary.failures.length > 0
+        ? ` First failure: ${response.mailSummary.failures[0].recipient} (${response.mailSummary.failures[0].error}).`
+        : '';
+      const mailLogWarning = response.mailSummary && !response.mailSummary.logSheetReady
+        ? ` Mail Log unavailable: ${response.mailSummary.logSheetError || 'sheet not accessible'}.`
+        : '';
 
       toast({
         title: 'Presentation slots released',
-        description: `${response.slotsCreated} slots created${response.syncToForm ? ' and synced to form.' : '.'}${resetSummary}${authSummary}`,
+        description: `${response.slotsCreated} slots created${response.syncToForm ? ' and synced to form.' : '.'}${resetSummary}${authSummary}${mailSummary}${mailFailureSummary}${mailLogWarning}`,
       });
 
       addHistory({
@@ -608,6 +747,90 @@ const ToolsManagement = () => {
       });
     } finally {
       setIsReleasingPresentationSlots(false);
+    }
+  };
+
+  const handleReleaseOneOnOneSlots = async () => {
+    if (!oneOnOneSlotDate || !oneOnOneStartTime || !oneOnOneEndTime || !oneOnOneInstructorNumber || !oneOnOneDomain) {
+      toast({
+        title: 'Missing details',
+        description: 'Please fill all slot fields before releasing.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (oneOnOneEndTime <= oneOnOneStartTime) {
+      toast({
+        title: 'Invalid timing',
+        description: 'End time should be after start time.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const payload = {
+      date: oneOnOneSlotDate,
+      startTime: oneOnOneStartTime,
+      endTime: oneOnOneEndTime,
+      durationMinutes: ONE_ON_ONE_SLOT_DURATION_MINUTES,
+      instructorNumber: oneOnOneInstructorNumber,
+      domain: oneOnOneDomain,
+      syncToForm: oneOnOneSyncToForm,
+    };
+
+    setIsReleasingOneOnOneSlots(true);
+    try {
+      const response = await releaseOneOnOneSlots(payload);
+      toast({
+        title: '1on1 slots released',
+        description: `${response.slotsCreated} slots created${response.syncToForm ? ' and synced to form.' : '.'}`,
+      });
+
+      addHistory({
+        tool: '1on1 Session',
+        payload: {
+          date: oneOnOneSlotDate,
+          startTime: toAmPmFrom24Hour(oneOnOneStartTime),
+          endTime: toAmPmFrom24Hour(oneOnOneEndTime),
+          durationMinutes: ONE_ON_ONE_SLOT_DURATION_MINUTES,
+          instructorNumber: oneOnOneInstructorNumber,
+          syncToForm: oneOnOneSyncToForm,
+          resetFormResponses: false,
+        },
+        status: 'SUCCESS',
+        message: `${response.slotsCreated} slots created (${oneOnOneDomain})`,
+        result: response,
+      });
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : 'Could not release slots.';
+      const resolvedMessage = /unknown action|unsupported action/i.test(message)
+        ? 'Unknown action from Apps Script. Deploy the 1on1 web app with appscripts/1on1/Api.gs and set VITE_ONE_ON_ONE_APPS_SCRIPT_WEB_APP_URL.'
+        : message;
+
+      toast({
+        title: 'Release failed',
+        description: resolvedMessage,
+        variant: 'destructive',
+      });
+
+      addHistory({
+        tool: '1on1 Session',
+        payload: {
+          date: oneOnOneSlotDate,
+          startTime: toAmPmFrom24Hour(oneOnOneStartTime),
+          endTime: toAmPmFrom24Hour(oneOnOneEndTime),
+          durationMinutes: ONE_ON_ONE_SLOT_DURATION_MINUTES,
+          instructorNumber: oneOnOneInstructorNumber,
+          syncToForm: oneOnOneSyncToForm,
+          resetFormResponses: false,
+        },
+        status: 'FAILED',
+        message: resolvedMessage,
+      });
+    } finally {
+      setIsReleasingOneOnOneSlots(false);
     }
   };
 
@@ -652,6 +875,19 @@ const ToolsManagement = () => {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader>
+            <CardTitle>Publish Scores</CardTitle>
+            <CardDescription>Publish tab-separated score rows into the scores sheet.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => setOpenPublishScoresTool(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              Open Publish Scores
+            </Button>
+          </CardContent>
+        </Card>
+
       </div>
 
       <Card>
@@ -673,7 +909,11 @@ const ToolsManagement = () => {
                 <p className="text-xs text-muted-foreground">
                   {entry.payload.date} | {entry.payload.startTime} - {entry.payload.endTime} | {entry.payload.durationMinutes}m | {getInstructorNameByNumber(
                     entry.payload.instructorNumber,
-                    entry.tool === 'Presentation' ? presentationInstructors : behavioralInstructors,
+                    entry.tool === 'Presentation'
+                      ? presentationInstructors
+                      : entry.tool === '1on1 Session'
+                        ? oneOnOneInstructors
+                        : behavioralInstructors,
                   )}
                 </p>
                 {entry.payload.studentAuthorizationEmails && (
@@ -741,10 +981,131 @@ const ToolsManagement = () => {
             >
               Presentation
             </Button>
-            <Button className="w-full justify-start" variant="outline" disabled>
-              1on1 Session (coming soon)
+            <Button
+              className="w-full justify-start"
+              variant="outline"
+              onClick={() => {
+                setOpenSlotLauncher(false);
+                setOpenOneOnOneTool(true);
+              }}
+            >
+              1on1 Session
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openOneOnOneTool} onOpenChange={setOpenOneOnOneTool}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>1on1 Slot Booking Tool</DialogTitle>
+            <DialogDescription>
+              Create 1on1 slots using date, time range, instructor, and domain.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Date</label>
+              <Input
+                type="date"
+                value={oneOnOneSlotDate}
+                onChange={(e) => setOneOnOneSlotDate(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Start Time</label>
+              <Select value={oneOnOneStartTime} onValueChange={setOneOnOneStartTime}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select start time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeOptions.map((option) => (
+                    <SelectItem key={`oneonone-start-${option.value}`} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">End Time</label>
+              <Select value={oneOnOneEndTime} onValueChange={setOneOnOneEndTime}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select end time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeOptions.map((option) => (
+                    <SelectItem key={`oneonone-end-${option.value}`} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Slot Duration (mins)</label>
+              <Input value={String(ONE_ON_ONE_SLOT_DURATION_MINUTES)} disabled />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Instructor</label>
+              <Select value={oneOnOneInstructorNumber} onValueChange={setOneOnOneInstructorNumber}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select instructor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {oneOnOneInstructors.map((instructor) => (
+                    <SelectItem key={`oneonone-instructor-${instructor.number}`} value={instructor.number}>
+                      {instructor.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Domain</label>
+              <Select value={oneOnOneDomain} onValueChange={setOneOnOneDomain}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select domain" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Data Science">Data Science</SelectItem>
+                  <SelectItem value="Programming">Programming</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Sync To Form</label>
+              <Button
+                type="button"
+                variant={oneOnOneSyncToForm ? 'default' : 'outline'}
+                className="w-full"
+                onClick={() => setOneOnOneSyncToForm((prev) => !prev)}
+              >
+                {oneOnOneSyncToForm ? 'Enabled' : 'Disabled'}
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+            Action will run as: {auth.currentUser?.email || 'Unknown Admin'}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={clearOneOnOneSlotBooking} disabled={isReleasingOneOnOneSlots}>
+              Reset
+            </Button>
+            <Button onClick={handleReleaseOneOnOneSlots} disabled={isReleasingOneOnOneSlots}>
+              {isReleasingOneOnOneSlots ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Release 1on1 Slots
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -866,6 +1227,81 @@ const ToolsManagement = () => {
             <Button onClick={handleRunAiAction} disabled={isRunningAiAction || isLoadingAiMenu}>
               {isRunningAiAction ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               Run Selected Option
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={openPublishScoresTool}
+        onOpenChange={(open) => {
+          setOpenPublishScoresTool(open);
+          if (!open) {
+            clearPublishScoresTool();
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Publish Scores</DialogTitle>
+            <DialogDescription>
+              Select the activity, then paste one row per student with the email first and the scores separated by tabs.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Activity</label>
+              <Select
+                value={selectedPublishScoreActivityKey}
+                onValueChange={setSelectedPublishScoreActivityKey}
+                disabled={isLoadingPublishScoreActivities}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={isLoadingPublishScoreActivities ? 'Loading activities...' : 'Select activity'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {publishScoreActivities.map((activity) => (
+                    <SelectItem key={activity.key} value={activity.key}>
+                      {activity.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {selectedPublishScoreActivity
+                  ? `Expected columns per row: ${selectedPublishScoreActivity.width}. For ${selectedPublishScoreActivity.label}, paste email plus ${selectedPublishScoreActivity.width - 1} score value(s).`
+                  : 'Choose an activity to see the expected row shape.'}
+              </p>
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Rows</label>
+              <Textarea
+                rows={12}
+                value={publishScoresText}
+                onChange={(e) => setPublishScoresText(e.target.value)}
+                placeholder={publishScoresPlaceholder}
+                spellCheck={false}
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                Use one row per student. Keep the email in the first cell and separate the scores with tab characters only.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+            Action will run as: {auth.currentUser?.email || 'Unknown Admin'}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={clearPublishScoresTool} disabled={isPublishingScores}>
+              Reset
+            </Button>
+            <Button onClick={handlePublishScores} disabled={isPublishingScores || isLoadingPublishScoreActivities}>
+              {isPublishingScores ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Publish Scores
             </Button>
           </DialogFooter>
         </DialogContent>

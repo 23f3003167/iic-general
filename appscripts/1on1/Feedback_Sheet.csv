@@ -1,0 +1,333 @@
+Roll number, Name,Plan,Domain,Instructor,Skillsets of student,"Technical skills in programming
+(Rate from 1 to 5)","Technical skills in data science
+(Rate from 1 to 5)","Communication skills 
+(Rate from 1 to 5)",Readiness of the student for placement,Performing Exceptionally good,"If not ready, please mention the list of tasks students should do","What roles they are suitable for?
+(Recommondations by instructor)",Detailed feedback from instructor 1,Detailed feedback from instructor 2,Any additional remarks
+21f1002144@ds.study.iitm.ac.in,BANOTH PAVAN,Employment ,Data Science ,Lalit,"ML, DL, LLM",N/A,2,3,No,,"Revise DL,LLM and DLP",N/A,"Banoth gave generic answers. He has to revise concepts of ML, DL, LLM and DLP, esepcially fine tuning the models for NLP, Speech and Vision tasks. He has been asked to revise and reattemept after a week on 28th January.",,
+24dp1000038@ds.study.iitm.ac.in,Suraj Kumar,Internship,Programming ,S SATYANARAYANA,"Python, Flask, JS
+Vue, PDSA",4,N/A,3.5,Yes,,Ready,Full stack,"Satya:
+- Student is perfectly suitable for SDE/Full stack
+developer rolers. Having enough skiils in programming and
+frameworks(Flask/Vue)
+- Recommended to practice leetcode problems daily basis",,
+22f3001758@ds.study.iitm.ac.in,Vikash P,Internship,Programming ,S SATYANARAYANA,"Python, JS frameworks",3,N/A,3,No,,Not yet ready,Full stack,"Satya:
+- Not able to implement basic binary search algos. 
+- Not able to implement example Async/await/promises
+- Eventhough he has a handful of project repos. But he is not able to implement 
+code from scratch. He used OpenAI more than required.
+- He requires 2/3 weeks to prepare these and conduct 1-1 session again",,
+23f2004097@ds.study.iitm.ac.in,Deepanshu Kamboj ,Internship,Data Science ,Vishal,"ML, Python, SQL",N/A,1,2,No,,Not ready,Data science,Not able to answer basic questions also from ML ,,
+21f2001124@ds.study.iitm.ac.in,Samriddhi Sinha,Internship,Data Science ,Vishal,"ML, Python, SQL",N/A,3,3.5,Yes,,ready for intership,Data science,Need a bit of revision (Mostly maths behind some ML model),,
+21f1001693@ds.study.iitm.ac.in,Suhaas P,Internship,Programming ,Nidhishkumar,"JS, Python, DBMS",4,N/A,3,Yes,,,Full Stack,"Suhaas gave answer to most of the technical questions to the point. He will be a good candidate for SDE internshi roles.
+He should focus on non-technical skills",,
+24dp3000019@ds.study.iitm.ac.in,Aditya Basavaraj Narthi,Internship,Programming ,Nidhishkumar,"ML, DL, Python, JS, DBMS",4,N/A,4,Yes,,,Full Stack,Aditya is good for SDE internship roles. He is able to communicate properly.,,
+23f2004975@ds.study.iitm.ac.in,Sreenivasan S,Internship,Data Science ,Aniruddha A,"Data Analysis, Visualization, ML, Python",N/A ,4,4,Yes,,,"Data Analyst, Business Analyst","- Able to communicate well.
+- Answered theoretical questions correctly
+- Presentation of projects can be better. Adding slides for data analysis project and insights for the ML Project Notebook
+- Currently suitable for Data Analyst and Business Analyst roles. Will need to learn DL based courses to improve opportunities",,
+22f2001226@ds.study.iitm.ac.in,Naman Goel,Internship,Programming ,Afnan,"JS, Python, DBMS (PostgresSQL), React",4,N/A,3,Yes,,,Full Stack,"
+- Student is able to convey the ideas satisfactorily. One suggestion is to include more pauses and provide some time for follow up questions.
+- Some gaps are there in the understanding about application development, maybe because of relying on AI-assisted coding (as student mentioned)
+
+Consider studying about High-Level and Low-Level Software Design, CI / CD, 
+SaaS, IaaS, PaaS, FaaS, Docker, OOPs, SOLID",,
+23f2004159@ds.study.iitm.ac.in,Anant Luthra ,Internship,Programming ,Arup,"JS, Python, Node.js, MSSql",4,NA,4,Yes,,,Full Stack,"- Have practical knowledge
+- Need to revise the theory part",,
+23f2003521@ds.study.iitm.ac.in,Preeti Maurya,Internship,Programming ,Arup,"JS, Python, React, MSSql",3.5,NA,3.5,Yes,,,Full Stack,"- Some corrections are suggested on the CV
+- Need to have more clarity on the usage of technologies
+- Need to revise DSA",,
+22f2001129@ds.study.iitm.ac.in,Sunni Kumar,Employment ,Data Science ,Jimmi,,NA,2,3,No,,,AI engineer,"-Wasn't able to explain ML questions.
+-Consider doing some good project & strengthen your GenAI knowledge.",,
+21f1001547@ds.study.iitm.ac.in,Yashwant Raj,Employment ,Data Science ,Jimmi,"ML, DL, NLP, LLM, SQL",NA,3.5,4,Yes,,,Data Analyst,-Was comfortable with ML part but needs to improve their project further.,,
+22f3001755@ds.study.iitm.ac.in,PANKAJ KUMAR PRAJAPATI,Employment ,Data Science ,Vishal,"ML,DL,LLM",,4.5,4,Yes,,,"Data science, AI/ML engineer","Comfortable in ML,DL,LLM part",,
+22f3001551@ds.study.iitm.ac.in,Meet Jain,Internship,Data Science ,Aniruddha A,"ML, Data Analysis",NA,3,3,Yes,,"Marked ""Yes"" but student needs significant prep","Data Analyst, ML","- Weak Recommendation
+- The answers to questions were not to the point. 
+- Brush up on basics and practise answering questions in an interview setting
+- Make the MLP Project notebook self-explanatory and also rename the same in the resume",,
+22f3001480@ds.study.iitm.ac.in,Sidhaarth Shree,Internship,Data Science ,Aniruddha A,"ML, LLM, RAG, Vision",NA,4,4,Yes,,,"Data Science, AI / ML","- Has done good projects and has answered questions regarding it well. 
+- Can improve presentation skills i.e show the relevant parts of the project when explaining it
+- Revise ML basics too before interviews",,
+24dp1000036@ds.study.iitm.ac.in,Amirtha Varshini Elavarasu,Internship,Programming ,Arup,"Python, Node.js, React",NA,3.4,3,Yes,,,Web Dveloper,"- Weekly recommended
+- Need more clarity when answering
+- Sugegsted to revise therory
+- Suggeted to build new application
+- Siggested to revise theory",,
+23f1003168@ds.study.iitm.ac.in,Mayank Kumar ,Internship,Programming ,S SATYANARAYANA,"Python, DSA, Flask and Vue",2.5,N/A,3,No,,"- PDSA and DBMS basics
+- Leetcode problems",Full Stack,"Satya:
+- Even he has strong project repos. He is not able to implement RestApi examples
+- Not able to implement DBMS max salary of employee model
+- Strictly recommended leetcode 3-problems a day
+- Two weeks required for preparation",,
+23f3001196@ds.study.iitm.ac.in,Vaidisha P Shetty,Internship,Programming ,Atul,"Python, JavaScript, Java, SQL, HTML/CSS",2.5,N/A,4,No,,"Need to recap or Improve 
+Core concepts of DSA, DBMS, 
+Problem Solving, Also required more work
+ on new project and certication",Full Stack,"-She have done only required course project, nothing additional, not additional certification
+- She was not able to solve basic coding problem
+- She was not able to answer of basic DSA questions
+- She was not able to answer of basic DBMS code concept questions ",,
+23f2001481@ds.study.iitm.ac.in,Dipshikha,,Data Science ,Aniruddha A,ML,NA,1,2,No,,"- End to end ML project 
+- Learn the basic algorithms",,"- Will be good to go through MLP & MLT content thoroughly again
+- Work on end-to-end ML Project with focus on understanding each component
+- The projects in resume are currently not accessible to all. Please update the same.",,
+22f3002782@ds.study.iitm.ac.in,Abhinav Jaswal,Internship,Programming ,Arup,"Python, JavaScript, Java, SQL, HTML/CSS",3.5,N/A,3,Yes,,,"Software Dev, Application Developer","- Need to improve the presentation skill
+- Revise DSA, SQL
+- His responses to the questions are somewhat okay, but need to improve on clarity",,
+23f1000966@ds.study.iitm.ac.in,Aryan Thakur,,Data Science ,Aniruddha A,ML,NA,2,3,No,,"- Learn the basic methods & algorithms
+- Update the project",,"- The first project in resume (System Threat Forecast) is very cluttered and should be brought to a presentable format
+- Was not clear on basic algorithms like Linear Regression, Decision Tree, Evaluation metrics. Will be good to brush up basic ideas in ML",,
+23f1000358@ds.study.iitm.ac.in,Rounak Mishra,Internship ,Data Science,Vishal,,,3.5,4,Yes,,,,,,
+22f3002299@ds.study.iitm.ac.in,ANJALI GALAV,Employment ,Programming ,Atul,"Java, Python, JavaScript,React.js, 
+Next.js,MySQL, MongoDB,
+REST APIs, Vercel, Render",4,NA,3,Yes,,"Overall technically good, 
+Just improve communication little bit","Software Dev, Application Developer","- She have created additional applications otherthan achademin project.
+- Good understanding of technical parts of development.
+- DSA and Problem Solving, DBMS understanding is good
+- Overall looks ready for placement. She is also selected for ANAM.AI internship in IIT Ropar",,
+21f2000372@ds.study.iitm.ac.in,Ananya Chakraborty,Internship ,Programming ,S SATYANARAYANA,"Python, Flask/django, Vue JS",2,NA,3,No,,"- Not able to answer how hashing works
+- Not able to implement NxN matrix diagonal sum
+- Not able to explain logic for insert last node",,"Satya:
+- Student missed all basics of programming
+- Not able to write select query for Employee details of max salary
+- Required another 1-month to refer DSA, DBMS and full stack frameworks
+- Strongly recommented to practice leetcode problems
+- Student needs 1-Month to prepare and attend again for 1-1 session",,
+22f3000364@ds.study.iitm.ac.in,SARITA KUMARI,Internship ,Programming ,S SATYANARAYANA,"Python, Flask/django/fast api, JS/React basics",2,NA,3,No,,"- She has to practice leetcode/hacker rank problems
+- Need to refer DSA all basics
+- Need to prepare basic SQL queries
+- Need to be strong on git repos on hand",,"Satya:
+- Required another 1-month to refer DSA, DBMS and full-stack frameworks
+- Strongly recommended to practice LeetCode problems
+- Student needs 1-Month to prepare and attend again for a 1-1 session",,
+21f2000858@ds.study.iitm.ac.in,TILWANI MANAN VASUDEV,,Programming,Nidhish Kumar,"JS, CSS, HTML, Python",3.5,NA,3,Yes,,,Frontend Dev,- He needs to work on Backend part,,
+22f1001616@ds.study.iitm.ac.in,ABHINAV TIWARI,,Programming,Nidhish Kumar,"HTML/CSS, Vue.js, Typescript",3,NA,2.5,No,,"- He is not able to communicate the ideas properly. Should work on this
+- Work on backend related projects
+- Revise MAD2",,"- Should work on his communication
+- Should work on backend related tech stacks",,
+23f1000049@ds.study.iitm.ac.in,VIJAYAGEETHA V,Internship ,Data Science ,Aniruddha A,,NA,1,2,No,,"- MLT and MLP concepts have to be revised
+- Focus on each code snippet while doing an ML based project",,"- Resume should have links to project and their titles should be updated accordingly
+- The projects themselves should be presented better with important findings mentioned, erroneous code removed and LLM comments removed as well
+- MLT and MLP should be revised entirely. The student could not answer most questions",,
+22f3002166@ds.study.iitm.ac.in,Harsh Pratap Singh,Internship ,Data Science,Aniruddha A,,NA,2,3,No,,"- Brush up on ML fundamentals
+- Attempt DL based projects after that due to the completed course work",,"- Highlight important insights from the project
+- Have a thorough understanding of techniques used in the project and why the choice has been made
+- Based on the completed coursework, attempt some more projects after brushing up on the foundations",,
+23f2000260@ds.study.iitm.ac.in,Adhyan Mishra,Internship ,Programming,Atul,,,,,,,Not joined the meeting,,,,
+21f3002397@ds.study.iitm.ac.in,Neelotpal Dutta,Internship ,Programming,Atul,"FastAPI, Flask, Vue.js, Python (Advanced), 
+SQL (Postgres, SQLite, 
+MySQL - Advanced Proficiency), HTML/CSS",4,,4.5,Yes,,"Overall technically good, 
+Just recap DBMS core concepts","Software Dev, Application Developer
+He is also Intrested in DS and ML","-HE is good in Technically, answered DSA questions.
+-He was also able to solve and debug the coding problem
+-He is intrested in ML and DS but also ready for Programming role.
+-Just need to recap DBMS core",,
+23f1001709@ds.study.iitm.ac.in,SANKET AGRAWAL,Internship ,Data Science ,Anamika Chhabra,"Python, sklearn",,1.5,1.5,No,,"- Needs to work on fundamentals of Ml, DL, LLM
+- Needs to also gain practical knowledge of Pytorch, HF etc",,,,
+22f2001129@ds.study.iitm.ac.in,Sunni Kumar,Employment ,Data Science ,Anamika Chhabra,"FastAPI, Flask, Vue.js, SQL, 
+MySQL, HTML/CSS, RAG, Langchain etc",,4,4.5,Yes,,,Full stack development + GenAI,"- Needs to work on his ML, DL, LLM fundamentals before any interview
+- Good with practical stuff including full stack development and using LLMs through APIs.",,
+22f3003001@ds.study.iitm.ac.in,Disha Raghuwanshi,Internship ,Data Science ,Lalit,"Numpy, Pandas",N/A,3,,Yes,Yes,N/A,ML/Data Science intern,"Disha could explain the Machine Learning model life cycle. She has good potential; however, she has to revise the topics like Statistics, Probability, MLF, MLT, and MLP in depth. In the current state, she is eligible for an ML intern role. Detailed feedback has been provided to her.",,
+22f2001062@ds.study.iitm.ac.in,Karan Shrivastava,Internship ,Data Science ,Nikitakumari,"Numpy, Pandas, sklearn",,3,3,No,,- He should revise all the basics before sitting for the interviews.,ML/Data Science intern,,,
+22f3000107@ds.study.iitm.ac.in,Deepak Kumar,Internship ,Data Science ,Nikitakumari,,,2,3,No,,- Needs to work on fundamentals.,,,,
+21f1006589@ds.study.iitm.ac.in,Niraj,Internship ,Data Science ,Lalit,,N/A,,,No,,Need to revise concepts of ML model life cycle,,"Niraj could not answer basic questions like how to fill Nan values of a column with continuous numerical values, how to handle outliers, and clear distinction between bagging and boosting. He has been asked to revise his concepts of statistics, MLF, MLT and MLP. I have given him 2 weeks to prepare and appear for 1-o-1 again on 23/24th February.",,
+21f1002144@ds.study.iitm.ac.in,BANOTH PAVAN,Employment ,Data Science ,Lalit,"ML, DL, LLM",N/A,3,3,Yes,,N/A,ML/Data Scince intern,"Pavan could answer basic questions on the ML model life cycle. In the present state, he is fit for ML/Data Science intern roles. ",,
+21f3001560@ds.study.iitm.ac.in,Parveen,Internship,Data Science,Lalit,"ML, DL, LLM",N/A,3,3,Yes,,N/A,ML/Data Scince intern,"Praveen could answer basic questions on the ML model life cycle. In the present state, he is fit for ML/Data Science intern roles. He has to revise stats, MLF, MLT and MLP.",,
+22f3001778@ds.study.iitm.ac.in,Deepak singh ,Internship,Data Science,Lalit,"ML, DL, LLM",N/A,3,3,Yes,,N/A,ML/Data Scince intern,"Deepak could answer basic questions on the ML model life cycle. In the present state, he is fit for ML/Data Science intern roles. He has to revise stats, MLF, MLT and MLP.",,
+23f1001797@ds.study.iitm.ac.in,Hemlata Mahawar,Internship,Data Science,Mayur,"ML, DL",N/A,4,3,Yes,,N/A,ML/Data Scince intern,"- The student was able to work on ML and DL related project well. She is intersted in practical ML/DL projects. The downside is poor CGPA due to poor marks in theory courses. 
+- The stduent must brush up the theoretical concepts on ML.
+- Also, should work on communicating the projects well to the interviewer. ",,
+23f2000098@ds.study.iitm.ac.in,yogaswetha sanjaygandhi,Internship,Data Science,Mayur,ML,N/A,3,3,Yes,,N/A,"Data analyst, data engineer"," - The student is doing internship currently. She is good for the role of data analyst.
+- She must revisit ML concepts and algorithms to increase the chance of getting interviewed by the companies.",,
+22f2001468@ds.study.iitm.ac.in,Sathvik V,Employment ,Data Science,Mayur,"ML, DL, LLM, Agentic AI",N/A,4,4,Yes,,,,"- Demonstrates strong practical skills in ML, DL, and LLMs.
+- Should strengthen theoretical understanding of ML and DL before appearing for interviews.",,
+24f2000612@ds.study.iitm.ac.in,udghosh rao,Internship,Data Science,Mayur,ML,N/A,4,4,Yes,,,"Data analyst, data engineer","The student demonstrates good practical and theoretical skills in machine learning.
+Further improvement can be achieved by working on more independent ML projects.",,
+22f3000526@ds.study.iitm.ac.in,Ashish Agarwal ,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,1,3,No,,"Ashish has to revise Stats, MLF,MLT and MLP.",N/A,"Ashih could not answer basic questions like outliers, underfitting, overfitting, and what actions to take for them. He has been advised to revise Statistics, MLF, MLT , and MLP. In the present state, he is nowhere close to the 'ready/eligible' state. He has to put in lots of effort to enhance his skillsets including theoretical knowledge.",,
+22f1001536@ds.study.iitm.ac.in,Rohit Prajapat ,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,2,3,No,,"Rohit has to revise Stats, MLF,MLT and MLP.",N/A,"Rohit could not answer basic questions like outliers, underfitting, overfitting, and what actions to take for them. He has been advised to revise Statistics, MLF, MLT , and MLP.  He has to work on his communication skills as well, as he sounds very jittery and unconfident.",,
+21f3001076@ds.study.iitm.ac.in,Lakshay,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,4,4,Yes,,N/A. He is already doing internship in Syngenta,ML/Data Science intern,"Lakshya is doing an internship at Syngenta. I have advised him to give his best during the internship, so that he can get a PPO. With this 1-o-1, his training for the internship is complete.",,
+23f1000873@ds.study.iitm.ac.in,Aditya Nupani,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,3,3,Yes,,N/A,ML/Data Science intern,"Aditya could answer most of the questions. He has decent theoretical knowledge. In the present state, he is eligible for the role of an intern for ML and Data Science.  He has been advised to revise Statistics, MLF, MLT and MLP notes.",,
+24f1000182@ds.study.iitm.ac.in,Tushar Gautam ,Internship,Programming,Arup,"Flask, JavaScript, React",3,,3,No,,"- CV and Intro both need to be prepared well
+- Confused with everything -- need to make specific answers
+- Need to revise the theory on SQL, and other things mentioned in CV
+- Need to have some idea about web application infra",Web Developer,"- CV and Intro both need to be prepared well
+- Confused with everything -- need to make specific answers
+- Need to revise the theory on SQL, and other things mentioned in CV
+- Need to have some idea about web application infra
+- Need to be more presentable during the interview -- looks like always in too much hurry",,
+22f2001062@ds.study.iitm.ac.in,Karan Shrivastava,Internship,Data Science,Jimmi,,,3,4,Yes,,,ML/Data Scince intern,The candidate has a moderate level understanding of ML concepts.  He mentioned that he is currently improving the project and plans to add it to his resume soon.,,
+23f2000566@ds.study.iitm.ac.in,Shreya Aggarwal,Internship,Data Science,Jimmi,"ML,  DL,LLM",,4,5,Yes,,,"ML/Data Scince intern , GenAI related roles","- Lot of scope for improvement in resume.
+-Consider adding a few rag based Project.
+- Overall candidate is ready for internship related roles.",,
+21f3000883@ds.study.iitm.ac.in,Aruna T,Internship,Data Science,Aniruddha,"ML, Data Science, Data Analysis",,3.5,3.5,Yes,,,"Data Science, ML","- Resume has to be improved significantly. Update the format, add relevant hyperlinks to the project
+- The MLP Project can be improved by adding more visualization, trying out other techniques and analysis of the trained models
+- Brush up ML ideas used in the project so that they can be communicated well
+- Would be good to pick up DL, GenAI skills to get access to more opportunities. ",,
+23f1002849@ds.study.iitm.ac.in,pallapu caleb kumar,Internship,Data Science,Aniruddha,"Data Analysis, Google Sheets",,3.5,4,Yes,,,Data Analysis,"- The student is primarily interested in Data Analysis roles. 
+- Recommended to align resume to jobs roles that the student is interested in
+- The student faced some difficulty in answering ML based questions. It is advised to be very thorough with any method mentioned in the resume 
+- Picking up visualization tools and dashboarding tools will help
+- Should focus on doing courses relevant to job roles and also do them well",,
+24f3000211@ds.study.iitm.ac.in,Kaushik Harsha,Internship,Programming,Adarsh,"Vue JS, Node JS",3.5,,4,Yes,,,Software Development Intern,- Get good grasp on web terminologies ,,
+22f3001352@ds.study.iitm.ac.in,Rishav Kumar,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,2,3,No,,"Rishav has to revise Stats, MLF,MLT and MLP.",N/A,"Rishav could not answer basic questions like meaning of outliers, actions to be taken in case of overfitting/underfitting, ensemble methods. He looked unprepared for the 1-o-1. He has been advised to prepare well for the 1-o-1 and reattempt after 2 weeks.",,
+22f3001741@ds.study.iitm.ac.in,Archit Samvart,Internship,Data Science,Jimmi,"ML,DL,LLM",,3.5,4,Yes,,,,"-practice summarizing technical answers/Project in 1–2 minutes.
+-LLMs and deep learning explanations can be more precise; highlight trade-offs and practical use cases.
+-Add some end to end projects & improve your resume.",,
+22f2001282@ds.study.iitm.ac.in,Shristi Patel,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,3,3,Yes,,N/A,ML/DS intern,"Shrishti could answer most of the questions. She has decent theoretical knowledge. In the present state, she is eligible for the role of an intern for ML and Data Science.  She has been advised to revise Statistics, MLF, MLT and MLP notes.",,
+23f1000932@ds.study.iitm.ac.in,6,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,2,3,No,,"Ayan has to revise Stats, MLF,MLT and MLP.",N/A,"Ayan could not answer basic questions like meaning of outliers, actions to be taken in case of overfitting/underfitting, and ensemble methods satisfactorily. He looked unprepared for the 1-o-1. He has been advised to prepare well for the 1-o-1 and reattempt after 2 weeks.",,
+22f3002771@ds.study.iitm.ac.in,Arya Agrahari,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,2,3,No,,"She has to revise Stats, MLF,MLT and MLP.",N/A,"Arya could not answer basic questions like meaning of outliers, actions to be taken in case of overfitting/underfitting, and ensemble methods satisfactorily. She looked unprepared for the 1-o-1. She has been advised to prepare well for the 1-o-1 and reattempt after 1 week.",,
+22f1001551@ds.study.iitm.ac.in,Ashish Al Rashid,Internship,Programming,Satyanarayana,"Python, DSA, Flask, Node, Next Js",4,N/A,4,Yes,,N/A,Full stack developer,"Satya:
+- Leetcode problems 123(60Medium+10Hard)
+- Hackerrank(5-start in Java)
+- Checked various skills like Python, PDSA and frameworks. All are good
+- Recommendation to the student: Continue the contribution towards leetcode and hacker rank
+- Finally student is ready for internship/placement",,
+23f2005694@ds.study.iitm.ac.in,Rasiga. B,Internship,Data Science,Anamika,"Sklearn, analytics",,3.5,4,Yes,,,Data Analyst Intern,"- Grades not great, but she seems confident
+- Should strengthen her fundamentals before she gets any internship opportunity
+- Interested in data analytics, EDA, plotting etc",,
+22f3002399@ds.study.iitm.ac.in,Maan Kaur ,Internship,Data Science,Anamika,"Sklearn, analytics",,3.5,4.5,Yes,,,Data Analyst Intern,"- Needs to work on the ML fundamentals
+- Low grades in ML courses
+- Should work on more independent projects",,
+21f1006589@ds.study.iitm.ac.in,Niraj,Internship , Data Science,Jimmi,"ML, LLM, RAG",,2,3.5,No,,,ML/Data Scince intern,"-He currently has surface-level understanding of ML concepts and model optimization.
+-Not confident on his own projects.",,
+23f1000049@ds.study.iitm.ac.in,VIJAYAGEETHA V,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,3,3,Yes,,N/A,ML/DS intern,"Vijageetha could answer most of the questions. She has decent theoretical knowledge. In the present state, she is eligible for the role of an intern for ML and Data Science.  She has been advised to revise Statistics, MLF, MLT and MLP notes.",,
+23f2003549@ds.study.iitm.ac.in,Nimish Ratan Tilwani,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,3,3,Yes,,N/A,ML/DS intern,"Nimish could answer most of the questions. He has decent theoretical knowledge. In the present state, He is eligible for the role of an intern for ML and Data Science.  He has been advised to revise Statistics, MLF, MLT and MLP notes.",,
+21f3002599@ds.study.iitm.ac.in,Rajeevan Reddy,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,4,4,Yes,Yes,N/A,ML/DS intern,"Rajeevan could answer most of the questions. He has decent theoretical knowledge. In the present state, He is eligible for the role of an intern for ML and Data Science.  He has been advised to revise Statistics, MLF, MLT and MLP notes. He has good potential.",,
+23f1001156@ds.study.iitm.ac.in,ROHIT B LAKSHMANAN,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,4,4,Yes,Yes,N/A,ML/DS intern,"Rohit could answer most of the questions. He has decent theoretical knowledge. In the present state, He is eligible for the role of an intern for ML and Data Science.  He has been advised to revise Statistics, MLF, MLT and MLP notes. He has good potential.",,
+22f3001285@ds.study.iitm.ac.in,Anjali Dogra,Internship,Data Science,Anamika,"PowerBI, SQL, sklearn",,2.5,3.5,No,,Revise all ML concepts,Data Analytics,"- Lacks clarity in basic ML fundamentals
+- Needs to work on both ML theory as well as practice before she attempts any interview
+- Advised to do some independent projects",,
+22f3000982@ds.study.iitm.ac.in,Ashish Raj ,Internship,Data Science,Anamika,"sklearn, pytorch",,3.5,3.5,Yes,,,Data Analytics,"- Good grades, but has forgotten soem basics
+- Was able to answer some 60% of the questions
+- Advised to revise all ML, DL fundamentals before any interview",,
+22f3001090@ds.study.iitm.ac.in,Aman Prakash,Internship,Programming,Arup,"Spring Boot, Spring Cloud, Spring Security, Spring Data JPA, Hibernate, REST APIs",,3.5,4,Yes,,N/A,- Java Application/Web Developer,"- Having good working experience
+- Do not want to go for Python based work
+- Okay with theory part",,
+23f2003700@ds.study.iitm.ac.in,Aaryan Choudhary,Internship,Programming,Arup,"Flask, Vue.js, Flutter, React, Click, Rich,
+Socket.IO, Tailwind CSS, Capacitor.js.",,4,3.5,Yes,,N/A,"- Full Stack, Application/Web Developer","- Having good working experience
+- Need to revise SQL and DSA
+- Good att web framework",,
+23f2004247@ds.study.iitm.ac.in,Pranesh Kumar,Internship,Programming,Arup,"Flask, REST APIs, JWT, Vue.js, Redis, Celery",,3,3,Yes,,N/A,- Web Developer,"- Need to focus on expolring more related technologies
+- Need to enhance project experience - technology stack
+- Revise the theories",,
+23f2004089@ds.study.iitm.ac.in,Ankit Kuniyal ,Internship,Programming,Arup,,,3.5,3.5,Yes,,N/A,- Application/Web Developer,"- Need to focus on expolring more related technologies
+- Good at CS theory
+- Need to revise DSA",,
+23f3001886@ds.study.iitm.ac.in,Nitesh Sharma,Internship,Programming,Adarsh,"Flask, MERN stack",4,,3.5,Yes,,N/A,- Backend Developer,"- Can work on Backend terminalogies
+- Rework on questions that were asked in the 1o1 sessions",,
+24ds1000117@ds.study.iitm.ac.in,Aiswarya T,Internship,Data Science,Aniruddha,"ML, Data Analysis",,3,3,Yes,,Weak recommendation. Student has to brush up on foundations and practice answering questions,"ML, Data Science","- The project has generic statements. These should be updated with insights specific to the dataset. 
+- Needs to brush up on ML foundations",,
+22f3000107@ds.study.iitm.ac.in,Deepak Kumar,Internship,Data Science,Aniruddha,,,1,2.5,No,,Learn the ideas taught in MLT and MLP,,"- The student was initially recommended to clean the project notebook to remove redundant code snippets
+- Subsequently, the student was unable to answer very fundamental questions in ML including those which have been used in the project. 
+- Strongly recommended to redo the MLT and MLP courses",,
+22f1000776@ds.study.iitm.ac.in,Ravi Teja Ravipati,Employment,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,2,3,No,,"Ravi has to revise Stats, MLF,MLT and MLP.",N/A,"Ravi could not answer basic questions like meaning of outliers, overfitting satisfactorily. He looked unprepared for the 1-o-1. He has been advised to prepare well for the 1-o-1 and reattempt after 2 weeks.",,
+23f1002240@ds.study.iitm.ac.in,Roushan Kumar Singh ,Employment,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,2,3,No,,"Roshan has to revise basics like Stats, MLF,MLT and MLP.",ML/DS intern,"Roshan could not answer basic questions like meaning of outliers, overfitting satisfactorily. He looked unprepared for the 1-o-1. He has been advised to prepare well for the 1-o-1 and reattempt after 2 weeks.",,
+21f3002511@ds.study.iitm.ac.in,Ripunjay Kumar,Employment,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,4,4,Yes,Yes,N/A,ML/DS intern,"Ripunjay could answer most of the questions. He has decent theoretical knowledge. In the present state, He is eligible for the role of an intern for ML and Data Science.  He has been advised to revise Statistics, MLF, MLT and MLP notes. He has good potential.",,
+22f1001053@ds.study.iitm.ac.in,Areeba Farooqui,Employment,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,2,4,No,,"Areeba has to revise  Stats, MLF,MLT and MLP.",ML/DS intern,Areeba looked unprepared for the 1-o-1. She has been advised to prepare well for the 1-o-1 and reattempt after 1 week.,,
+21f3003030@ds.study.iitm.ac.in,Arun Kumar ,Employment,Data Science,Nikitakumari,,NA,3,2,Yes,,,"ML, Data Science",Needs to update his resume. Add the links of the project done in resume. Work on the communication skill and revise the foundations once.,,
+22f1000624@ds.study.iitm.ac.in,Kanishk,Employment,Data Science,Nikitakumari,,NA,3.5,3,Yes,,,"ML, Data Science",Needs to update resume.,,
+21f3001234@ds.study.iitm.ac.in,Shruti Mishra ,Employment,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,4,4,Yes,Yes,N/A,"ML, Data Science","Shruit is doing MTech as a dual degree, and she has done a few internships. She has sound theoretical knowledge and has excellent communication skills. In the present state she is fit for 'internship followed by PPO' roles. She has good potential. She has to revise her DSA concepts.",,
+23f2005014@ds.study.iitm.ac.in,Soubhagya Nayak ,Internship,Data Science,Manojkumar,"Scikit-Learn, Pandas, Numpy, Seaborn,",N/A,4,3,No,,Need to revise the topics in MLT and also improve the resume for data science profile,"ML, Data Science","- Need to revise the concepts of ML courses.
+- Need to improve the resume for Data Science profiles ",,
+23f3003687@ds.study.iitm.ac.in,Nitya Sharma,Internship,Data Science,Manojkumar,"Numpy, Pandas, Scikit-learn",N/A,3,3,No,,Need to update the resume currently it doesn't align with Data science profile,"ML, Data Science","- Need to improve the resume for Data Science profiles 
+- Need to work on some projects to showcase the work
+- Need to work on communication as it felt a lot like reading than talking",,
+21f2000306@ds.study.iitm.ac.in,Anjali Gupta,Internship,Data Science,Manojkumar,"Numpy, Pandas, Scikit-learn, Matplotlib, Tableau,",N/A,4,4,Yes,,,"ML, Data Science","- ML concepts are fine but need to brush up the concepts before the interview
+- Need to work on the projects on ML topics",,
+24f1000656@ds.study.iitm.ac.in,Mokshada Chandrashekhar Nehete,Internship,Data Science,Manojkumar,"SQL, Pandas, Numpy, Matplotlib, seaborn, scikit-learn, PyTorch, HuggingFace, LLMs",N/A,5,5,Yes,,N/A,"ML, Data Science","- Currently pursuing B.Tech from IIIT Pune with good CGPA.
+- She has adequate knowledge of ML courses to go for an internship
+- Communicated well while answering the questions ",,
+22f3001210@ds.study.iitm.ac.in,Rishit Pant,Employment,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,4,4,Yes,Yes,N/A,"ML, Data Science",Rishit could answer most of the questions in the fields of Machine Learning & Data Science. He has sound theoretical knowledge and has excellent communication skills. In the present state hhe is fit for 'internship followed by PPO' roles. He has good potential. She has to revise her DSA and SQL skills.,,
+22f3002393@ds.study.iitm.ac.in,Santhuluri Vijaya Bhaskar ,Data Science,Internship,Manojkumar,"Pandas, NumPy, Scikit-learn, Flask, Streamlit",N/A,5,3,Yes,,N/A,"ML, Data Science","- He has experience as intern in multiple companies for data science roles.
+- He is in Diploma but he has a decent knowledge in DL and LLMs 
+- Need to work on communication skill. sometimes it was difficult to understand the explanation",,
+23f3004092@ds.study.iitm.ac.in,Harliv Singh,Data Science,Internship,Manojkumar,"Pandas, NumPy, Scikit-learn, Matplotlib, Seaborn",N/A,3,4,Yes,,,"ML, Data Science","- He was able to answer the ML related questions but need to brush up the concepts in depth. Upon cross questioning he was getting stuck while answering. 
+- Need to build a good portfolio of projects with varieties. ",,
+22f3000526@ds.study.iitm.ac.in,Ashish Agarwal ,Data Science,Internship,Nikitakumari,,,,,,,,,,,
+22f3002045@ds.study.iitm.ac.in,Adarshom Panigrahi,Data Science,Internship,Nikitakumari,,N/A,4,4,Yes,,,,,,
+22f3001315@ds.study.iitm.ac.in,Guddu Kumar Mishra,Data Science,Internship,Mayur,"Pandas, NumPy, Scikit-learn, Matplotlib, Seaborn",NA,3,3,Yes,,,"ML, Data Science","- The student was able to answer questions related to the project he completed.
+- However, he struggled with theoretical concepts and should strengthen his understanding of ML theory.
+- The resume needs improvement; it is recommended to work on presenting it more effectively.",,
+21f1006870@ds.study.iitm.ac.in,Pal Amitkumar Shish,Data Science,Internship,Mayur,"ML, Pandas, NumPy, Scikit-learn, Matplotlib, Seaborn, Huggingface",,4,4,Yes,,,"ML, Data Science","- The student is currently working as an intern in the automation domain and is interested in pursuing a career in data science.
+- Demonstrates good understanding of machine learning concepts but needs to refresh knowledge in deep learning.
+- The CGPA is slightly on the lower side.",,
+22f3002191@ds.study.iitm.ac.in,Hiyaa Thaker,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,2,3,No,,"Hiyai has to revise Stats, MLF,MLT and MLP.",N/A,"Hiya could not answer basic questions like meaning of outliers, overfitting satisfactorily. She looked unprepared for the 1-o-1. She has been advised to prepare well for the 1-o-1 and reattempt after 2 weeks.",,
+23f3001646@ds.study.iitm.ac.in,Madhan Karthikeyan ,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,2,3,No,,"Karthikeyan has to revise Stats, MLF,MLT and MLP.",N/A,"Karthikeyan could not answer basic questions like meaning of outliers, overfitting satisfactorily. He looked unprepared for the 1-o-1. He has been advised to prepare well for the 1-o-1 and reattempt after 2 weeks.",,
+22f3003015@ds.study.iitm.ac.in,Ravisha Shrivastava ,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,2,3,No,,"Ravisha has to revise Stats, MLF,MLT and MLP.",N/A,"Ravisha could not answer basic questions like meaning of outliers, overfitting satisfactorily. She looked unprepared for the 1-o-1. She has been advised to prepare well for the 1-o-1 and reattempt after 2 weeks.",,
+23f3002872@ds.study.iitm.ac.in,Khushi Choudhary,Data Science,Internship,Lalit,"ML, Matplotlib, Numpy, Pandas",N/A,4,4,Yes,Yes,N/A,"ML, Data Science",Khushi could answer most of the questions in the fields of Machine Learning & Data Science. She has sound theoretical knowledge and has excellent communication skills. In the present state she is fit for 'internship' roles. She has good potential. She has to revise her DSA and SQL skills.,,
+22f3001789@ds.study.iitm.ac.in,Arjun Thilak,Data Science,Internship,Anamika,"Pytorch, Tensorflow, Langgraph, Agentic AI, AWS, Container, Docker, OpenCV, FAISS, HF",NA,5,5,Yes,,NA,"Data Science, GenAI, Cloud","Seems quite ready for any placement/internship interview
+Already having a good exposure to data science practical aspects through several internships",,
+22f1000765@ds.study.iitm.ac.in,N.M.PRANITHA,Data Science,Internship,Anamika,"Sklearn, Pandas, Numpy",NA,2,2.5,No,,"Revise all MLF, MLT, MLP courses really well",Data Science ,"She incorrectly answered many basic questions
+Needs to get a better understanding of concepts
+Needs to communicate her expanation better
+Would be good to use a better resume template",,
+23f2005282@ds.study.iitm.ac.in,Shubham Singh,Data Science,Internship,Nikitakumari,"Numpy, Pandas, Sklearn, ML",,2.5,3.5,No,,,Data analyst,,,"The student is yet to do courses like DL, MLP. I would suggest the student sit for placements in the next cycle."
+22f2001256@ds.study.iitm.ac.in,Hitesh,Data Science,Internship,Nikitakumari,,,,,,,,,,,Has asked for rescheduling
+22f3002166@ds.study.iitm.ac.in,Harsh Pratap Singh,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,2,4,No,,"Harsh has to revise Statistics and MLP, expecially the ML model lifecycle",NA,"Harsh has not revised and could not answer questions like ensemble methods, outlierr. He has been advised to revise his notes of  stats, MLF, MLT and MLP. He has also been asked to go through the ML model lifecycle. He has to reappear after 2 weeks.",,
+23f2005014@ds.study.iitm.ac.in,Soubhagya Nayak ,Data Science,Internship,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,3,3,Yes,,NA,"ML, Data Science","Soubhagya could answer around 60% of the questions. He looked unprepared  He has been advised to revise his notes of stats, MLF, MLT and MLP. He has also been asked to go through the ML model lifecycle. He has been declared eligible for ML intern. However, he has to revise and work on his theoretical knowledge.",,
+23f3004174@ds.study.iitm.ac.in,Aditri Mandal,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,2,4,No,,"Aditri has to revise Statistics and MLP, expecially the ML model lifecycle",NA,"Aditri has not revised and could not answer questions like strategies to fill Nan values and handling outliers. She has been advised to revise her notes of stats, MLF, MLT, and MLP. She has also been asked to go through the ML model lifecycle and the interview questions shared by the IIC. She has to reappear after revision on 22nd March.",,
+23f3002766@ds.study.iitm.ac.in,Shaikh Md Khasim Basith Nawaz,Programming,Internship,Shrikrishna,"Vue.js, Express.js, Backend and frontend js dev",4,NA,4,Yes,,,Web dev roles,"Student is already working in the intership. He needs to brush up on cloud architecture and webhooks. He should continue in this internship as he has started recently, and gain some experience. He should do app dev lab course also. ",,
+22f3000089@ds.study.iitm.ac.in,Samreen Fathima S,Data Science,Internship,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,4,5,Yes,Yes,NA,"ML, Data Science",Samreen could answer most of the questions in the fields of Machine Learning & Data Science. She has sound theoretical knowledge and has excellent communication skills. In the present state she is fit for 'internship' roles. She has good potential. She has to revise her DSA and SQL skills.,,
+22f3000926@ds.study.iitm.ac.in,Vaikhari Kanetkar,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,2,4,No,,"Vikhari has to revise Statistics ( topics like IQR, Outliers, Bias, Variance), MLF, MLT & MLP",NA,"Vaikhari has not revised and could not answer questions like ensemble methods and hyperparameters of a DT model, and other basic questions She has been advised to revise her notes of  stats, MLF, MLT and MLP. She has also been asked to go through the ML model lifecycle. She has to reappear after 2 weeks.",,
+23f1001947@ds.study.iitm.ac.in,Kulkarni Amit Dilip,Data Science,Internship,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,4,5,Yes,Yes,NA,"ML, Data Science",Amit could answer most of the questions in the fields of Machine Learning & Data Science. He has sound theoretical knowledge and has excellent communication skills. In the present state he is fit for 'internship' roles. He has good potential. He has to revise her DSA and SQL skills.,,
+21f3003238@ds.study.iitm.ac.in,Prajwal Dhote,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,2,3,No,,"He has to revise Statistics ( topics like IQR, Outliers, Bias, Variance), MLF, MLT & MLP",NA,"Prajal has not revised and could not answer questions like ensemble methods and hyper-parameters of a DT model,  He looked unprepared. He has been advised to revise her notes of stats, MLF, MLT and MLP. He has also been asked to go through the ML model lifecycle. He has to reappear after 2 weeks.",,
+24ds2000089@ds.study.iitm.ac.in,Shweta Vyas,Data Science,Internship,Mayur,"ML, Matplotlib, Numpy, Pandas",NA,4,5,Yes,,,"ML engineer, Data analyst, data engineer, ML roles","- She has demonstrated good skills in machine learning and appears to be a suitable candidate for roles related to ML.
+- Her CGPA is relatively lower, primarily due to weaker performance during the foundational courses.
+- She exited the program after completing the Data Science Diploma. It would be beneficial for her to further strengthen her knowledge and practical experience in deep learning–related areas.",,
+23f2001262@ds.study.iitm.ac.in,Atul Mishra,Programming,Internship,Shrikrishna,"Vue, SQL, Docker, DSA",3,NA,2,No,,"Needs to prepare on Overall web dev and cloud, knows DSA but not able explain clearly, work on communication skill, Should update the resume and learn about deployment ",,,,
+23f2004126@ds.study.iitm.ac.in,Aanchal Routela,Data Science,Internship,Mayur,"ML, Matplotlib, Numpy, Pandas",NA,3.5,5,Yes,,,"ML engineer, Data analyst, data engineer, ML roles","- The candidate needs to refresh their understanding of unsupervised machine learning algorithms. Overall, they appear to be a good candidate.
+-It would be beneficial for the candidate to work on machine learning projects involving more complex datasets to strengthen practical experience.
+- Additionally, learning and gaining familiarity with deep learning concepts is recommended to improve future opportunities.",,
+23f3004447@ds.study.iitm.ac.in,Angeline Hephzibah J,Programming,Internship,Shrikrishna,"AWS, React , Javascript, CSS",3,NA,5,No,,"Needs to work on backend knowledge( sql, api etc. everything related to databases) , Can be good with freenlancing role for js static website creation ( using LLM ) , knows about aws and cloud, and done deployment work, not ready for internship yet. ",,,,
+23f1001316@ds.study.iitm.ac.in,Samta Ranka,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,2,4,No,,"Samta has to revise Statistics ( topics like IQR, Outliers, Bias, Variance), MLF, MLT & MLP",NA,"Samta has not revised and could not answer questions like ensemble methods and hyper-parameters of a DT model, She looked unprepared. She has been advised to revise her notes of stats, MLF, MLT and MLP. She has also been asked to go through the ML model lifecycle. She has to reappear after 2 weeks.",,
+23f1003150@ds.study.iitm.ac.in,Rishav Kumar ,Programming,Internship,Adarsh,None,1,,2,No,,"- work on basics
+- work on the concepts of frontend
+- revise the projects deeply
+- revise theory concepts in detail",NA,"Rishav has very poor understanding of the app dev concepts, most of the answers were very vague or incorrect. Needs to go through the concepts from basics.",,
+23f2001475@ds.study.iitm.ac.in,Dilraj Singh,Programming,Internship,Adarsh,"Vue, Flutter, Firebase",4,,4,Yes,,,Internship on Frontend roles,The student has good grasp of the technologies used in his projects. His theoritical understanding and communication is alsp good and can explain concepts.,,
+24f1000182@ds.study.iitm.ac.in,Tushar Gautam ,Programming,Internship,Afnan,"Flask, JavaScript, React",3,,4,Yes,,"- appears to be working on DSA problems, which is good
+- needs a bit more preparation / understanding on web application design (architecture)",Internship on Backend roles,"Overall, the student described about the roles he wishes to work for, specifically software engineering and also data engineering
+But needs more preparation with respect to web application design / cloud concepts to be ready. Can start with web development internship and gain some experience from there.
+Also improve CV with projects / GitHub profile, etc.",,
+23f3004115@ds.study.iitm.ac.in,Pardhiv Nukasani,Programming,Internship,Afnan,,,,,No,,"Present, but inaudible due to network issues",,,,
+23f2003584@ds.study.iitm.ac.in,Taniya Chouhan ,Data Science,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,2,3,No,,"Taniya has to revise Statistics ( topics like IQR, Outliers, Bias, Variance), MLF, MLT & MLP",NA,"Taniya has not revised and could not answer questions like filling NaN values, outliers, She looked unprepared. She has been advised to revise her notes of stats, MLF, MLT and MLP. She has also been asked to go through the ML model lifecycle. She has to reappear after 1 week.",,
+23f3003687@ds.study.iitm.ac.in,Nitya Sharma,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,3,3,Yes,Yes,NA,ML/Data Science Intern,Nitya could answer most of the questions in the fields of Machine Learning & Data Science. She has sound theoretical knowledge and has excellent communication skills. In the present state she is fit for 'internship' roles. She has good potential. She has to revise her DSA and SQL skills.,,
+22f1000938@ds.study.iitm.ac.in,Amisha Mishra,Placement,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,3,4,Yes,Yes,NA,"Data Scientist, Computer Vision","Amisha is currently working as Reserach Associate in Flame University, and has good experience in Computer Vision tasks. She has been advised to build he skills in ML model deployment through MLOps course, and fine tuning transformer models for various tasks through the DLP course. She has also been advised to practice DSA and SQL. She is looking for a company where she can find a project for her MTech. She has good potential.",,
+22f3002587@ds.study.iitm.ac.in,Harshit Tiwari ,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,4,3,Yes,,NA,ML/Data Science Intern,"Harshit could answer most of the questions in the fields of Machine Learning & Data Science, his answers were jittery. He has good theoretical knowledge and average communication skills. In the present state, he is fit for 'internship' roles. He has to practice DSA and SQL questions.",,
+23f3001196@ds.study.iitm.ac.in,Vaidisha P Shetty,Internship,Programming,Lalit,"Python, JavaScript, Java, SQL, HTML/CSS ,Flask, Vue ",3,NA,4,Yes,,,Web dev roles,"She has completed a diploma in programming and does not have any professional experience. However, she demonstrates a good understanding of the course project she worked on. She was also able to answer questions related to problem solving, data structures and algorithms (DSA), and DBMS. She may need some revision and handson on more projects, but overall she appears capable and ready.",,
+22f1001082@ds.study.iitm.ac.in,Lakshya Luv Mimani,Internship,Programming,Lalit,"Python, SQL, Java, JavaScript, HTML, CSS,Flask, VueJS, Git, Redis, Celery, SQLite, PostgresQL",4,NA,3,Yes,,,Web dev roles,He is also good and have good practical experience. he also answered most of problem solving and dsa and DBMs question. Need some recap on DSA. But overall looks good.,,
+23f3004412@ds.study.iitm.ac.in,Aviral Choudhary,Data Science,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,2,3,No,,"Aviral has to revise Statistics ( topics like IQR, Outliers, Bias, Variance), MLF, MLT & MLP",NA,"Aviral has not revised and could not answer questions like filling NaN values, outliers, ensemble methods, He looked unprepared and could not answer the difference between the DT and Randomforest classifier. He has been advised to revise her notes of stats, MLF, MLT and MLP. He has also been asked to go through the ML model lifecycle. He has to reappear after 1 week.",,
+22f1001536@ds.study.iitm.ac.in,Rohit Prajapat,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,3,3,Yes,,NA,ML/Data Science Intern,"Rohit could answer most of the questions in the fields of Machine Learning & Data Science. He has good theoretical knowledge and average communication skills. In the present state, he is fit for 'internship' roles. He has to practice DSA and SQL questions.",,
+24f1001642@ds.study.iitm.ac.in,Nivedita Shill,Data Science,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,2,3,No,,"She has to complete MLP and revise stats, MLF and MLT.",NA,"Nivediate has not completed the Diploma in Data Science & she has MLP and MLP project in the current term. Her foundational level knowledge is satisfactory, but she lacks knowledge of ML Model lifecycle. She has been given question bank of the important questions asked in an ML interview. She has to reattempt after 2 weeks on 8th April",,
+22f3003015@ds.study.iitm.ac.in,Ravisha Shrivastava ,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,3,3,Yes,,NA,ML/Data Science Intern,"In her reattempt, Ravisha could answer most of the questions in the fields of Machine Learning & Data Science. She has good theoretical knowledge now. In the present state, he is fit for 'internship' roles. She has to practice DSA and SQL questions.",,
+23f3004115@ds.study.iitm.ac.in,Pardhiv Nukasani,Internship,Programming,Arup,"Python, FastAPI, PostgreSQL, React, Next.js ",4,NA,3.5,Yes,,NA,Application Development,"- Good at web development stack (only Python based)
+- Need to revise DSA 
+- Some knowledge of web arch. will help
+- Okay in DBMS",,
+23f2001262@ds.study.iitm.ac.in,Atul Mishra,Internship,Programming,Atul,"Flask, FastAPI, SQLAlchemy (ORM),
+Vue.js 3 (Composition API), Vite, Pinia, Next.js,",3,,2.5,Yes,,"He need to focus on communication and 
+revisit to DSA and DBMS concepts",Application Development,"He was able to answer and modification for development part. 
+He answered the DSA and DBMA question but due to communication problem he was not looking confident. 
+He need to focus more on communication part and also revise the DSA including problem solving and DBMS concepts.",,
+22f3000935@ds.study.iitm.ac.in,Paramananda Samantara ,,Data Science,Mayur,,,,,,,,,,,
+23f1000966@ds.study.iitm.ac.in,Aryan Thakur,,Data Science,Mayur,,,,,,,,,,,
+23f2000387@ds.study.iitm.ac.in,Kalppana S,Internship,Data Science,Mayur,"ML, Matplotlib, Numpy, Pandas",NA,4,5,Yes,,,"ML engineer, Data analyst, data engineer, ML roles","- The student has demonstrated a good understanding of machine learning concepts.
+-Possesses strong communication skills.
+-Suggestion: It is recommended to work on more machine learning–related projects to further enhance practical expertise.",,
+21f1003259@ds.study.iitm.ac.in,Himanshu Singh,Employment,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,2,5,No,,"Himanshu has to revise MLF, MLT, MLP and DL notes.",NA,"Himanshu could not answer questions such as dropout, DT models, or the effect of increasing the number of columns in the dataset on the ML model satisfactorily. He looked unprepared. He has been given detailed feedback and asked to revise his concepts before his reattempt on 1oth April.",,
+22f3002914@ds.study.iitm.ac.in,Shiva Kumar ,Data Science,Internship,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,3,4,Yes,,NA,ML/Data Science Intern,"Shiva could answer most of the questions in the fields of Machine Learning & Data Science. He has good theoretical knowledge and good communication skills. In the present state, he is fit for 'internship' roles. He has to practice DSA and SQL questions.",,
+23f3004174@ds.study.iitm.ac.in,Aditri mandal,Data Science,Internship,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,4,4,,Yes,NA,ML/Data Science Intern,This was Aditri's second attempt and this time she was able to answer most of the questions. She looked confident as she was well prepared. She has been advised to practice DSA daily.,,
+21f1006589@ds.study.iitm.ac.in,Niraj Kumar ,Data Science,Internship,Nikitakumari,"Sklearn, numpy, pandas",NA,2.5,3.5,No,,He needs to be more comfortable with the basics.,,Earlier 2 weeks were given to this student for reapplying. I feel 2 weeks is not enough. Atleast a month should be given to student for preparation before they appear for the next session.,,Earlier 2 weeks were given to this student for reapplying. I feel 2 weeks is not enough. Atleast a month should be given to student for preparation before they appear for the next session.
+22f3001352@ds.study.iitm.ac.in,Rishav Kumar,Data Science,Internship,Anamika,,,,,,,,,,,
+22f3000528@ds.study.iitm.ac.in,muralidhar k,Data Science,Internship,Nikitakumari,"Sklearn, numpy, pandas",,2.5,2,No,,Revise the ML and DL concepts.,,,,
+23f3001646@ds.study.iitm.ac.in,Madhan Karthikeyan,Data Science,Internship,Anamika,"NP, Pandas, Sklearn, LLamaIndex, Langchain",NA,4,5,Yes,,,"ML engineer, Data analyst, data engineer, ML roles","- Grades are not great, but he is learnable, has good practical exposure
+- Good communication
+- Has learnt several tools all by himself and used in projects and previous internship",,
+23f2003874@ds.study.iitm.ac.in,Pinki,Data Science,Internship,Anamika,"Sklearn, Numpy, Pandas",NA,2.5,-,No,,,"ML engineer, Data analyst, data engineer, ML roles","- Could not answers many basic questions
+- Sugegsted to revisit MLT, DL courses, learn pytorch, do independent projects
+- Needs to work on her communication too",,
+23f3001911@ds.study.iitm.ac.in,M Harsha Vardhan,Data Science,Internship,Anamika,"Numpy, Pandas, Sklearn, Pytorch basics",NA,4,4.5,Yes,,,"ML engineer, Data analyst, data engineer, ML roles","- Decent in answering technical questions.
+- Decent grades
+- Good communication",,
+23f3003719@ds.study.iitm.ac.in,Trisha Vijayekkumaran,Internship,Data Science,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,2,4,No,,"Trisha has to revise Statistics , MLF, MLT & MLP",NA,"Trisha has not revised and could not answer questions like hyperparameters of a DT model, ensemble methods, bagging, and boosting. She looked unprepared and could not answer the difference between bagging and boosting. She has been advised to revise her notes of stats, MLF, MLT and MLP. He has also been asked to go through the ML model lifecycle. She has to reappear on 3rd April.",,
+22f3001285@ds.study.iitm.ac.in,Anjali Dogra,Data Science,Internship,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,3.5,4,Yes,,NA,ML/Data Science Intern,Anjali could answer most of the questions in the fields of Machine Learning & Data Science. She has sound theoretical knowledge and has excellent communication skills. In the present state she is fit for 'internship' roles. She has to keep practicing her DSA and SQL skills.,,
+21f1001697@ds.study.iitm.ac.in,Sneha Dutta,Data Science,Internship,Lalit,,,,,ABSENT,,,,,,
+22f1001934@ds.study.iitm.ac.in,Shubham Tiwari,Data Science,Internship,Lalit,"ML, Matplotlib, Numpy, Pandas",NA,3.5,3.5,Yes,,NA,ML/Data Science Intern,"Shubham is doing an internship at Khel.ai and he appeared in this 1-o-1 just to get hang of an interview He has not done the revision and looked unprepared. He has average theoretical knowledge and communication skills. At present, he is suitable for 'internship' roles. He has to keep practicing her DSA and SQL skills.",,

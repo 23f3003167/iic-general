@@ -1,4 +1,9 @@
-import { BehavioralEvaluation, EvaluationSection, PresentationEvaluation } from '@/types';
+import {
+  BehavioralEvaluation,
+  EvaluationSection,
+  OneOnOneEvaluation,
+  PresentationEvaluation,
+} from '@/types';
 
 type ApiEnvelope<T> = {
   success: boolean;
@@ -24,7 +29,22 @@ type PresentationSubmitEvaluationArgs = {
   feedback: string;
 };
 
-type SubmitEvaluationArgs = BehavioralSubmitEvaluationArgs | PresentationSubmitEvaluationArgs;
+type OneOnOneSubmitEvaluationArgs = {
+  id: string;
+  technicalProgramming: number;
+  technicalDataScience: number;
+  communication: number;
+  readiness: string;
+  exceptional: string;
+  tasks: string;
+  roles: string;
+  detailedFeedback1: string;
+};
+
+type SubmitEvaluationArgs =
+  | BehavioralSubmitEvaluationArgs
+  | PresentationSubmitEvaluationArgs
+  | OneOnOneSubmitEvaluationArgs;
 
 type EvaluatorsConfig = {
   webAppUrl?: string;
@@ -39,6 +59,10 @@ const evaluatorsConfig: Record<EvaluationSection, EvaluatorsConfig> = {
   presentation: {
     webAppUrl: import.meta.env.VITE_PRESENTATION_APPS_SCRIPT_WEB_APP_URL,
     apiToken: import.meta.env.VITE_PRESENTATION_APPS_SCRIPT_API_TOKEN,
+  },
+  oneOnOne: {
+    webAppUrl: import.meta.env.VITE_ONE_ON_ONE_APPS_SCRIPT_WEB_APP_URL,
+    apiToken: import.meta.env.VITE_ONE_ON_ONE_APPS_SCRIPT_API_TOKEN,
   },
 };
 
@@ -62,7 +86,12 @@ async function callEvaluatorsAppsScript<T>(
   const config = evaluatorsConfig[section];
 
   if (!config.webAppUrl) {
-    const envVar = section === 'presentation' ? 'VITE_PRESENTATION_APPS_SCRIPT_WEB_APP_URL' : 'VITE_BEHAVIORAL_APPS_SCRIPT_WEB_APP_URL';
+    const envVar =
+      section === 'presentation'
+        ? 'VITE_PRESENTATION_APPS_SCRIPT_WEB_APP_URL'
+        : section === 'oneOnOne'
+          ? 'VITE_ONE_ON_ONE_APPS_SCRIPT_WEB_APP_URL'
+          : 'VITE_BEHAVIORAL_APPS_SCRIPT_WEB_APP_URL';
     throw new Error(
       `Evaluators Apps Script URL not configured for ${section}. Set ${envVar}.`,
     );
@@ -104,10 +133,14 @@ export async function getPendingEvaluations(
   instructorName: string,
 ): Promise<PresentationEvaluation[]>;
 export async function getPendingEvaluations(
+  section: 'oneOnOne',
+  instructorName: string,
+): Promise<OneOnOneEvaluation[]>;
+export async function getPendingEvaluations(
   section: EvaluationSection,
   instructorName: string,
-): Promise<Array<BehavioralEvaluation | PresentationEvaluation>> {
-  return callEvaluatorsAppsScript<Array<BehavioralEvaluation | PresentationEvaluation>>(section, {
+): Promise<Array<BehavioralEvaluation | PresentationEvaluation | OneOnOneEvaluation>> {
+  return callEvaluatorsAppsScript<Array<BehavioralEvaluation | PresentationEvaluation | OneOnOneEvaluation>>(section, {
     action: 'getPendingEvaluations',
     instructorName,
   });

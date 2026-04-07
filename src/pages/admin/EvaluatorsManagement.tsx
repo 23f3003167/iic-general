@@ -13,7 +13,12 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { getPendingEvaluations, getUniqueInstructors, submitEvaluation } from '@/lib/evaluatorsService';
-import type { BehavioralEvaluation, EvaluationSection, PresentationEvaluation } from '@/types';
+import type {
+  BehavioralEvaluation,
+  EvaluationSection,
+  OneOnOneEvaluation,
+  PresentationEvaluation,
+} from '@/types';
 import { Loader2, RefreshCw } from 'lucide-react';
 
 type DraftScores = {
@@ -25,9 +30,17 @@ type DraftScores = {
   slideComposition: string;
   presentation: string;
   feedback: string;
+  technicalProgramming: string;
+  technicalDataScience: string;
+  communication: string;
+  readiness: string;
+  exceptional: string;
+  tasks: string;
+  roles: string;
+  detailedFeedback1: string;
 };
 
-type EvaluationRow = BehavioralEvaluation | PresentationEvaluation;
+type EvaluationRow = BehavioralEvaluation | PresentationEvaluation | OneOnOneEvaluation;
 
 function initialDraft(section: EvaluationSection, evaluation?: EvaluationRow): DraftScores {
   if (section === 'presentation') {
@@ -41,6 +54,39 @@ function initialDraft(section: EvaluationSection, evaluation?: EvaluationRow): D
       slideComposition: presentationEvaluation?.slideComposition != null ? String(presentationEvaluation.slideComposition) : '',
       presentation: presentationEvaluation?.presentation != null ? String(presentationEvaluation.presentation) : '',
       feedback: presentationEvaluation?.feedback || '',
+      technicalProgramming: '',
+      technicalDataScience: '',
+      communication: '',
+      readiness: '',
+      exceptional: '',
+      tasks: '',
+      roles: '',
+      detailedFeedback1: '',
+    };
+  }
+
+  if (section === 'oneOnOne') {
+    const oneOnOneEvaluation = evaluation as OneOnOneEvaluation | undefined;
+    return {
+      relevance: '',
+      clarity: '',
+      analyticalSkills: '',
+      grammar: '',
+      content: '',
+      slideComposition: '',
+      presentation: '',
+      feedback: oneOnOneEvaluation?.feedback || '',
+      technicalProgramming:
+        oneOnOneEvaluation?.technicalProgramming != null ? String(oneOnOneEvaluation.technicalProgramming) : '',
+      technicalDataScience:
+        oneOnOneEvaluation?.technicalDataScience != null ? String(oneOnOneEvaluation.technicalDataScience) : '',
+      communication:
+        oneOnOneEvaluation?.communication != null ? String(oneOnOneEvaluation.communication) : '',
+      readiness: oneOnOneEvaluation?.readiness || oneOnOneEvaluation?.placementReadiness || '',
+      exceptional: oneOnOneEvaluation?.exceptional || '',
+      tasks: oneOnOneEvaluation?.tasks || '',
+      roles: oneOnOneEvaluation?.roles || '',
+      detailedFeedback1: oneOnOneEvaluation?.detailedFeedback1 || '',
     };
   }
 
@@ -54,6 +100,14 @@ function initialDraft(section: EvaluationSection, evaluation?: EvaluationRow): D
     slideComposition: '',
     presentation: '',
     feedback: behavioralEvaluation?.feedback || '',
+    technicalProgramming: '',
+    technicalDataScience: '',
+    communication: '',
+    readiness: '',
+    exceptional: '',
+    tasks: '',
+    roles: '',
+    detailedFeedback1: '',
   };
 }
 
@@ -63,7 +117,7 @@ function parseScore(value: string): number {
 
 const EvaluatorsManagement = () => {
   const { toast } = useToast();
-  const [section, setSection] = useState<EvaluationSection>('behavioral');
+  const [section, setSection] = useState<EvaluationSection | null>(null);
   const [loadingInstructors, setLoadingInstructors] = useState(true);
   const [loadingRows, setLoadingRows] = useState(false);
   const [instructors, setInstructors] = useState<string[]>([]);
@@ -73,6 +127,13 @@ const EvaluatorsManagement = () => {
   const [submittingId, setSubmittingId] = useState<string | null>(null);
 
   const loadInstructors = async () => {
+    if (!section) {
+      setInstructors([]);
+      setSelectedInstructor('');
+      setLoadingInstructors(false);
+      return;
+    }
+
     setLoadingInstructors(true);
     try {
       const names = await getUniqueInstructors(section);
@@ -124,11 +185,13 @@ const EvaluatorsManagement = () => {
   };
 
   useEffect(() => {
+    if (!section) return;
     loadInstructors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section]);
 
   useEffect(() => {
+    if (!section) return;
     loadPendingRows(section, selectedInstructor);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section, selectedInstructor]);
@@ -191,38 +254,89 @@ const EvaluatorsManagement = () => {
           feedback: draft.feedback,
         });
       } else {
-        const content = parseScore(draft.content);
-        const slideComposition = parseScore(draft.slideComposition);
-        const presentation = parseScore(draft.presentation);
+        if (section === 'presentation') {
+          const content = parseScore(draft.content);
+          const slideComposition = parseScore(draft.slideComposition);
+          const presentation = parseScore(draft.presentation);
 
-        if (!Number.isFinite(content) || content < 0 || content > 30) {
-          toast({ title: 'Invalid score', description: 'Content must be between 0 and 30.', variant: 'destructive' });
-          return;
-        }
-        if (!Number.isFinite(slideComposition) || slideComposition < 0 || slideComposition > 35) {
-          toast({
-            title: 'Invalid score',
-            description: 'Slide Composition & Organization must be between 0 and 35.',
-            variant: 'destructive',
-          });
-          return;
-        }
-        if (!Number.isFinite(presentation) || presentation < 0 || presentation > 35) {
-          toast({
-            title: 'Invalid score',
-            description: 'Presentation must be between 0 and 35.',
-            variant: 'destructive',
-          });
-          return;
-        }
+          if (!Number.isFinite(content) || content < 0 || content > 30) {
+            toast({ title: 'Invalid score', description: 'Content must be between 0 and 30.', variant: 'destructive' });
+            return;
+          }
+          if (!Number.isFinite(slideComposition) || slideComposition < 0 || slideComposition > 35) {
+            toast({
+              title: 'Invalid score',
+              description: 'Slide Composition & Organization must be between 0 and 35.',
+              variant: 'destructive',
+            });
+            return;
+          }
+          if (!Number.isFinite(presentation) || presentation < 0 || presentation > 35) {
+            toast({
+              title: 'Invalid score',
+              description: 'Presentation must be between 0 and 35.',
+              variant: 'destructive',
+            });
+            return;
+          }
 
-        await submitEvaluation(section, {
-          id: row.id,
-          content,
-          slideComposition,
-          presentation,
-          feedback: draft.feedback,
-        });
+          await submitEvaluation(section, {
+            id: row.id,
+            content,
+            slideComposition,
+            presentation,
+            feedback: draft.feedback,
+          });
+        } else {
+          const technicalProgramming = parseScore(draft.technicalProgramming);
+          const technicalDataScience = parseScore(draft.technicalDataScience);
+          const communication = parseScore(draft.communication);
+
+          if (!Number.isFinite(technicalProgramming) || technicalProgramming < 0 || technicalProgramming > 5) {
+            toast({
+              title: 'Invalid score',
+              description: 'Technical skills in programming must be between 0 and 5.',
+              variant: 'destructive',
+            });
+            return;
+          }
+          if (!Number.isFinite(technicalDataScience) || technicalDataScience < 0 || technicalDataScience > 5) {
+            toast({
+              title: 'Invalid score',
+              description: 'Technical skills in data science must be between 0 and 5.',
+              variant: 'destructive',
+            });
+            return;
+          }
+          if (!Number.isFinite(communication) || communication < 0 || communication > 5) {
+            toast({
+              title: 'Invalid score',
+              description: 'Communication skills must be between 0 and 5.',
+              variant: 'destructive',
+            });
+            return;
+          }
+          if (!draft.detailedFeedback1.trim()) {
+            toast({
+              title: 'Missing feedback',
+              description: 'Detailed feedback from instructor 1 is required.',
+              variant: 'destructive',
+            });
+            return;
+          }
+
+          await submitEvaluation(section, {
+            id: row.id,
+            technicalProgramming,
+            technicalDataScience,
+            communication,
+            readiness: draft.readiness,
+            exceptional: draft.exceptional,
+            tasks: draft.tasks,
+            roles: draft.roles,
+            detailedFeedback1: draft.detailedFeedback1,
+          });
+        }
       }
 
       setRows((prev) => prev.filter((item) => item.id !== row.id));
@@ -249,13 +363,15 @@ const EvaluatorsManagement = () => {
         <div>
           <h2 className="text-2xl font-bold">Evaluators</h2>
           <p className="text-muted-foreground">
-            Score pending {section === 'behavioral' ? 'behavioral' : 'presentation'} rows from Summary sheet.
+            {section
+              ? `Score pending ${section === 'behavioral' ? 'behavioral' : section === 'presentation' ? 'presentation' : '1on1'} rows.`
+              : 'Choose evaluation module to continue.'}
           </p>
         </div>
         <Button
           variant="outline"
-          onClick={() => loadPendingRows(section, selectedInstructor)}
-          disabled={loadingRows || !selectedInstructor}
+          onClick={() => section && loadPendingRows(section, selectedInstructor)}
+          disabled={loadingRows || !selectedInstructor || !section}
         >
           <RefreshCw className="h-4 w-4 mr-2" />
           Refresh
@@ -264,14 +380,29 @@ const EvaluatorsManagement = () => {
 
       <Card>
         <CardContent className="pt-6">
-          <Tabs value={section} onValueChange={(value) => setSection(value as EvaluationSection)}>
-            <TabsList>
-              <TabsTrigger value="behavioral">Behavioral</TabsTrigger>
-              <TabsTrigger value="presentation">Presentation</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          {!section ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Choose Evaluation Module</p>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => setSection('behavioral')}>Behavioral</Button>
+                <Button variant="outline" onClick={() => setSection('presentation')}>Presentation</Button>
+                <Button variant="outline" onClick={() => setSection('oneOnOne')}>1on1 Session</Button>
+              </div>
+            </div>
+          ) : (
+            <Tabs value={section} onValueChange={(value) => setSection(value as EvaluationSection)}>
+              <TabsList>
+                <TabsTrigger value="behavioral">Behavioral</TabsTrigger>
+                <TabsTrigger value="presentation">Presentation</TabsTrigger>
+                <TabsTrigger value="oneOnOne">1on1 Session</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
         </CardContent>
       </Card>
+
+      {!section ? null : (
+        <>
 
       <Card>
         <CardHeader>
@@ -322,17 +453,21 @@ const EvaluatorsManagement = () => {
                 Number(draft.clarity || 0) +
                 Number(draft.analyticalSkills || 0) +
                 Number(draft.grammar || 0)
-              : Number(draft.content || 0) +
-                Number(draft.slideComposition || 0) +
-                Number(draft.presentation || 0);
+              : section === 'presentation'
+                ? Number(draft.content || 0) +
+                  Number(draft.slideComposition || 0) +
+                  Number(draft.presentation || 0)
+                : Number(draft.technicalProgramming || 0) +
+                  Number(draft.technicalDataScience || 0) +
+                  Number(draft.communication || 0);
+
+            const oneOnOneRow = section === 'oneOnOne' ? (row as OneOnOneEvaluation) : null;
 
             return (
               <Card key={row.id}>
                 <CardHeader>
                   <CardTitle className="text-base">{row.name}</CardTitle>
-                  <CardDescription>
-                    {row.email} • {row.slot}
-                  </CardDescription>
+                  <CardDescription>{row.email}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {section === 'behavioral' ? (
@@ -381,7 +516,7 @@ const EvaluatorsManagement = () => {
                         />
                       </div>
                     </div>
-                  ) : (
+                  ) : section === 'presentation' ? (
                     <div className="grid gap-4 md:grid-cols-3">
                       <div className="space-y-1">
                         <p className="text-sm font-medium">Content (30)</p>
@@ -416,25 +551,173 @@ const EvaluatorsManagement = () => {
                         />
                       </div>
                     </div>
+                  ) : (
+                    <>
+                      <div className="rounded-md border bg-muted/30 p-4 text-sm space-y-3">
+                        <div className="grid gap-2 md:grid-cols-2">
+                          <div className="rounded border bg-background p-2">
+                            <p className="text-xs text-muted-foreground">Resume Drive Link</p>
+                            {oneOnOneRow?.resumeUrl ? (
+                              <a
+                                href={oneOnOneRow.resumeUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-medium break-all text-blue-600 underline"
+                              >
+                                Open Resume
+                              </a>
+                            ) : (
+                              <p className="font-medium">Not available</p>
+                            )}
+                          </div>
+                          <div className="rounded border bg-background p-2">
+                            <p className="text-xs text-muted-foreground">Progress Card</p>
+                            {oneOnOneRow?.progressCard?.toLowerCase().startsWith('http') ? (
+                              <a
+                                href={oneOnOneRow.progressCard}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-medium break-all text-blue-600 underline"
+                              >
+                                Open Progress Card
+                              </a>
+                            ) : (
+                              <p className="font-medium break-all">{oneOnOneRow?.progressCard || 'Not available'}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                          <p><span className="font-medium">Date:</span> {oneOnOneRow?.studentDate || ''}</p>
+                          <p><span className="font-medium">Slot:</span> {oneOnOneRow?.slotTime || oneOnOneRow?.slot || ''}</p>
+                          <p><span className="font-medium">CGPA:</span> {oneOnOneRow?.cgpa || 'N/A'}</p>
+                          <p><span className="font-medium">Domain:</span> {oneOnOneRow?.domain || 'N/A'}</p>
+                          <p><span className="font-medium">Plan:</span> {oneOnOneRow?.plan || 'N/A'}</p>
+                          <p><span className="font-medium">Placement Readiness:</span> {oneOnOneRow?.placementReadiness || ''}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium">Technical Skills in Programming (1-5)</p>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={5}
+                            step={0.5}
+                            value={draft.technicalProgramming}
+                            onChange={(e) => updateDraft(row.id, { technicalProgramming: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium">Technical Skills in Data Science (1-5)</p>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={5}
+                            step={0.5}
+                            value={draft.technicalDataScience}
+                            onChange={(e) => updateDraft(row.id, { technicalDataScience: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium">Communication Skills (1-5)</p>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={5}
+                            step={0.5}
+                            value={draft.communication}
+                            onChange={(e) => updateDraft(row.id, { communication: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium">Readiness of the Student for Placement</p>
+                          <Select value={draft.readiness || 'BLANK'} onValueChange={(value) => updateDraft(row.id, { readiness: value === 'BLANK' ? '' : value })}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select readiness" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Yes">Yes</SelectItem>
+                              <SelectItem value="No">No</SelectItem>
+                              <SelectItem value="Absent">Absent</SelectItem>
+                              <SelectItem value="BLANK">Blank</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium">Performing Exceptionally Good</p>
+                          <Select value={draft.exceptional || 'BLANK'} onValueChange={(value) => updateDraft(row.id, { exceptional: value === 'BLANK' ? '' : value })}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select option" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Yes">Yes</SelectItem>
+                              <SelectItem value="No">No</SelectItem>
+                              <SelectItem value="Absent">Absent</SelectItem>
+                              <SelectItem value="BLANK">Blank</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">If Not Ready, Mention Tasks</p>
+                        <Textarea
+                          rows={2}
+                          value={draft.tasks}
+                          onChange={(e) => updateDraft(row.id, { tasks: e.target.value })}
+                          placeholder="Actionable tasks for student"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Suitable Roles (Recommendations)</p>
+                        <Textarea
+                          rows={2}
+                          value={draft.roles}
+                          onChange={(e) => updateDraft(row.id, { roles: e.target.value })}
+                          placeholder="Example: Full Stack, Data Analyst"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Detailed Feedback from Instructor 1</p>
+                        <Textarea
+                          rows={4}
+                          value={draft.detailedFeedback1}
+                          onChange={(e) => updateDraft(row.id, { detailedFeedback1: e.target.value })}
+                          placeholder="Required"
+                        />
+                      </div>
+
+                    </>
                   )}
 
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Feedback</p>
-                    <Textarea
-                      rows={3}
-                      value={draft.feedback}
-                      onChange={(e) => updateDraft(row.id, { feedback: e.target.value })}
-                      placeholder="Enter feedback"
-                    />
-                  </div>
+                  {section !== 'oneOnOne' && (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Feedback</p>
+                      <Textarea
+                        rows={3}
+                        value={draft.feedback}
+                        onChange={(e) => updateDraft(row.id, { feedback: e.target.value })}
+                        placeholder="Enter feedback"
+                      />
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm text-muted-foreground">
-                      Current Total: {Number.isFinite(total) ? total : 0} / 100
+                      {section === 'oneOnOne'
+                        ? `Current Technical Total: ${Number.isFinite(total) ? total : 0} / 15`
+                        : `Current Total: ${Number.isFinite(total) ? total : 0} / 100`}
                     </p>
                     <Button onClick={() => handleSubmit(row)} disabled={submittingId === row.id}>
                       {submittingId === row.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                      Save Score
+                      {section === 'oneOnOne' ? 'Save Evaluation' : 'Save Score'}
                     </Button>
                   </div>
                 </CardContent>
@@ -442,6 +725,8 @@ const EvaluatorsManagement = () => {
             );
           })}
         </div>
+      )}
+        </>
       )}
     </div>
   );

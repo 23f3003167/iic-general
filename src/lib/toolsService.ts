@@ -17,6 +17,16 @@ type ReleaseBehaviouralSlotsRequest = {
   studentAuthorizationColumn?: string;
 };
 
+type ReleaseOneOnOneSlotsRequest = {
+  date: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  instructorNumber: string;
+  domain: string;
+  syncToForm?: boolean;
+};
+
 type ReleasePresentationSlotsRequest = {
   date: string;
   startTime: string;
@@ -39,9 +49,41 @@ export type ReleaseBehaviouralSlotsResponse = {
   addedStudents?: number;
 };
 
+export type PresentationMailFailure = {
+  recipient: string;
+  error: string;
+};
+
+export type PresentationMailSummary = {
+  attempted: number;
+  sent: number;
+  failed: number;
+  failures: PresentationMailFailure[];
+  logSheetReady: boolean;
+  logSheetError?: string;
+};
+
+export type ReleasePresentationSlotsResponse = ReleaseBehaviouralSlotsResponse & {
+  mailSummary?: PresentationMailSummary;
+};
+
 export type InstructorOption = {
   number: string;
   name: string;
+};
+
+export type PublishScoreActivity = {
+  key: string;
+  label: string;
+  startCol: number;
+  width: number;
+};
+
+export type PublishScoresResponse = {
+  activity: string;
+  rowsWritten: number;
+  startCol: number;
+  width: number;
 };
 
 const behavioralWebAppUrl = import.meta.env.VITE_BEHAVIORAL_APPS_SCRIPT_WEB_APP_URL as string | undefined;
@@ -50,6 +92,10 @@ const presentationWebAppUrl = import.meta.env.VITE_PRESENTATION_APPS_SCRIPT_WEB_
 const presentationApiToken = import.meta.env.VITE_PRESENTATION_APPS_SCRIPT_API_TOKEN as string | undefined;
 const aiEvaluationAppsScriptUrl = import.meta.env.VITE_AI_EVALUATION_APPS_SCRIPT_WEB_APP_URL as string | undefined;
 const aiEvaluationAppsScriptToken = import.meta.env.VITE_AI_EVALUATION_APPS_SCRIPT_API_TOKEN as string | undefined;
+const oneOnOneWebAppUrl = import.meta.env.VITE_ONE_ON_ONE_APPS_SCRIPT_WEB_APP_URL as string | undefined;
+const oneOnOneApiToken = import.meta.env.VITE_ONE_ON_ONE_APPS_SCRIPT_API_TOKEN as string | undefined;
+const scoresWebAppUrl = import.meta.env.VITE_SCORES_APPS_SCRIPT_WEB_APP_URL as string | undefined;
+const scoresApiToken = import.meta.env.VITE_SCORES_APPS_SCRIPT_API_TOKEN as string | undefined;
 
 export type AiEvaluationModule =
   | 'all'
@@ -105,6 +151,70 @@ type GetAiStudentsResponse = {
 
 function normalizeWebAppUrl(url: string): string {
   return url.replace(/\/a\/macros\/[^/]+\/s\//, '/macros/s/');
+}
+
+async function callOneOnOneAppsScript<T>(payload: Record<string, unknown>): Promise<T> {
+  if (!oneOnOneWebAppUrl) {
+    throw new Error('Missing 1on1 Apps Script URL in environment.');
+  }
+
+  const response = await fetch(normalizeWebAppUrl(oneOnOneWebAppUrl), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8',
+    },
+    body: JSON.stringify({
+      ...payload,
+      apiToken: oneOnOneApiToken,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Apps Script request failed (${response.status})`);
+  }
+
+  const result = await parseJsonResponse<T>(response);
+  if (!result.success) {
+    throw new Error(result.error || result.message || 'Apps Script request failed.');
+  }
+
+  if (result.data === undefined) {
+    throw new Error('Apps Script response is missing data.');
+  }
+
+  return result.data;
+}
+
+async function callScoresAppsScript<T>(payload: Record<string, unknown>): Promise<T> {
+  if (!scoresWebAppUrl) {
+    throw new Error('Missing scores Apps Script URL in environment.');
+  }
+
+  const response = await fetch(normalizeWebAppUrl(scoresWebAppUrl), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8',
+    },
+    body: JSON.stringify({
+      ...payload,
+      apiToken: scoresApiToken,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Apps Script request failed (${response.status})`);
+  }
+
+  const result = await parseJsonResponse<T>(response);
+  if (!result.success) {
+    throw new Error(result.error || result.message || 'Apps Script request failed.');
+  }
+
+  if (result.data === undefined) {
+    throw new Error('Apps Script response is missing data.');
+  }
+
+  return result.data;
 }
 
 async function parseJsonResponse<T>(response: Response): Promise<ApiEnvelope<T>> {
@@ -208,8 +318,8 @@ export async function releaseBehaviouralSlots(
 
 export async function releasePresentationSlots(
   args: ReleasePresentationSlotsRequest,
-): Promise<ReleaseBehaviouralSlotsResponse> {
-  return callPresentationAppsScript<ReleaseBehaviouralSlotsResponse>({
+): Promise<ReleasePresentationSlotsResponse> {
+  return callPresentationAppsScript<ReleasePresentationSlotsResponse>({
     action: 'releasePresentationSlots',
     ...args,
   });
@@ -224,6 +334,21 @@ export async function getBehavioralInstructors(): Promise<InstructorOption[]> {
 export async function getPresentationInstructors(): Promise<InstructorOption[]> {
   return callPresentationAppsScript<InstructorOption[]>({
     action: 'getInstructors',
+  });
+}
+
+export async function getOneOnOneInstructors(): Promise<InstructorOption[]> {
+  return callOneOnOneAppsScript<InstructorOption[]>({
+    action: 'getInstructors',
+  });
+}
+
+export async function releaseOneOnOneSlots(
+  args: ReleaseOneOnOneSlotsRequest,
+): Promise<ReleaseBehaviouralSlotsResponse> {
+  return callOneOnOneAppsScript<ReleaseBehaviouralSlotsResponse>({
+    action: 'releaseOneOnOneSlots',
+    ...args,
   });
 }
 
@@ -275,6 +400,22 @@ export async function runAiMenuAction(
 ): Promise<RunAiMenuActionResponse> {
   return callAiEvaluationAppsScript<RunAiMenuActionResponse>({
     action: 'runMenuAction',
+    ...request,
+  });
+}
+
+export async function getPublishScoreActivities(): Promise<PublishScoreActivity[]> {
+  return callScoresAppsScript<PublishScoreActivity[]>({
+    action: 'getPublishScoreActivities',
+  });
+}
+
+export async function publishScoresToSheet(request: {
+  activityKey: string;
+  rowsText: string;
+}): Promise<PublishScoresResponse> {
+  return callScoresAppsScript<PublishScoresResponse>({
+    action: 'publishScores',
     ...request,
   });
 }

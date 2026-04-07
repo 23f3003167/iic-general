@@ -105,9 +105,13 @@ function releasePresentationSlots_(payload) {
   var resetFormResponses = payload.resetFormResponses === true;
   var studentAuthorizationColumn = String(payload.studentAuthorizationColumn || '').trim().toUpperCase();
   var studentAuthorizationEmails = payload.studentAuthorizationEmails;
+  var notificationRecipients = normalizeAuthorizationEmails_(studentAuthorizationEmails);
 
   if (!date || !startTime || !endTime || !durationMinutes || !instructorNumber) {
     throw new Error('Missing slot details');
+  }
+  if (notificationRecipients.length === 0) {
+    throw new Error('Student authorization email list is required to send official notification mail.');
   }
 
   createSlots(
@@ -124,8 +128,8 @@ function releasePresentationSlots_(payload) {
   var invalidStudents = null;
   var addedStudents = null;
 
-  if (syncToForm && studentAuthorizationEmails) {
-    var appendStats = appendAuthorizationEmailsToStudents_(studentAuthorizationEmails);
+  if (syncToForm && notificationRecipients.length > 0) {
+    var appendStats = appendAuthorizationEmailsToStudents_(notificationRecipients);
     studentAuthorizationColumn = appendStats.authorizationColumn;
     validStudents = appendStats.validStudents;
     invalidStudents = appendStats.invalidStudents;
@@ -154,6 +158,15 @@ function releasePresentationSlots_(payload) {
     syncAvailableSlotsToForm();
   }
 
+  var mailSummary = sendPresentationSlotReleaseEmails_(notificationRecipients, {
+    date: date,
+    startTime: startTime,
+    endTime: endTime,
+    durationMinutes: durationMinutes,
+    instructorNumber: instructorNumber,
+    slotsCreated: slotsCreated
+  });
+
   return {
     slotsCreated: slotsCreated,
     syncToForm: syncToForm,
@@ -161,8 +174,159 @@ function releasePresentationSlots_(payload) {
     authorizationColumn: studentAuthorizationColumn || '',
     validStudents: validStudents,
     invalidStudents: invalidStudents,
-    addedStudents: addedStudents
+    addedStudents: addedStudents,
+    mailSummary: mailSummary
   };
+}
+
+function sendPresentationSlotReleaseEmails_(recipients, context) {
+  if (!recipients || recipients.length === 0) {
+    return {
+      attempted: 0,
+      sent: 0,
+      failed: 0,
+      failures: [],
+      logSheetReady: false,
+      logSheetError: 'No recipients'
+    };
+  }
+
+  var logSheetState = ensureMailLogSheetReady_();
+
+  var props = PropertiesService.getScriptProperties();
+  var subjectTemplate = props.getProperty('PRESENTATION_SLOT_MAIL_SUBJECT') ||
+    'Presentation Slots Are Open - Book Now!';
+
+  var bodyTemplate = props.getProperty('PRESENTATION_SLOT_MAIL_BODY_TEXT') || [
+    'Dear Student,',
+    '',
+    'Please use the link below to book your preferred slot for the presentation. Slots are limited and will be allocated on a first-come, first-served basis.',
+    '',
+    'GForm Link: {GFORM_LINK}',
+    '',
+    'Please submit the form before the deadline: {DEADLINE}.',
+    '',
+    'Request to all: Please refrain from sending repeated messages once slots are booked or the form is closed. New slots will be released for those who have not attempted. Your cooperation is appreciated.',
+    '',
+    'To help you prepare effectively, please find attached:',
+    '',
+    'Presentation Guidelines (link): {GUIDELINES_LINK}',
+    'Video Recording (MP4):',
+    'Session 1 - Presentation Skills YouTube Link: {YOUTUBE_1}',
+    'Session 2 - Presentation Skills YouTube Link: {YOUTUBE_2}',
+    '',
+    'Review the materials thoroughly and start practicing early to build confidence.'
+  ].join('\n');
+
+  var instructorName = resolveInstructorNameByNumber_(context.instructorNumber);
+  var replacements = {
+    '{DATE}': String(context.date || ''),
+    '{START_TIME}': String(context.startTime || ''),
+    '{END_TIME}': String(context.endTime || ''),
+    '{DURATION_MINUTES}': String(context.durationMinutes || ''),
+    '{INSTRUCTOR_NAME}': instructorName,
+    '{SLOTS_CREATED}': String(context.slotsCreated || ''),
+    '{GFORM_LINK}': props.getProperty('PRESENTATION_SLOT_GFORM_LINK') || 'Link',
+    '{DEADLINE}': props.getProperty('PRESENTATION_SLOT_DEADLINE') || 'Please check portal notice',
+    '{GUIDELINES_LINK}': props.getProperty('PRESENTATION_GUIDELINES_LINK') || 'Link',
+    '{YOUTUBE_1}': props.getProperty('PRESENTATION_YOUTUBE_1') || 'https://youtu.be/2NvPBDx9AVY',
+    '{YOUTUBE_2}': props.getProperty('PRESENTATION_YOUTUBE_2') || 'https://youtu.be/-zKrX2TE9yo'
+  };
+
+  var subject = applyMailTemplate_(subjectTemplate, replacements);
+  var textBody = applyMailTemplate_(bodyTemplate, replacements);
+  var signature = getPrimarySignature_();
+  var htmlBody = nl2brEscaped_(textBody) + (signature ? '<br><br>' + signature : '');
+
+  var result = {
+    attempted: recipients.length,
+    sent: 0,
+    failed: 0,
+    failures: [],
+    logSheetReady: logSheetState.ok,
+    logSheetError: logSheetState.error || ''
+  };
+
+  for (var i = 0; i < recipients.length; i++) {
+    var recipient = recipients[i];
+    try {
+      GmailApp.sendEmail(recipient, subject, textBody, {
+        htmlBody: htmlBody,
+        name: 'IIC Team'
+      });
+      result.sent++;
+      logMailSend_(recipient, 'SENT', '', context);
+    } catch (sendErr) {
+      var errorMsg = sendErr && sendErr.message ? sendErr.message : String(sendErr);
+      result.failed++;
+      result.failures.push({
+        recipient: recipient,
+        error: errorMsg
+      });
+      logMailSend_(recipient, 'ERROR', errorMsg, context);
+    }
+  }
+
+  return result;
+}
+
+function getPrimarySignature_() {
+  try {
+    var sendAsList = Gmail.Users.Settings.SendAs.list('me').sendAs || [];
+    for (var i = 0; i < sendAsList.length; i++) {
+      if (sendAsList[i].isPrimary) {
+        return sendAsList[i].signature || '';
+      }
+    }
+    return '';
+  } catch (_e) {
+    return '';
+  }
+}
+
+function nl2brEscaped_(text) {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\r\n|\n|\r/g, '<br>');
+}
+
+function applyMailTemplate_(template, replacements) {
+  var output = String(template || '');
+  for (var key in replacements) {
+    if (replacements.hasOwnProperty(key)) {
+      output = output.split(key).join(String(replacements[key]));
+    }
+  }
+  return output;
+}
+
+function resolveInstructorNameByNumber_(instructorNumber) {
+  var normalized = String(instructorNumber || '').trim();
+  if (!normalized) {
+    return '';
+  }
+
+  var sheet = SpreadsheetApp.getActive().getSheetByName('Instructors');
+  if (!sheet) {
+    return normalized;
+  }
+
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 0; i < rows.length; i++) {
+    var key = String(rows[i][0] || '').trim();
+    var name = String(rows[i][1] || '').trim();
+    if (!key || !name) continue;
+
+    var match = key.match(/(\d+)/);
+    var number = match ? String(match[1]) : '';
+    if (number === normalized) {
+      return name;
+    }
+  }
+
+  return normalized;
 }
 
 function countCreatedSlots_(date, startTime, endTime, instructorNumber, durationMinutes) {
@@ -431,6 +595,52 @@ function submitEvaluation_(payload) {
   return { updated: true };
 }
 
+function getOrCreateMailLogSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Mail Log');
+  
+  if (!sheet) {
+    sheet = ss.insertSheet('Mail Log');
+    var headers = ['timestamp', 'recipient_email', 'status', 'error', 'slots_created', 'instructor', 'date'];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+  
+  return sheet;
+}
+
+function ensureMailLogSheetReady_() {
+  try {
+    getOrCreateMailLogSheet_();
+    return { ok: true, error: '' };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err && err.message ? err.message : String(err)
+    };
+  }
+}
+
+function logMailSend_(recipient, status, error, context) {
+  try {
+    var sheet = getOrCreateMailLogSheet_();
+    var now = new Date().toISOString();
+    var nextRow = sheet.getLastRow() + 1;
+    
+    sheet.getRange(nextRow, 1, 1, 7).setValues([[
+      now,
+      recipient,
+      status,
+      error || '',
+      String(context.slotsCreated || ''),
+      String(context.instructorNumber || ''),
+      String(context.date || '')
+    ]]);
+  } catch (_err) {
+    // Silently log to system logger if sheet write fails
+    Logger.log('[logMailSend_] Failed to write log: %s', _err && _err.message ? _err.message : String(_err));
+  }
+}
+
 function jsonResponse_(success, data, message, error) {
   var payload = {
     success: success,
@@ -445,4 +655,12 @@ function jsonResponse_(success, data, message, error) {
   return ContentService
     .createTextOutput(JSON.stringify(payload))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Run once from Apps Script editor (Run button) to grant mail + spreadsheet scopes.
+function authorizePresentationMail_() {
+  SpreadsheetApp.getActiveSpreadsheet().getId();
+  GmailApp.getAliases();
+  Gmail.Users.Settings.SendAs.list('me');
+  return 'Authorization successful';
 }

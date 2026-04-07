@@ -1,0 +1,28 @@
+IIC Portal - Automation Summary
+
+1) Form status automation
+- Form status is auto-computed from start/end date-time.
+- Rules: Upcoming (before start), Open (within window), Closed (after end).
+- Admins do not manually set status.
+
+2) Slot booking automation (Behavioral / Presentation / 1on1)
+- Admin can release slots from web UI.
+- Slots are generated in batches from date/time ranges.
+- Optional sync updates Google Form slot choices automatically.
+
+3) 1on1 pending-student automation (Evaluator flow)
+- Pending students are auto-filtered from Student Details where Column K is blank.
+- Evaluators only see their own pending students.
+- Module selection is mandatory before evaluator UI appears (Behavioral, Presentation, 1on1).
+
+4) 1on1 evaluation writeback automation
+- Submitted evaluator scores/feedback are written to Feedback Sheet.
+- Resume and progress card links are shown at top for quick review.
+
+5) AI evaluation automation
+- AI menu actions can be run from admin UI (single row, range, or bulk).
+- Student evaluation rows are fetched and refreshed via Apps Script endpoints.
+
+6) Admin content management automation
+- Forms, Announcements, FAQs, and Documents are managed via Firestore CRUD.
+- Public pages auto-reflect latest admin updates without code changes.

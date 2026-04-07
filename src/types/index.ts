@@ -66,7 +66,7 @@ export interface Ticket {
 
 export type EvaluationStatus = 'Pending' | 'Completed';
 
-export type EvaluationSection = 'behavioral' | 'presentation';
+export type EvaluationSection = 'behavioral' | 'presentation' | 'oneOnOne';
 
 export interface BaseEvaluation {
   id: string;
@@ -92,4 +92,26 @@ export interface PresentationEvaluation extends BaseEvaluation {
   slideComposition?: number;
   presentation?: number;
   outOf30?: number;
+}
+
+export interface OneOnOneEvaluation extends BaseEvaluation {
+  studentDate?: string;
+  slotTime?: string;
+  cgpa?: string;
+  domain?: string;
+  plan?: string;
+  resumeUrl?: string;
+  progressCard?: string;
+  placementReadiness?: string;
+  skillsets?: string;
+  technicalProgramming?: number | string;
+  technicalDataScience?: number | string;
+  communication?: number | string;
+  readiness?: string;
+  exceptional?: string;
+  tasks?: string;
+  roles?: string;
+  detailedFeedback1?: string;
+  detailedFeedback2?: string;
+  additionalRemarks?: string;
 }
