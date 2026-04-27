@@ -38,6 +38,44 @@ export interface Document {
   type: 'PDF' | 'Drive' | 'External';
 }
 
+export type ExamStatus = 'DRAFT' | 'UPCOMING' | 'OPEN' | 'CLOSED';
+
+export interface ExamQuestion {
+  prompt: string;
+  options: string[];
+  answerIndex: number;
+  weight: number;
+  explanation?: string;
+}
+
+export interface ExamConfig {
+  id: string;
+  examId: string;
+  title: string;
+  description: string;
+  status: ExamStatus;
+  startAt: string;
+  endAt: string;
+  durationMinutes: number;
+  questions: ExamQuestion[];
+  eligibleEmails: string[];
+  eligibleColumn?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ExamAttempt {
+  attemptId: string;
+  examId: string;
+  email: string;
+  tabSwitchCount: number;
+  score: number;
+  startAt: string;
+  endAt: string;
+  submittedAt: string;
+  eligible: boolean;
+}
+
 export type TicketCategory = string;
 
 export type TicketStatus = 'NEW' | 'DRAFTED' | 'SENT' | 'ERROR';

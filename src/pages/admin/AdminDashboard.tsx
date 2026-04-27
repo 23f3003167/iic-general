@@ -12,6 +12,7 @@ import {
   LogOut,
   Home,
   Plus,
+  ClipboardList,
 } from 'lucide-react';
 import { CheckCircle2 } from 'lucide-react';
 import {
@@ -53,6 +54,7 @@ import DocumentsManagement from './DocumentsManagement';
 import TicketsManagement from './TicketsManagement';
 import ToolsManagement from './ToolsManagement';
 import EvaluatorsManagement from './EvaluatorsManagement';
+import ExamsManagement from './ExamsManagement';
 
 const adminNavItems = [
   { path: '/admin/dashboard', label: 'Overview', icon: Home },
@@ -62,6 +64,7 @@ const adminNavItems = [
   { path: '/admin/tools', label: 'Tools', icon: Wrench },
   { path: '/admin/faqs', label: 'FAQs', icon: HelpCircle },
   { path: '/admin/documents', label: 'Documents', icon: BookOpen },
+  { path: '/admin/exams', label: 'Exams', icon: ClipboardList },
   { path: '/admin/evaluators', label: 'Evaluators', icon: CheckCircle2 },
 ];
 
@@ -265,6 +268,8 @@ const AdminDashboard = () => {
         return <FAQsManagement />;
       case '/admin/documents':
         return <DocumentsManagement />;
+      case '/admin/exams':
+        return <ExamsManagement />;
             case '/admin/evaluators':
               return <EvaluatorsManagement />;
       default:
@@ -273,7 +278,7 @@ const AdminDashboard = () => {
             <div>
               <h1 className="text-2xl font-bold">Dashboard Overview</h1>
               <p className="text-muted-foreground">
-                Manage forms, announcements, FAQs, and documents.
+                Manage forms, announcements, FAQs, documents, and exams.
               </p>
             </div>
 
@@ -333,6 +338,13 @@ const AdminDashboard = () => {
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Add Document
+                  </Button>
+                  <Button
+                    onClick={() => navigate('/admin/exams')}
+                    className="w-full justify-start"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Manage Exams
                   </Button>
                 </div>
               </CardContent>

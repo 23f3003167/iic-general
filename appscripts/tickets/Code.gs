@@ -205,7 +205,7 @@ function sendTicketMailInternal_(ticketId, sentBy) {
   try {
     const signature = getPrimarySignature_();
     const textBody = ticket.mailDraft;
-    const htmlBody = nl2brEscaped_(ticket.mailDraft) + (signature ? '<br><br>' + signature : '');
+    const htmlBody = buildTicketHtmlBody_(ticket.mailDraft, signature, sentBy);
 
     GmailApp.sendEmail(ticket.studentEmail, CONFIG.SUBJECT, textBody, {
       htmlBody: htmlBody,
@@ -349,6 +349,102 @@ function nl2brEscaped_(text) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
   return safe.replace(/\r?\n/g, '<br>');
+}
+
+function buildTicketHtmlBody_(draftText, signatureHtml, senderName) {
+  const draftHtml = nl2brEscaped_(draftText);
+  const signature = String(signatureHtml || '').trim();
+  const sender = String(senderName || '').trim();
+
+  if (!signature) {
+    return draftHtml;
+  }
+
+  // Place resolution content inside signature between greeting and thanks.
+  const inserted = insertDraftBetweenGreetingAndThanks_(signature, draftHtml);
+  if (inserted) {
+    return insertSenderAfterWarmRegards_(inserted, sender) || inserted;
+  }
+
+  const withSender = insertSenderAfterWarmRegards_(signature, sender);
+  return draftHtml + '<br><br>' + (withSender || signature);
+}
+
+function insertDraftBetweenGreetingAndThanks_(signatureHtml, draftHtml) {
+  const html = String(signatureHtml || '');
+  const lower = html.toLowerCase();
+
+  var thankYouIndex = lower.indexOf('thank you');
+  if (thankYouIndex < 0) {
+    return '';
+  }
+
+  var dearStudentIndex = lower.indexOf('dear student');
+  if (dearStudentIndex < 0 || dearStudentIndex > thankYouIndex) {
+    return '';
+  }
+
+  var insertAt = dearStudentIndex + 'dear student'.length;
+  var head = html.slice(0, insertAt);
+  var middle = html.slice(insertAt, thankYouIndex);
+  var tail = html.slice(thankYouIndex);
+
+  var greetingSuffix = '';
+  if (/^\s*,/.test(middle)) {
+    greetingSuffix = ',';
+  }
+
+  return head + greetingSuffix + '<br><br>' + draftHtml + '<br><br>' + tail;
+}
+
+function insertSenderAfterWarmRegards_(htmlBody, senderName) {
+  var html = String(htmlBody || '');
+  var sender = senderDisplayNameFromSender_(senderName);
+
+  if (!html || !sender) {
+    return '';
+  }
+
+  var lower = html.toLowerCase();
+  var warmRegardsIndex = lower.indexOf('warm regards');
+  var orgIndex = lower.indexOf('industry interaction cell');
+
+  if (warmRegardsIndex < 0 || orgIndex < 0 || warmRegardsIndex > orgIndex) {
+    return '';
+  }
+
+  var beforeOrg = html.slice(0, orgIndex);
+  var afterOrg = html.slice(orgIndex);
+  var normalizedBeforeOrg = beforeOrg.replace(/(?:<br\s*\/?>|\s)*$/i, '');
+  var normalizedAfterOrg = afterOrg.replace(/^(?:<br\s*\/?>|\s)*/i, '');
+  var senderEscaped = escapeHtml_(sender);
+
+  return normalizedBeforeOrg + '<br>' + senderEscaped + '<br>' + normalizedAfterOrg;
+}
+
+function senderDisplayNameFromSender_(senderName) {
+  var raw = String(senderName || '').trim();
+  if (!raw) return '';
+
+  var atIndex = raw.indexOf('@');
+  var localPart = atIndex >= 0 ? raw.slice(0, atIndex) : raw;
+
+  var underscoreIndex = localPart.indexOf('_');
+  var token = underscoreIndex >= 0 ? localPart.slice(0, underscoreIndex) : localPart;
+
+  token = token.trim();
+  if (!token) return '';
+
+  return token.charAt(0).toUpperCase() + token.slice(1).toLowerCase();
+}
+
+function escapeHtml_(text) {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function getPrimarySignature_() {
