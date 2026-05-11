@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -62,6 +62,7 @@ export default function ExamPage() {
   const [warningVisible, setWarningVisible] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const submitAttemptRef = useRef<() => Promise<void>>(async () => undefined);
 
   useEffect(() => {
     loadExamData();
@@ -74,7 +75,7 @@ export default function ExamPage() {
       setSecondsLeft((previous) => {
         if (previous <= 1) {
           window.clearInterval(interval);
-          void handleSubmit();
+          void submitAttemptRef.current();
           return 0;
         }
         return previous - 1;
@@ -278,6 +279,10 @@ export default function ExamPage() {
     }
   };
 
+  useEffect(() => {
+    submitAttemptRef.current = handleSubmit;
+  }, [handleSubmit]);
+
   const confirmAndSubmit = () => {
     if (!window.confirm('Are you sure you want to submit the exam? You cannot change answers after submission.')) {
       return;
@@ -293,6 +298,7 @@ export default function ExamPage() {
   const currentProgress = activeExam && secondsLeft > 0
     ? Math.max(0, Math.min(100, (secondsLeft / (activeExam.durationMinutes * 60)) * 100))
     : 0;
+  const lastMinuteReminderVisible = screen === 'running' && secondsLeft > 0 && secondsLeft <= 60;
 
   if (loading) {
     return (
@@ -410,6 +416,16 @@ export default function ExamPage() {
               </div>
 
               <Progress value={currentProgress} />
+
+              {lastMinuteReminderVisible && (
+                <Alert className="border-amber-500/40 bg-amber-50">
+                  <AlertCircle className="h-5 w-5 text-amber-600" />
+                  <AlertTitle>Last minute reminder</AlertTitle>
+                  <AlertDescription>
+                    Only 1 minute left. Please click Submit now to avoid auto-submit at the end.
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {warningVisible && (
                 <Alert className="border-amber-500/40 bg-amber-50">

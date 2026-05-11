@@ -44,6 +44,9 @@ font-size:15px;
 <label>End Time</label>
 <input type="time" id="end">
 
+<label>Duration</label>
+<select id="duration"></select>
+
 <label>Instructor</label>
 <select id="instructor"></select>
 
@@ -66,6 +69,29 @@ font-size:15px;
 <script>
 
 let instructors=[];
+
+function loadDurations(){
+
+google.script.run.withSuccessHandler(function(data){
+
+const select=document.getElementById("duration");
+
+data.forEach((duration)=>{
+
+const opt=document.createElement("option");
+
+opt.value=duration;
+opt.text=duration+" minutes";
+
+select.appendChild(opt);
+
+});
+
+select.value="30";
+
+}).getOneOnOneSlotDurations();
+
+}
 
 function loadInstructors(){
 
@@ -90,6 +116,7 @@ select.appendChild(opt);
 
 }
 
+loadDurations();
 loadInstructors();
 
 function submitForm(){
@@ -101,6 +128,7 @@ const payload={
 date:document.getElementById("date").value,
 start:document.getElementById("start").value,
 end:document.getElementById("end").value,
+durationMinutes:Number(document.getElementById("duration").value),
 domain:document.getElementById("domain").value,
 // plan:document.getElementById("plan").value,
 email:instructors[idx].email

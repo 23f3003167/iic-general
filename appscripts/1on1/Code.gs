@@ -323,3 +323,17 @@ function createOrUpdateMeeting(eventId, start, end, evaluatorEmail, studentEmail
     throw err;
   }
 }
+
+function getOneOnOneSlotDurations() {
+  return [15, 30];
+}
+
+function parseOneOnOneDurationMinutes_(value) {
+  var durationMinutes = Number(value || 30);
+
+  if (getOneOnOneSlotDurations().indexOf(durationMinutes) === -1) {
+    throw new Error('Unsupported slot duration. Use 15 or 30 minutes.');
+  }
+
+  return durationMinutes;
+}

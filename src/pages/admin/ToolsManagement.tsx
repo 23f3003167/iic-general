@@ -44,6 +44,7 @@ import {
 const BA_SLOT_DURATION_MINUTES = 10;
 const PRESENTATION_SLOT_DURATION_MINUTES = 15;
 const ONE_ON_ONE_SLOT_DURATION_MINUTES = 30;
+const ONE_ON_ONE_SLOT_DURATION_OPTIONS = [15, 30] as const;
 const DEFAULT_AI_MENU_OPTIONS: AiMenuOption[] = [
   {
     key: 'evaluate_selected_student',
@@ -205,6 +206,7 @@ const ToolsManagement = () => {
   const [oneOnOneEndTime, setOneOnOneEndTime] = useState('');
   const [oneOnOneInstructorNumber, setOneOnOneInstructorNumber] = useState('');
   const [oneOnOneDomain, setOneOnOneDomain] = useState('Data Science');
+  const [oneOnOneDurationMinutes, setOneOnOneDurationMinutes] = useState<number>(ONE_ON_ONE_SLOT_DURATION_MINUTES);
   const [oneOnOneSyncToForm, setOneOnOneSyncToForm] = useState(true);
   const [isReleasingOneOnOneSlots, setIsReleasingOneOnOneSlots] = useState(false);
   const [oneOnOneInstructors, setOneOnOneInstructors] = useState<InstructorOption[]>([]);
@@ -341,6 +343,7 @@ const ToolsManagement = () => {
     setOneOnOneEndTime('');
     setOneOnOneInstructorNumber(oneOnOneInstructors[0]?.number || '');
     setOneOnOneDomain('Data Science');
+    setOneOnOneDurationMinutes(ONE_ON_ONE_SLOT_DURATION_MINUTES);
     setOneOnOneSyncToForm(true);
   };
 
@@ -773,7 +776,7 @@ const ToolsManagement = () => {
       date: oneOnOneSlotDate,
       startTime: oneOnOneStartTime,
       endTime: oneOnOneEndTime,
-      durationMinutes: ONE_ON_ONE_SLOT_DURATION_MINUTES,
+      durationMinutes: oneOnOneDurationMinutes,
       instructorNumber: oneOnOneInstructorNumber,
       domain: oneOnOneDomain,
       syncToForm: oneOnOneSyncToForm,
@@ -793,7 +796,7 @@ const ToolsManagement = () => {
           date: oneOnOneSlotDate,
           startTime: toAmPmFrom24Hour(oneOnOneStartTime),
           endTime: toAmPmFrom24Hour(oneOnOneEndTime),
-          durationMinutes: ONE_ON_ONE_SLOT_DURATION_MINUTES,
+          durationMinutes: oneOnOneDurationMinutes,
           instructorNumber: oneOnOneInstructorNumber,
           syncToForm: oneOnOneSyncToForm,
           resetFormResponses: false,
@@ -821,7 +824,7 @@ const ToolsManagement = () => {
           date: oneOnOneSlotDate,
           startTime: toAmPmFrom24Hour(oneOnOneStartTime),
           endTime: toAmPmFrom24Hour(oneOnOneEndTime),
-          durationMinutes: ONE_ON_ONE_SLOT_DURATION_MINUTES,
+          durationMinutes: oneOnOneDurationMinutes,
           instructorNumber: oneOnOneInstructorNumber,
           syncToForm: oneOnOneSyncToForm,
           resetFormResponses: false,
@@ -1048,7 +1051,21 @@ const ToolsManagement = () => {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Slot Duration (mins)</label>
-              <Input value={String(ONE_ON_ONE_SLOT_DURATION_MINUTES)} disabled />
+              <Select
+                value={String(oneOnOneDurationMinutes)}
+                onValueChange={(value) => setOneOnOneDurationMinutes(Number(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select duration" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ONE_ON_ONE_SLOT_DURATION_OPTIONS.map((duration) => (
+                    <SelectItem key={`oneonone-duration-${duration}`} value={String(duration)}>
+                      {duration} minutes
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

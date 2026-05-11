@@ -32,7 +32,7 @@ function generateSlots(data){
   const sheet = SpreadsheetApp.getActive()
   .getSheetByName("Slot");
 
-  const duration=30;
+  const duration = parseOneOnOneDurationMinutes_(data.durationMinutes);
 
   let start=parseDateTime(data.date,data.start);
   const end=parseDateTime(data.date,data.end);

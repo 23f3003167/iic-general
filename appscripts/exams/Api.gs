@@ -146,53 +146,59 @@ function startAttempt_(payload) {
     throw new Error('examId and email are required');
   }
 
-  var exam = getExamById_(examId);
-  if (!exam) {
-    throw new Error('Exam not found: ' + examId);
+  var lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    var exam = getExamById_(examId);
+    if (!exam) {
+      throw new Error('Exam not found: ' + examId);
+    }
+
+    var now = new Date();
+    var start = new Date(exam.startAt);
+    var end = new Date(exam.endAt);
+    if (String(exam.status || '').toUpperCase() !== 'OPEN' || now < start || now > end) {
+      throw new Error('Exam is not currently open');
+    }
+
+    var attemptId = Utilities.getUuid();
+    var eligible = exam.eligibleEmails.indexOf(email) >= 0;
+    var startedAt = now.toISOString();
+    var rowValues = [
+      attemptId,
+      exam.examId,
+      exam.title,
+      email,
+      eligible ? 'YES' : 'NO',
+      0,
+      0,
+      startedAt,
+      '',
+      '',
+      exam.durationMinutes,
+      String(exam.status || ''),
+      new Date().toISOString()
+    ];
+
+    getAttemptedSheet_().appendRow(rowValues);
+
+    return {
+      attempt: {
+        attemptId: attemptId,
+        examId: exam.examId,
+        email: email,
+        tabSwitchCount: 0,
+        score: 0,
+        startAt: startedAt,
+        endAt: '',
+        submittedAt: '',
+        eligible: eligible
+      },
+      exam: exam
+    };
+  } finally {
+    lock.releaseLock();
   }
-
-  var now = new Date();
-  var start = new Date(exam.startAt);
-  var end = new Date(exam.endAt);
-  if (String(exam.status || '').toUpperCase() !== 'OPEN' || now < start || now > end) {
-    throw new Error('Exam is not currently open');
-  }
-
-  var attemptId = Utilities.getUuid();
-  var eligible = exam.eligibleEmails.indexOf(email) >= 0;
-  var startedAt = now.toISOString();
-  var rowValues = [
-    attemptId,
-    exam.examId,
-    exam.title,
-    email,
-    eligible ? 'YES' : 'NO',
-    0,
-    0,
-    startedAt,
-    '',
-    '',
-    exam.durationMinutes,
-    String(exam.status || ''),
-    new Date().toISOString()
-  ];
-
-  getAttemptedSheet_().appendRow(rowValues);
-
-  return {
-    attempt: {
-      attemptId: attemptId,
-      examId: exam.examId,
-      email: email,
-      tabSwitchCount: 0,
-      score: 0,
-      startAt: startedAt,
-      endAt: '',
-      submittedAt: '',
-      eligible: eligible
-    },
-    exam: exam
-  };
 }
 
 function submitAttempt_(payload) {
@@ -208,47 +214,53 @@ function submitAttempt_(payload) {
     throw new Error('attemptId, examId, and email are required');
   }
 
-  var sheet = getAttemptedSheet_();
-  var rowIndex = findAttemptRow_(sheet, attemptId);
-  var submittedAt = new Date().toISOString();
-  var exam = getExamById_(examId);
-  var eligible = exam ? exam.eligibleEmails.indexOf(email) >= 0 : false;
+  var lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = getAttemptedSheet_();
+    var rowIndex = findAttemptRow_(sheet, attemptId);
+    var submittedAt = new Date().toISOString();
+    var exam = getExamById_(examId);
+    var eligible = exam ? exam.eligibleEmails.indexOf(email) >= 0 : false;
 
-  var rowValues = [
-    attemptId,
-    examId,
-    exam ? exam.title : '',
-    email,
-    eligible ? 'YES' : 'NO',
-    tabSwitchCount,
-    score,
-    startAt,
-    endAt,
-    submittedAt,
-    exam ? exam.durationMinutes : '',
-    exam ? exam.status : '',
-    submittedAt
-  ];
+    var rowValues = [
+      attemptId,
+      examId,
+      exam ? exam.title : '',
+      email,
+      eligible ? 'YES' : 'NO',
+      tabSwitchCount,
+      score,
+      startAt,
+      endAt,
+      submittedAt,
+      exam ? exam.durationMinutes : '',
+      exam ? exam.status : '',
+      submittedAt
+    ];
 
-  if (rowIndex > 0) {
-    sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
-  } else {
-    sheet.appendRow(rowValues);
-  }
-
-  return {
-    attempt: {
-      attemptId: attemptId,
-      examId: examId,
-      email: email,
-      tabSwitchCount: tabSwitchCount,
-      score: score,
-      startAt: startAt,
-      endAt: endAt,
-      submittedAt: submittedAt,
-      eligible: eligible
+    if (rowIndex > 0) {
+      sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
+    } else {
+      sheet.appendRow(rowValues);
     }
-  };
+
+    return {
+      attempt: {
+        attemptId: attemptId,
+        examId: examId,
+        email: email,
+        tabSwitchCount: tabSwitchCount,
+        score: score,
+        startAt: startAt,
+        endAt: endAt,
+        submittedAt: submittedAt,
+        eligible: eligible
+      }
+    };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function getExamById_(examId) {

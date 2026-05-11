@@ -97,17 +97,13 @@ function releaseOneOnOneSlots_(payload) {
   var date = String(payload.date || '').trim();
   var startTime = String(payload.startTime || '').trim();
   var endTime = String(payload.endTime || '').trim();
-  var durationMinutes = Number(payload.durationMinutes || 30);
+  var durationMinutes = parseOneOnOneDurationMinutes_(payload.durationMinutes);
   var instructorEmail = String(payload.instructorNumber || '').trim();
   var domain = String(payload.domain || '').trim();
   var syncToForm = payload.syncToForm !== false;
 
   if (!date || !startTime || !endTime || !instructorEmail || !domain) {
     throw new Error('Missing slot details');
-  }
-
-  if (durationMinutes <= 0) {
-    throw new Error('Invalid duration');
   }
 
   var slotsCreated = createOneOnOneSlots_(date, startTime, endTime, durationMinutes, instructorEmail, domain);
