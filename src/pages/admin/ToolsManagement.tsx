@@ -22,6 +22,7 @@ import {
 import { Copy, Loader2, Upload, Wrench } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { auth } from '@/lib/firebase';
+import { listSlotsAvailability, type SlotAvailability, getSlotsConfig } from '@/lib/firestoreService';
 import {
   releaseBehaviouralSlots,
   getBehavioralInstructors,
@@ -166,6 +167,29 @@ function buildThirtyMinuteOptions(): Array<{ value: string; label: string }> {
   return options;
 }
 
+function formatAvailabilityLabel(availability?: {
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  instructorName?: string;
+  section?: string;
+  durationMinutes?: number;
+  instructorNumber?: string;
+}): string {
+  if (!availability) return '';
+
+  const parts = [
+    availability.section || '',
+    availability.date || '—',
+    availability.startTime || '—',
+    availability.endTime || '—',
+    availability.instructorName || `#${availability.instructorNumber || '—'}`,
+    availability.durationMinutes ? `${availability.durationMinutes} mins` : '—',
+  ].filter(Boolean);
+
+  return parts.join(' | ');
+}
+
 const ToolsManagement = () => {
   const { toast } = useToast();
 
@@ -191,6 +215,14 @@ const ToolsManagement = () => {
   const [isReleasingSlots, setIsReleasingSlots] = useState(false);
   const [behavioralInstructors, setBehavioralInstructors] = useState<InstructorOption[]>([]);
 
+  const [behavioralAvailabilities, setBehavioralAvailabilities] = useState<SlotAvailability[]>([]);
+  const [presentationAvailabilities, setPresentationAvailabilities] = useState<SlotAvailability[]>([]);
+  const [selectedBehavioralAvailability, setSelectedBehavioralAvailability] = useState<string>('');
+  const [selectedPresentationAvailability, setSelectedPresentationAvailability] = useState<string>('');
+  const [slotsConfig, setSlotsConfigState] = useState<{ editingEnabled?: boolean }>({ editingEnabled: false });
+
+  const SUPER_ADMINS = ['sanjay_k@study.iitm.ac.in', 'jeyalakshmi_a@study.iitm.ac.in'];
+  const isSuperAdmin = !!auth.currentUser && SUPER_ADMINS.includes(String(auth.currentUser.email || '').trim().toLowerCase());
   const [presentationSlotDate, setPresentationSlotDate] = useState('');
   const [presentationStartTime, setPresentationStartTime] = useState('');
   const [presentationEndTime, setPresentationEndTime] = useState('');
@@ -268,9 +300,55 @@ const ToolsManagement = () => {
       }
     };
 
+    const loadAvailabilities = async () => {
+      try {
+        const [baList, prList] = await Promise.all([
+          listSlotsAvailability('behavioral'),
+          listSlotsAvailability('presentation'),
+        ]);
+        setBehavioralAvailabilities(baList || []);
+        setPresentationAvailabilities(prList || []);
+        // load config
+        try {
+          const cfg = await getSlotsConfig();
+          setSlotsConfigState(cfg || { editingEnabled: false });
+        } catch (_e) {
+          // ignore
+        }
+      } catch (error) {
+        console.error('Could not load availabilities', error);
+      }
+    };
+
     loadInstructors();
+    loadAvailabilities();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleSelectPresentationAvailability = (id: string) => {
+    setSelectedPresentationAvailability(id);
+    if (!id) return;
+    const a = presentationAvailabilities.find((it) => it.id === id);
+    if (!a) return;
+    setPresentationSlotDate(a.date || '');
+    setPresentationStartTime(a.startTime || '');
+    setPresentationEndTime(a.endTime || '');
+    setPresentationInstructorNumber(a.instructorNumber || presentationInstructorNumber);
+  };
+
+  const handleSelectBehavioralAvailability = (id: string) => {
+    setSelectedBehavioralAvailability(id);
+    if (!id) return;
+    const a = behavioralAvailabilities.find((it) => it.id === id);
+    if (!a) return;
+    setSlotDate(a.date || '');
+    setStartTime(a.startTime || '');
+    setEndTime(a.endTime || '');
+    setInstructorNumber(a.instructorNumber || instructorNumber);
+  };
+
+  const selectedPresentationAvailabilityRow = presentationAvailabilities.find((item) => item.id === selectedPresentationAvailability);
+  const selectedBehavioralAvailabilityRow = behavioralAvailabilities.find((item) => item.id === selectedBehavioralAvailability);
 
   useEffect(() => {
     if (openAiEvaluationTool) {
@@ -707,19 +785,10 @@ const ToolsManagement = () => {
         ? ` Auth column ${response.authorizationColumn}: ${response.addedStudents ?? response.validStudents ?? 0} emails added.`
         : '';
       const resetSummary = response.resetFormResponses ? ' Form responses reset for reattempts.' : '';
-      const mailSummary = response.mailSummary
-        ? ` Mail: attempted ${response.mailSummary.attempted}, sent ${response.mailSummary.sent}, failed ${response.mailSummary.failed}.`
-        : '';
-      const mailFailureSummary = response.mailSummary && response.mailSummary.failed > 0 && response.mailSummary.failures.length > 0
-        ? ` First failure: ${response.mailSummary.failures[0].recipient} (${response.mailSummary.failures[0].error}).`
-        : '';
-      const mailLogWarning = response.mailSummary && !response.mailSummary.logSheetReady
-        ? ` Mail Log unavailable: ${response.mailSummary.logSheetError || 'sheet not accessible'}.`
-        : '';
 
       toast({
         title: 'Presentation slots released',
-        description: `${response.slotsCreated} slots created${response.syncToForm ? ' and synced to form.' : '.'}${resetSummary}${authSummary}${mailSummary}${mailFailureSummary}${mailLogWarning}`,
+        description: `${response.slotsCreated} slots created${response.syncToForm ? ' and synced to form.' : '.'}${resetSummary}${authSummary}`,
       });
 
       addHistory({
@@ -1335,6 +1404,34 @@ const ToolsManagement = () => {
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
+              <label className="text-sm font-medium">Saved Availability</label>
+              <Select value={selectedPresentationAvailability} onValueChange={handleSelectPresentationAvailability}>
+                <SelectTrigger>
+                  <SelectValue placeholder={presentationAvailabilities.length > 0 ? 'Select availability' : 'No saved availability'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {presentationAvailabilities.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {formatAvailabilityLabel(a)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground whitespace-pre-wrap">
+                {selectedPresentationAvailabilityRow ? (
+                  <>
+                    <div className="font-medium text-foreground">Selected availability</div>
+                    <div>{formatAvailabilityLabel(selectedPresentationAvailabilityRow)}</div>
+                    <div>ID: {selectedPresentationAvailabilityRow.id}</div>
+                    <div>Created by: {selectedPresentationAvailabilityRow.createdBy || '—'}</div>
+                  </>
+                ) : (
+                  'Select a saved availability to populate the release fields.'
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <label className="text-sm font-medium">Date</label>
               <Input
                 type="date"
@@ -1556,6 +1653,34 @@ const ToolsManagement = () => {
           </DialogHeader>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Saved Availability</label>
+              <Select value={selectedBehavioralAvailability} onValueChange={handleSelectBehavioralAvailability}>
+                <SelectTrigger>
+                  <SelectValue placeholder={behavioralAvailabilities.length > 0 ? 'Select availability' : 'No saved availability'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {behavioralAvailabilities.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {formatAvailabilityLabel(a)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground whitespace-pre-wrap">
+                {selectedBehavioralAvailabilityRow ? (
+                  <>
+                    <div className="font-medium text-foreground">Selected availability</div>
+                    <div>{formatAvailabilityLabel(selectedBehavioralAvailabilityRow)}</div>
+                    <div>ID: {selectedBehavioralAvailabilityRow.id}</div>
+                    <div>Created by: {selectedBehavioralAvailabilityRow.createdBy || '—'}</div>
+                  </>
+                ) : (
+                  'Select a saved availability to populate the release fields.'
+                )}
+              </div>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Date</label>
               <Input type="date" value={slotDate} onChange={(e) => setSlotDate(e.target.value)} />

@@ -113,10 +113,30 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.email.lower() in adminEmails;
     }
     
+    function isSlotsSuperAdmin() {
+      return request.auth != null &&
+        request.auth.token.email in [
+          'sanjay_k@study.iitm.ac.in',
+          'jeyalakshmi_a@study.iitm.ac.in'
+        ];
+    }
+
     // Admin collection - only read by admins
     match /admins/allowed {
       allow read: if request.auth != null;
       allow write: if false;
+    }
+
+    // Slots availability config is editable only by super admins
+    match /slotsAvailabilityConfig/{doc} {
+      allow read: if request.auth != null;
+      allow write: if isSlotsSuperAdmin();
+    }
+
+    // Saved slots are managed by admins
+    match /slotsAvailability/{doc} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
     }
     
     // All other collections - read for everyone, write for admins only

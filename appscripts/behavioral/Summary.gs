@@ -82,6 +82,7 @@ function refreshSummary() {
     }
 
     const formLastRow = formSheet.getLastRow();
+    const formLastColumn = formSheet.getLastColumn();
     Logger.log("Form last row: " + formLastRow);
 
     if (formLastRow < 2) {
@@ -92,19 +93,28 @@ function refreshSummary() {
     const existing = getExistingIds(summarySheet);
     Logger.log("Existing keys count: " + Object.keys(existing).length);
 
+    const formHeaders = formSheet.getRange(1, 1, 1, formLastColumn).getValues()[0];
+    const nameIndex = getColumnIndexByHeader_(formHeaders, ["name"]);
+    const emailIndex = getColumnIndexByHeader_(formHeaders, ["email"]);
+    const slotIndex = getColumnIndexByHeader_(formHeaders, ["slot"]);
+    const contactIndex = getColumnIndexByHeader_(formHeaders, ["contact"]);
+
+    Logger.log("Resolved columns -> name: " + nameIndex + ", email: " + emailIndex + ", slot: " + slotIndex + ", contact: " + contactIndex);
+
     const rowsToAppend = [];
 
     for (let r = 2; r <= formLastRow; r++) {
 
       Logger.log("Reading form row: " + r);
 
-      const row = formSheet.getRange(r, 1, 1, 5).getValues()[0];
+      const row = formSheet.getRange(r, 1, 1, formLastColumn).getValues()[0];
 
       Logger.log("Raw row: " + JSON.stringify(row));
 
-      const name = String(row[1] || "").trim();
-      const email = String(row[2] || "").trim();
-      const slot = String(row[3] || "").trim();
+      const name = getStringByIndex_(row, nameIndex, 1);
+      const email = getStringByIndex_(row, emailIndex, 2);
+      const slot = getStringByIndex_(row, slotIndex, 3);
+      const contact = getStringByIndex_(row, contactIndex, formLastColumn - 1);
 
       Logger.log("Parsed → Name: " + name);
       Logger.log("Parsed → Email: " + email);
@@ -119,7 +129,13 @@ function refreshSummary() {
       Logger.log("Generated key: " + key);
 
       if (existing[key]) {
-        Logger.log("⚠️ Already exists → skipping");
+        if (contact && !existing[key].contact) {
+          summarySheet.getRange(existing[key].rowNumber, 14).setValue(contact);
+          existing[key].contact = contact;
+          Logger.log("ℹ️ Existing record contact backfilled at row " + existing[key].rowNumber);
+        } else {
+          Logger.log("⚠️ Already exists → skipping");
+        }
         continue;
       }
 
@@ -144,7 +160,8 @@ function refreshSummary() {
         "", "", "", "",
         "",
         "",
-        ""
+        "",
+        contact
       ]);
     }
 
@@ -152,7 +169,7 @@ function refreshSummary() {
 
     if (rowsToAppend.length > 0) {
       summarySheet
-        .getRange(summarySheet.getLastRow() + 1, 1, rowsToAppend.length, 13)
+        .getRange(summarySheet.getLastRow() + 1, 1, rowsToAppend.length, 14)
         .setValues(rowsToAppend);
 
       Logger.log("✅ Rows written to Summary");
@@ -178,14 +195,18 @@ function getExistingIds(summarySheet) {
   const last = summarySheet.getLastRow();
   if (last < 2) return map;
 
-  const data = summarySheet.getRange(2, 1, last - 1, 13).getValues();
+  const data = summarySheet.getRange(2, 1, last - 1, 14).getValues();
 
-  data.forEach(r => {
+  data.forEach((r, idx) => {
     const email = String(r[4] || "").trim(); // Column E
     const slot  = String(r[2] || "").trim(); // Column C
+    const contact = String(r[13] || "").trim(); // Column N
 
     if (email && slot) {
-      map[email + " | " + slot] = true;
+      map[email + " | " + slot] = {
+        rowNumber: idx + 2,
+        contact: contact
+      };
     }
   });
 
@@ -215,4 +236,37 @@ function extractInstructorKey(slot) {
   if (parts.length < 2) return null;
 
   return parts[1].trim(); // "Instructor 1"
+}
+
+function getColumnIndexByHeader_(headers, keywords) {
+  for (let i = 0; i < headers.length; i++) {
+    const header = String(headers[i] || "").trim().toLowerCase();
+    if (!header) continue;
+
+    let matched = true;
+    for (let k = 0; k < keywords.length; k++) {
+      if (header.indexOf(String(keywords[k]).toLowerCase()) === -1) {
+        matched = false;
+        break;
+      }
+    }
+
+    if (matched) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+function getStringByIndex_(row, resolvedIndex, fallbackIndex) {
+  if (resolvedIndex >= 0 && resolvedIndex < row.length) {
+    return String(row[resolvedIndex] || "").trim();
+  }
+
+  if (fallbackIndex >= 0 && fallbackIndex < row.length) {
+    return String(row[fallbackIndex] || "").trim();
+  }
+
+  return "";
 }

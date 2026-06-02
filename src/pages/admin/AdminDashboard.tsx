@@ -13,6 +13,7 @@ import {
   Home,
   Plus,
   ClipboardList,
+  Calendar,
 } from 'lucide-react';
 import { CheckCircle2 } from 'lucide-react';
 import {
@@ -55,6 +56,7 @@ import TicketsManagement from './TicketsManagement';
 import ToolsManagement from './ToolsManagement';
 import EvaluatorsManagement from './EvaluatorsManagement';
 import ExamsManagement from './ExamsManagement';
+import SlotsAvailabilityPage from './SlotsAvailability';
 
 const adminNavItems = [
   { path: '/admin/dashboard', label: 'Overview', icon: Home },
@@ -65,6 +67,7 @@ const adminNavItems = [
   { path: '/admin/faqs', label: 'FAQs', icon: HelpCircle },
   { path: '/admin/documents', label: 'Documents', icon: BookOpen },
   { path: '/admin/exams', label: 'Exams', icon: ClipboardList },
+  { path: '/admin/slots-availability', label: 'Slots Availability', icon: Calendar },
   { path: '/admin/evaluators', label: 'Evaluators', icon: CheckCircle2 },
 ];
 
@@ -270,6 +273,8 @@ const AdminDashboard = () => {
         return <DocumentsManagement />;
       case '/admin/exams':
         return <ExamsManagement />;
+      case '/admin/slots-availability':
+        return <SlotsAvailabilityPage />;
             case '/admin/evaluators':
               return <EvaluatorsManagement />;
       default:

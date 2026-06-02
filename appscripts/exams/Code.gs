@@ -10,13 +10,23 @@ var EXAM_HEADERS = [
   'eligible_column',
   'eligible_count',
   'created_at',
-  'updated_at'
+  'updated_at',
+  'assessment_type'
 ];
 
 var STUDENTS_SHEET_NAME = 'Students';
 var EXAMS_SHEET_NAME = 'Exams';
 var ATTEMPTED_SHEET_NAME = 'Attempted';
 var QUESTIONS_SHEET_NAME = 'Questions';
+var CSM_SHEET_NAME = 'CSM';
+var CSM_HEADERS = [
+  'Name',
+  'Email',
+  'Self-Intro Video Link',
+  'Listening & Speaking Audio Link',
+  'Listening & Writing Text Response',
+  'Email Writing Response'
+];
 
 var ATTEMPT_HEADERS = [
   'attempt_id',
@@ -120,6 +130,77 @@ function getQuestionsSheet_() {
     throw new Error('Questions sheet not found');
   }
   return sheet;
+}
+
+function getCsmSheet_() {
+  return getSheetByNameOrCreate_(CSM_SHEET_NAME, CSM_HEADERS);
+}
+
+function findCsmRowByEmail_(sheet, email) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    return -1;
+  }
+
+  var values = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+  for (var i = 0; i < values.length; i++) {
+    if (String(values[i][0] || '').trim().toLowerCase() === email.toLowerCase()) {
+      return i + 2;
+    }
+  }
+
+  return -1;
+}
+
+function writeCsmResponse_(email, name, responses) {
+  var sheet = getCsmSheet_();
+  var rowIndex = findCsmRowByEmail_(sheet, email);
+  var rowValues = [
+    name || '',
+    email,
+    responses && responses.length > 0 ? String(responses[0] || '') : '',
+    responses && responses.length > 1 ? String(responses[1] || '') : '',
+    responses && responses.length > 2 ? String(responses[2] || '') : '',
+    responses && responses.length > 3 ? String(responses[3] || '') : ''
+  ];
+  if (rowIndex > 0) {
+    sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
+  } else {
+    sheet.appendRow(rowValues);
+  }
+}
+
+function getCsmQuestions_() {
+  return [
+    {
+      prompt: 'Formal Dressed - Self Intro video activity. Please follow the guidelines shared - formal dress code. No distraction in the room you record the video. Introduce yourself briefly. Make a video recording of your self-introduction and upload the same as the answer to this question (not exceeding 3 minutes).\nThe drive link to the video may be uploaded in the given field. Your "Share" settings should be such that anyone with the link can open the file. If the file cannot be opened due to your drive settings, your answer will be disqualified from evaluation and you will be marked zero.',
+      responseType: 'URL',
+      options: [],
+      answerIndex: -1,
+      weight: 0
+    },
+    {
+      prompt: 'Listening Skill Assessment - Listen and Speak. Do you agree with the speakers? Why or why not? Prepare a short audio recording not exceeding 3 minutes stating your own opinion on the matter and giving arguments to support your answer. AI generated answers will be penalised. The drive link to the audio may be uploaded in the given field. Your "Share" settings should be such that anyone with the link can open the file. If the file cannot be opened due to your drive settings, your answer will be disqualified from evaluation and you will be marked zero.\nAudio link: https://drive.google.com/file/d/1i28YWLZmPB28S7jFqOx_8dEqo9fuZ_-P/view?usp=sharing',
+      responseType: 'URL',
+      options: [],
+      answerIndex: -1,
+      weight: 0
+    },
+    {
+      prompt: 'Listening Skill Assessment - Listen and write. Listen to the audio sample and summarise the opinions voiced by the speakers in no more than 500 words. Write in full sentences, not in bulleted points. AI generated answers will be penalised.\nAudio link: https://drive.google.com/file/d/1i28YWLZmPB28S7jFqOx_8dEqo9fuZ_-P/view?usp=sharing',
+      responseType: 'TEXT',
+      options: [],
+      answerIndex: -1,
+      weight: 0
+    },
+    {
+      prompt: 'Email Writing. You are a marketing intern at ABC Educational Consultancy and part of the team organizing a student outreach program as an educational fair. Write an e-mail, not exceeding 300 words, inviting AGT Institute of Technology, one of your partner colleges, to the fair. Highlight how the event might be useful to their students, detail the various services that you provide, and intimate the date, time and venue to them.',
+      responseType: 'TEXT',
+      options: [],
+      answerIndex: -1,
+      weight: 0
+    }
+  ];
 }
 
 function normalizeAuthorizationEmails_(emailInput) {
@@ -283,20 +364,18 @@ function rowToExam_(row) {
     eligibleColumn: String(row[8] || ''),
     eligibleCount: Number(row[9] || eligibleEmails.length || 0),
     createdAt: String(row[10] || ''),
-    updatedAt: String(row[11] || '')
+    updatedAt: String(row[11] || ''),
+    assessmentType: String(row[12] || 'STANDARD').toUpperCase()
   };
 }
 
 function deriveExamStatus_(configuredStatus, startAt, endAt) {
-  var status = String(configuredStatus || 'DRAFT').trim().toUpperCase();
-  if (status === 'DRAFT') {
-    return 'DRAFT';
-  }
+  var status = String(configuredStatus || '').trim().toUpperCase();
 
   var start = new Date(startAt);
   var end = new Date(endAt);
   if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-    return status || 'UPCOMING';
+    return status || 'DRAFT';
   }
 
   var now = new Date();
@@ -360,14 +439,40 @@ function findExamRow_(sheet, examId) {
     return { rowIndex: -1, exam: null };
   }
 
-  var values = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
+  var values = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+  var matches = [];
   for (var i = 0; i < values.length; i++) {
     if (String(values[i][0] || '').trim() === examId) {
-      return { rowIndex: i + 2, exam: rowToExam_(values[i]) };
+      var examObj = rowToExam_(values[i]);
+      var startAt = new Date(String(values[i][4] || ''));
+      matches.push({ rowIndex: i + 2, exam: examObj, startAt: isNaN(startAt.getTime()) ? null : startAt });
     }
   }
 
-  return { rowIndex: -1, exam: null };
+  if (matches.length === 0) return { rowIndex: -1, exam: null };
+
+  // Prefer an exam that's currently OPEN. If multiple OPEN, pick the one with latest startAt.
+  var openMatches = matches.filter(function(m) {
+    return String(m.exam && m.exam.status || '').toUpperCase() === 'OPEN';
+  });
+
+  var chosen = null;
+  var comparator = function(a, b) {
+    var ta = a.startAt ? a.startAt.getTime() : 0;
+    var tb = b.startAt ? b.startAt.getTime() : 0;
+    return ta - tb;
+  };
+
+  if (openMatches.length > 0) {
+    openMatches.sort(comparator);
+    chosen = openMatches[openMatches.length - 1];
+  } else {
+    // No OPEN exams — pick the one with the latest startAt (most recent configuration)
+    matches.sort(comparator);
+    chosen = matches[matches.length - 1];
+  }
+
+  return { rowIndex: chosen.rowIndex, exam: chosen.exam };
 }
 
 function findAttemptRow_(sheet, attemptId) {

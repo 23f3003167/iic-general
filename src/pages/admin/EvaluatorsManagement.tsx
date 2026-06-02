@@ -465,9 +465,29 @@ const EvaluatorsManagement = () => {
 
             return (
               <Card key={row.id}>
-                <CardHeader>
-                  <CardTitle className="text-base">{row.name}</CardTitle>
-                  <CardDescription>{row.email}</CardDescription>
+                <CardHeader className="space-y-2">
+                  <div className="flex items-start justify-between gap-4">
+                    <CardTitle className="text-base">{row.name}</CardTitle>
+                    {row.slot ? (
+                      <span className="rounded-full border bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                        {row.slot}
+                      </span>
+                    ) : null}
+                  </div>
+                  <CardDescription>
+                    <span>{row.email}</span>
+                    {section === 'presentation' && row.contact ? (
+                      <span className="block text-xs text-muted-foreground mt-1">
+                        Contact: {row.contact}
+                      </span>
+                    ) : null}
+                    {section !== 'presentation' && row.contact ? (
+                      <>
+                        <span className="mx-2 text-muted-foreground/60">|</span>
+                        <span>{row.contact}</span>
+                      </>
+                    ) : null}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {section === 'behavioral' ? (

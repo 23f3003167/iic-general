@@ -23,7 +23,9 @@ type UpsertExamRequest = {
   startAt: string;
   endAt: string;
   durationMinutes: number;
+  assessmentType?: string;
   eligibleEmails: string[];
+  forceCreate?: boolean;
 };
 
 type StartAttemptRequest = {
@@ -35,6 +37,8 @@ type SubmitAttemptRequest = {
   attemptId: string;
   examId: string;
   email: string;
+  name?: string;
+  responses?: string[];
   score: number;
   tabSwitchCount: number;
   startAt: string;

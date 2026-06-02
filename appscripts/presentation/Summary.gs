@@ -54,7 +54,6 @@ function parseSlotToDate(slot) {
    MAIN SUMMARY REFRESH
 =========================== */
 function refreshSummary() {
-
   const lock = LockService.getScriptLock();
 
   try {
@@ -71,24 +70,38 @@ function refreshSummary() {
     }
 
     const formLastRow = formSheet.getLastRow();
+    const formLastColumn = formSheet.getLastColumn();
     if (formLastRow < 2) return;
 
     const existing = getExistingIds(summarySheet);
+    const formHeaders = formSheet.getRange(1, 1, 1, formLastColumn).getValues()[0];
+    const nameIndex = getColumnIndexByHeader_(formHeaders, ["name"]);
+    const emailIndex = getColumnIndexByHeader_(formHeaders, ["email"]);
+    const slotIndex = getColumnIndexByHeader_(formHeaders, ["slot"]);
+    const contactIndex = getColumnIndexByHeader_(formHeaders, ["contact"]);
+
     const rowsToAppend = [];
 
     for (let r = 2; r <= formLastRow; r++) {
-      const row = formSheet.getRange(r, 1, 1, 5).getValues()[0];
-      const name = String(row[2] || "").trim();
-      const email = String(row[3] || "").trim();
-      const slot = String(row[4] || "").trim();
+      const row = formSheet.getRange(r, 1, 1, formLastColumn).getValues()[0];
+      const name = getStringByIndex_(row, nameIndex, 1);
+      const email = getStringByIndex_(row, emailIndex, 2);
+      const slot = getStringByIndex_(row, slotIndex, 3);
+      const contact = getStringByIndex_(row, contactIndex, formLastColumn - 1);
 
       if (!email || !slot) continue;
 
       const key = email + " | " + slot;
-      if (existing[key]) continue;
+      if (existing[key]) {
+        if (contact && !existing[key].contact) {
+          summarySheet.getRange(existing[key].rowNumber, 13).setValue(contact);
+          existing[key].contact = contact;
+        }
+        continue;
+      }
 
       const id = Utilities.getUuid();
-      existing[key] = id;
+      existing[key] = true;
 
       const instructorKey = extractInstructorKey(slot);
       const instructorName = instructorMap[instructorKey] || "";
@@ -100,10 +113,11 @@ function refreshSummary() {
         name,
         email,
         "Pending",
-        "", "", "", "",
+        "", "", "",
         "",
         "",
-        ""
+        "",
+        contact
       ]);
     }
 
@@ -126,14 +140,18 @@ function getExistingIds(summarySheet) {
   const last = summarySheet.getLastRow();
   if (last < 2) return map;
 
-  const data = summarySheet.getRange(2, 1, last - 1, 13).getValues();
+  const data = summarySheet.getRange(2, 1, last - 1, Math.max(14, summarySheet.getLastColumn())).getValues();
 
-  data.forEach(r => {
+  data.forEach((r, idx) => {
     const email = String(r[4] || "").trim(); // Column E
     const slot  = String(r[2] || "").trim(); // Column C
+    const contact = String(r[12] || r[13] || "").trim(); // Column M (legacy N supported)
 
     if (email && slot) {
-      map[email + " | " + slot] = true;
+      map[email + " | " + slot] = {
+        rowNumber: idx + 2,
+        contact: contact
+      };
     }
   });
 
@@ -164,4 +182,37 @@ function extractInstructorKey(slot) {
   if (parts.length < 2) return null;
 
   return parts[1].trim(); // "Instructor 1"
+}
+
+function getColumnIndexByHeader_(headers, keywords) {
+  for (let i = 0; i < headers.length; i++) {
+    const header = String(headers[i] || "").trim().toLowerCase();
+    if (!header) continue;
+
+    let matched = true;
+    for (let k = 0; k < keywords.length; k++) {
+      if (header.indexOf(String(keywords[k]).toLowerCase()) === -1) {
+        matched = false;
+        break;
+      }
+    }
+
+    if (matched) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+function getStringByIndex_(row, resolvedIndex, fallbackIndex) {
+  if (resolvedIndex >= 0 && resolvedIndex < row.length) {
+    return String(row[resolvedIndex] || "").trim();
+  }
+
+  if (fallbackIndex >= 0 && fallbackIndex < row.length) {
+    return String(row[fallbackIndex] || "").trim();
+  }
+
+  return "";
 }

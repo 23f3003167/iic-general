@@ -13,6 +13,7 @@ const FAQs = lazy(() => import("./pages/FAQs"));
 const Documents = lazy(() => import("./pages/Documents"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const ExamPage = lazy(() => import("./pages/Exam"));
+const ScoresPage = lazy(() => import("./pages/Scores"));
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -43,6 +44,7 @@ const App = () => {
             <Route path="/documents" element={<Documents />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/exam" element={<ExamPage />} />
+            <Route path="/scores" element={<ScoresPage />} />
             <Route path="/admin" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/forms" element={<AdminDashboard />} />
@@ -52,6 +54,7 @@ const App = () => {
             <Route path="/admin/faqs" element={<AdminDashboard />} />
             <Route path="/admin/documents" element={<AdminDashboard />} />
             <Route path="/admin/exams" element={<AdminDashboard />} />
+            <Route path="/admin/slots-availability" element={<AdminDashboard />} />
                         <Route path="/admin/evaluators" element={<AdminDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

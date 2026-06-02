@@ -49,22 +49,7 @@ export type ReleaseBehaviouralSlotsResponse = {
   addedStudents?: number;
 };
 
-export type PresentationMailFailure = {
-  recipient: string;
-  error: string;
-};
-
-export type PresentationMailSummary = {
-  attempted: number;
-  sent: number;
-  failed: number;
-  failures: PresentationMailFailure[];
-  logSheetReady: boolean;
-  logSheetError?: string;
-};
-
 export type ReleasePresentationSlotsResponse = ReleaseBehaviouralSlotsResponse & {
-  mailSummary?: PresentationMailSummary;
 };
 
 export type InstructorOption = {
@@ -84,6 +69,50 @@ export type PublishScoresResponse = {
   rowsWritten: number;
   startCol: number;
   width: number;
+};
+
+export type StudentScoreLookup = {
+  sheetName: string;
+  level: string;
+  headers: string[];
+  row: string[];
+  matched: {
+    email: string;
+    domain: string;
+    plan: string;
+  };
+};
+
+export type StudentFeedbackLookup = {
+  sheetName: string;
+  category: string;
+  headers: string[];
+  row: string[];
+  email: string;
+};
+
+export type StudentActivityPointsLookup = {
+  sheetName: string;
+  headers: string[];
+  row: string[];
+  matched: {
+    email: string;
+    domain: string;
+    plan: string;
+  };
+};
+
+export type StudentSubmission = {
+  date: string;
+  activity: string;
+  proof: string;
+};
+
+export type StudentSubmissionsLookup = {
+  sheetName: string;
+  email: string;
+  count: number;
+  submissions: StudentSubmission[];
 };
 
 const behavioralWebAppUrl = import.meta.env.VITE_BEHAVIORAL_APPS_SCRIPT_WEB_APP_URL as string | undefined;
@@ -419,3 +448,43 @@ export async function publishScoresToSheet(request: {
     ...request,
   });
 }
+
+export async function lookupStudentScore(request: {
+  level: string;
+  email: string;
+  domain: string;
+  plan: string;
+}): Promise<StudentScoreLookup> {
+  return callScoresAppsScript<StudentScoreLookup>({
+    action: 'lookupStudentScore',
+    ...request,
+  });
+}
+
+export async function lookupStudentFeedback(request: {
+  category: string;
+  email: string;
+}): Promise<StudentFeedbackLookup> {
+  return callScoresAppsScript<StudentFeedbackLookup>({
+    action: 'lookupStudentFeedback',
+    ...request,
+  });
+}
+
+export async function lookupStudentActivityPoints(request: {
+  email: string;
+  domain: string;
+  plan: string;
+}): Promise<StudentActivityPointsLookup> {
+  return callScoresAppsScript<StudentActivityPointsLookup>({
+    action: 'lookupStudentActivityPoints',
+    ...request,
+  });
+}
+
+export async function lookupStudentSubmissions(): Promise<StudentSubmissionsLookup> {
+  return callScoresAppsScript<StudentSubmissionsLookup>({
+    action: 'lookupStudentSubmissions',
+  });
+}
+// Domain/Plan options are handled statically in the frontend now.

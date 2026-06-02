@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { getExams, startExamAttempt, submitExamAttempt } from '@/lib/examsService';
 import type { ExamAttempt, ExamConfig, ExamQuestion } from '@/types';
@@ -30,6 +31,19 @@ function formatDateTime(value?: string): string {
 
 function getTotalWeight(questions: ExamQuestion[]): number {
   return questions.reduce((total, question) => total + (Number(question.weight) || 1), 0);
+}
+
+function getEffectiveDuration(exam: ExamConfig): number {
+  if (exam.durationMinutes && exam.durationMinutes > 0) {
+    return exam.durationMinutes;
+  }
+  // Auto-calculate from date range
+  const startAt = parseLocalDateTime(exam.startAt);
+  const endAt = parseLocalDateTime(exam.endAt);
+  if (startAt && endAt) {
+    return Math.round((endAt - startAt) / 60000); // Convert ms to minutes
+  }
+  return 0;
 }
 
 function formatTime(seconds: number): string {
@@ -57,19 +71,26 @@ export default function ExamPage() {
   const [attemptId, setAttemptId] = useState('');
   const [startedAt, setStartedAt] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<(number | null)[]>([]);
+  const [name, setName] = useState('');
+  const [responses, setResponses] = useState<(number | string | null)[]>([]);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [warningVisible, setWarningVisible] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [detailsExam, setDetailsExam] = useState<ExamConfig | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const submitAttemptRef = useRef<() => Promise<void>>(async () => undefined);
+
+  const isTimedAssessment = useMemo(() => {
+    return activeExam ? activeExam.assessmentType !== 'CSM' && activeExam.assessmentType !== 'PREPLACEMENT' : false;
+  }, [activeExam]);
 
   useEffect(() => {
     loadExamData();
   }, []);
 
   useEffect(() => {
-    if (screen !== 'running') return;
+    if (screen !== 'running' || !isTimedAssessment) return;
 
     const interval = window.setInterval(() => {
       setSecondsLeft((previous) => {
@@ -83,10 +104,10 @@ export default function ExamPage() {
     }, 1000);
 
     return () => window.clearInterval(interval);
-  }, [screen]);
+  }, [screen, isTimedAssessment]);
 
   useEffect(() => {
-    if (screen !== 'running') return;
+    if (screen !== 'running' || !isTimedAssessment) return;
 
     const handleFocusLoss = () => {
       setTabSwitchCount((previous) => previous + 1);
@@ -107,7 +128,7 @@ export default function ExamPage() {
       window.removeEventListener('blur', handleFocusLoss);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [screen]);
+  }, [screen, isTimedAssessment]);
 
   const loadExamData = async () => {
     try {
@@ -120,7 +141,7 @@ export default function ExamPage() {
     } catch (error) {
       console.error(error);
       toast({
-        title: 'Could not load exam',
+        title: 'Could not load assessment',
         description: error instanceof Error ? error.message : 'Please try again later.',
         variant: 'destructive',
       });
@@ -143,37 +164,34 @@ export default function ExamPage() {
   const currentQuestion = activeExam?.questions?.[currentIndex] || null;
 
   const upcomingExams = useMemo(() => {
-    const now = Date.now();
     return (exams || [])
-      .filter((exam) => {
-        const startAt = parseLocalDateTime(exam.startAt);
-        return exam.status === 'UPCOMING' || (startAt > now && exam.status !== 'CLOSED');
-      })
+      .filter((exam) => exam.status === 'UPCOMING')
       .sort((a, b) => parseLocalDateTime(a.startAt) - parseLocalDateTime(b.startAt));
   }, [exams]);
 
   const openExams = useMemo(() => {
-    const now = Date.now();
     return (exams || [])
-      .filter((exam) => {
-        if (exam.status === 'OPEN') {
-          return true;
-        }
-
-        const startAt = parseLocalDateTime(exam.startAt);
-        const endAt = parseLocalDateTime(exam.endAt);
-        if (!startAt || !endAt) {
-          return false;
-        }
-
-        return now >= startAt && now <= endAt && exam.status !== 'CLOSED' && exam.status !== 'DRAFT';
-      })
+      .filter((exam) => exam.status === 'OPEN')
       .sort((a, b) => parseLocalDateTime(a.startAt) - parseLocalDateTime(b.startAt));
   }, [exams]);
+
+  const hasAnyTimed = useMemo(() => {
+    return (openExams || []).some((exam) => exam.assessmentType !== 'CSM' && exam.assessmentType !== 'PREPLACEMENT');
+  }, [openExams]);
 
   const openAttemptDialog = (exam: ExamConfig) => {
     setActiveExam(exam);
     setEmailDialogOpen(true);
+  };
+
+  const openDetails = (exam: ExamConfig) => {
+    setDetailsExam(exam);
+    setDetailsDialogOpen(true);
+  };
+
+  const closeDetails = () => {
+    setDetailsExam(null);
+    setDetailsDialogOpen(false);
   };
 
   const startExam = async () => {
@@ -183,7 +201,16 @@ export default function ExamPage() {
     if (!normalizedEmail) {
       toast({
         title: 'Email required',
-        description: 'Enter your email to start the exam.',
+        description: 'Enter your email to start the assessment.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (activeExam.assessmentType === 'CSM' && !name.trim()) {
+      toast({
+        title: 'Name required',
+        description: 'Enter your full name before starting the communication skills assessment.',
         variant: 'destructive',
       });
       return;
@@ -201,22 +228,30 @@ export default function ExamPage() {
       setAttemptId(response.attempt.attemptId);
       setAttempt(response.attempt);
       setStartedAt(response.attempt.startAt);
-      setAnswers(new Array(response.exam.questions.length).fill(null));
+      setResponses(new Array(response.exam.questions.length).fill(null));
       setCurrentIndex(0);
       setTabSwitchCount(0);
-      setSecondsLeft(Math.max(1, Math.min(response.exam.durationMinutes * 60, Math.floor((parseLocalDateTime(response.exam.endAt) - Date.now()) / 1000))));
+      
+      // Calculate effective duration and set timer for timed assessments
+      const isTimedExam = response.exam.assessmentType !== 'CSM' && response.exam.assessmentType !== 'PREPLACEMENT';
+      if (isTimedExam) {
+        const effectiveDuration = getEffectiveDuration(response.exam);
+        setSecondsLeft(Math.max(1, Math.min(effectiveDuration * 60, Math.floor((parseLocalDateTime(response.exam.endAt) - Date.now()) / 1000))));
+      } else {
+        setSecondsLeft(0);
+      }
       setScreen('running');
 
       if (eligibleMatch === false) {
         toast({
           title: 'Email not listed for this cycle',
-          description: 'You can still attempt the test, but your email is not in the eligible list for this exam.',
+          description: 'You can still attempt the assessment, but your email is not in the eligible list for this assessment.',
         });
       }
     } catch (error) {
       console.error(error);
       toast({
-        title: 'Could not start exam',
+        title: 'Could not start assessment',
         description: error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       });
@@ -226,17 +261,28 @@ export default function ExamPage() {
   };
 
   const selectAnswer = (optionIndex: number) => {
-    setAnswers((previous) => {
+    setResponses((previous) => {
       const next = [...previous];
       next[currentIndex] = optionIndex;
       return next;
     });
   };
 
+  const updateResponseText = (value: string) => {
+    setResponses((previous) => {
+      const next = [...previous];
+      next[currentIndex] = value;
+      return next;
+    });
+  };
+
   const calculateScore = () => {
     if (!activeExam) return 0;
+    if (activeExam.assessmentType === 'CSM') {
+      return 0;
+    }
     return activeExam.questions.reduce((total, question, index) => {
-      const selected = answers[index];
+      const selected = responses[index];
       if (selected === question.answerIndex) {
         return total + (Number(question.weight) || 1);
       }
@@ -247,6 +293,20 @@ export default function ExamPage() {
   const handleSubmit = async () => {
     if (!activeExam || !attemptId || submitting) return;
 
+    const responsesRequired = activeExam.questions.map((question, index) => {
+      const response = responses[index];
+      return String(response || '').trim();
+    });
+
+    if (activeExam.assessmentType === 'CSM' && responsesRequired.some((value) => !value)) {
+      toast({
+        title: 'Complete all responses',
+        description: 'Please answer all CSM questions before submitting.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       setSubmitting(true);
       const endAt = new Date().toISOString();
@@ -255,6 +315,8 @@ export default function ExamPage() {
         attemptId,
         examId: activeExam.examId,
         email: email.trim().toLowerCase(),
+        name: name.trim(),
+        responses: responsesRequired,
         score,
         tabSwitchCount,
         startAt: startedAt,
@@ -270,7 +332,7 @@ export default function ExamPage() {
     } catch (error) {
       console.error(error);
       toast({
-        title: 'Could not submit exam',
+        title: 'Could not submit assessment',
         description: error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       });
@@ -284,7 +346,7 @@ export default function ExamPage() {
   }, [handleSubmit]);
 
   const confirmAndSubmit = () => {
-    if (!window.confirm('Are you sure you want to submit the exam? You cannot change answers after submission.')) {
+    if (!window.confirm('Are you sure you want to submit the assessment? You cannot change answers after submission.')) {
       return;
     }
     void handleSubmit();
@@ -295,16 +357,16 @@ export default function ExamPage() {
     setCurrentIndex((previous) => Math.max(0, Math.min(activeExam.questions.length - 1, previous + delta)));
   };
 
-  const currentProgress = activeExam && secondsLeft > 0
+  const currentProgress = activeExam && isTimedAssessment && secondsLeft > 0
     ? Math.max(0, Math.min(100, (secondsLeft / (activeExam.durationMinutes * 60)) * 100))
     : 0;
-  const lastMinuteReminderVisible = screen === 'running' && secondsLeft > 0 && secondsLeft <= 60;
+  const lastMinuteReminderVisible = screen === 'running' && isTimedAssessment && secondsLeft > 0 && secondsLeft <= 60;
 
   if (loading) {
     return (
       <Layout>
         <div className="container py-8">
-          <p className="text-center text-muted-foreground">Loading exam...</p>
+          <p className="text-center text-muted-foreground">Loading assessment...</p>
         </div>
       </Layout>
     );
@@ -313,28 +375,22 @@ export default function ExamPage() {
   return (
     <Layout>
       <div className="container py-8 space-y-6">
-        <Alert className="border-l-4 border-l-blue-600 bg-blue-50/50 shadow-sm">
-          <ShieldAlert className="h-5 w-5 text-blue-600" />
-          <AlertTitle className="text-blue-900">Exam Access</AlertTitle>
-          <AlertDescription className="text-blue-800 text-sm leading-relaxed">
-            Exams appear only during the configured live window. Tab switches are counted and stored with your submission.
-          </AlertDescription>
-        </Alert>
+        {/* Assessment access banner removed per request */}
 
         {screen === 'waiting' && (
           <Card>
             <CardHeader>
-              <CardTitle>Exam not available yet</CardTitle>
+              <CardTitle>Assessment not available yet</CardTitle>
               <CardDescription>
-                The current exam opens only during the configured start window.
+                The current assessment opens only during the configured start window.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {upcomingExams.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No exam is currently configured as OPEN.</p>
+                <p className="text-sm text-muted-foreground">No assessment is currently configured as OPEN.</p>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">Upcoming exams</p>
+                  <p className="text-sm font-medium">Upcoming assessments</p>
                   {upcomingExams.map((exam) => (
                     <div key={exam.examId} className="rounded-md border p-3 text-sm">
                       <div className="flex items-center justify-between gap-2">
@@ -344,7 +400,9 @@ export default function ExamPage() {
                       <p className="text-muted-foreground">
                         Window: {formatDateTime(exam.startAt)} to {formatDateTime(exam.endAt)}
                       </p>
-                      <p className="text-muted-foreground">Duration: {exam.durationMinutes} min</p>
+                      {(exam.assessmentType !== 'CSM' && exam.assessmentType !== 'PREPLACEMENT') ? (
+                        <p className="text-muted-foreground">Duration: {exam.durationMinutes} min</p>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -357,12 +415,12 @@ export default function ExamPage() {
           <div className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Open exams</CardTitle>
-                <CardDescription>All exams currently open are shown below. You can attempt any one.</CardDescription>
+                <CardTitle>Open assessments</CardTitle>
+                <CardDescription>Open assessments are shown below. Upcoming assessments are listed separately so students can plan ahead.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {openExams.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No open exams right now.</p>
+                  <p className="text-sm text-muted-foreground">No open assessments right now.</p>
                 ) : (
                   openExams.map((exam) => (
                     <div key={exam.examId} className="rounded-md border p-4 space-y-3">
@@ -370,16 +428,71 @@ export default function ExamPage() {
                         <p className="font-medium">{exam.title}</p>
                         <Badge>{exam.status}</Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground">{exam.description || 'Aptitude assessment configured by the admin team.'}</p>
+                      <div className="flex items-start gap-3">
+                        <p className="text-sm text-muted-foreground">
+                          {(exam.description || 'Assessment configured by the admin team.').slice(0, 180)}
+                          {(exam.description || '').length > 180 ? '…' : ''}
+                        </p>
+                        <button
+                          type="button"
+                          className="text-sm text-primary underline"
+                          onClick={() => openDetails(exam)}
+                        >
+                          View details
+                        </button>
+                      </div>
                       <div className="grid gap-2 md:grid-cols-3 text-sm">
                         <p className="text-muted-foreground">Window: {formatDateTime(exam.startAt)} to {formatDateTime(exam.endAt)}</p>
-                        <p className="text-muted-foreground">Duration: {exam.durationMinutes} minutes</p>
+                        {(exam.assessmentType !== 'CSM' && exam.assessmentType !== 'PREPLACEMENT') ? (
+                          <p className="text-muted-foreground">Duration: {exam.durationMinutes} minutes</p>
+                        ) : null}
                         <p className="text-muted-foreground">Questions: {exam.questions.length}</p>
                       </div>
                       <Button onClick={() => openAttemptDialog(exam)} disabled={submitting}>
                         {submitting && activeExam?.examId === exam.examId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Attempt Exam
+                        Attempt Assessment
                       </Button>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Upcoming assessments</CardTitle>
+                <CardDescription>These assessments are not open yet, but they are scheduled and visible here.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {upcomingExams.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No upcoming assessments found.</p>
+                ) : (
+                  upcomingExams.map((exam) => (
+                    <div key={exam.examId} className="rounded-md border p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-medium">{exam.title}</p>
+                        <Badge variant="secondary">{exam.status}</Badge>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <p className="text-sm text-muted-foreground">
+                          {(exam.description || 'Assessment configured by the admin team.').slice(0, 180)}
+                          {(exam.description || '').length > 180 ? '…' : ''}
+                        </p>
+                        <button
+                          type="button"
+                          className="text-sm text-primary underline"
+                          onClick={() => openDetails(exam)}
+                        >
+                          View details
+                        </button>
+                      </div>
+                      <div className="grid gap-2 md:grid-cols-3 text-sm">
+                        <p className="text-muted-foreground">Window: {formatDateTime(exam.startAt)} to {formatDateTime(exam.endAt)}</p>
+                        {(exam.assessmentType !== 'CSM' && exam.assessmentType !== 'PREPLACEMENT') ? (
+                          <p className="text-muted-foreground">Duration: {exam.durationMinutes} minutes</p>
+                        ) : null}
+                        <p className="text-muted-foreground">Questions: {exam.questions.length}</p>
+                      </div>
                     </div>
                   ))
                 )}
@@ -391,31 +504,60 @@ export default function ExamPage() {
                 <CardTitle>Instructions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <p>1. Start only when the exam window is open.</p>
-                <p>2. Keep the tab focused. Switching tabs increases the violation count.</p>
-                <p>3. Submit before the timer ends.</p>
-                <p>4. Your email, tab switch count, start time, and end time will be recorded.</p>
+                <p>1. Start only when the assessment window is open.</p>
+                {hasAnyTimed ? (
+                  <>
+                    <p>2. Keep the tab focused. Switching tabs increases the violation count.</p>
+                    <p>3. Submit before the timer ends.</p>
+                  </>
+                ) : (
+                  <p>2. All open assessments are not timed and do not track tab switches.</p>
+                )}
+                <p>4. Your email, start time, and end time will be recorded.</p>
               </CardContent>
             </Card>
           </div>
         )}
+
+        <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{detailsExam?.title || 'Details'}</DialogTitle>
+              <DialogDescription>{detailsExam?.examId}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground whitespace-pre-line">{detailsExam?.description}</p>
+              <p className="text-sm text-muted-foreground">Window: {formatDateTime(detailsExam?.startAt)} to {formatDateTime(detailsExam?.endAt)}</p>
+              <p className="text-sm text-muted-foreground">Duration: {detailsExam?.durationMinutes} minutes</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={closeDetails}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {screen === 'running' && activeExam && currentQuestion && (
           <div className="space-y-6">
             <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm text-muted-foreground">Live Exam</p>
+                  <p className="text-sm text-muted-foreground">Live Assessment</p>
                   <h2 className="text-xl font-semibold">{activeExam.title}</h2>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
-                  <Clock3 className="h-4 w-4" />
-                  <span className={secondsLeft <= 300 ? 'text-destructive font-semibold' : 'font-medium'}>{formatTime(secondsLeft)}</span>
-                  <Badge variant="outline">Tab switches: {tabSwitchCount}</Badge>
+                  {isTimedAssessment ? (
+                    <>
+                      <Clock3 className="h-4 w-4" />
+                      <span className={secondsLeft <= 300 ? 'text-destructive font-semibold' : 'font-medium'}>{formatTime(secondsLeft)}</span>
+                      <Badge variant="outline">Tab switches: {tabSwitchCount}</Badge>
+                    </>
+                  ) : (
+                    <Badge variant="secondary">No timer / no tab tracking</Badge>
+                  )}
                 </div>
               </div>
 
-              <Progress value={currentProgress} />
+              {isTimedAssessment ? <Progress value={currentProgress} /> : null}
 
               {lastMinuteReminderVisible && (
                 <Alert className="border-amber-500/40 bg-amber-50">
@@ -450,23 +592,39 @@ export default function ExamPage() {
                     <p className="text-xs text-muted-foreground mt-1">Weight: {currentQuestion.weight}</p>
                   </div>
 
-                  <div className="space-y-2">
-                    {currentQuestion.options.map((option, optionIndex) => {
-                      const selected = answers[currentIndex] === optionIndex;
-                      return (
-                        <button
-                          key={`${currentIndex}-${optionIndex}`}
-                          type="button"
-                          onClick={() => selectAnswer(optionIndex)}
-                          className={`w-full rounded-md border px-4 py-3 text-left transition-colors ${selected ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}
-                        >
-                          <span className="mr-3 inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold">
-                            {String.fromCharCode(65 + optionIndex)}
-                          </span>
-                          <span className="text-sm">{option}</span>
-                        </button>
-                      );
-                    })}
+                  <div className="space-y-4">
+                    {currentQuestion.responseType === 'TEXT' ? (
+                      <Textarea
+                        value={String(responses[currentIndex] || '')}
+                        onChange={(e) => updateResponseText(e.target.value)}
+                        placeholder="Write your answer here"
+                        rows={8}
+                      />
+                    ) : currentQuestion.responseType === 'URL' ? (
+                      <Input
+                        type="url"
+                        value={String(responses[currentIndex] || '')}
+                        onChange={(e) => updateResponseText(e.target.value)}
+                        placeholder="Paste your shareable link here"
+                      />
+                    ) : (
+                      (currentQuestion.options || []).map((option, optionIndex) => {
+                        const selected = responses[currentIndex] === optionIndex;
+                        return (
+                          <button
+                            key={`${currentIndex}-${optionIndex}`}
+                            type="button"
+                            onClick={() => selectAnswer(optionIndex)}
+                            className={`w-full rounded-md border px-4 py-3 text-left transition-colors ${selected ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}
+                          >
+                            <span className="mr-3 inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold">
+                              {String.fromCharCode(65 + optionIndex)}
+                            </span>
+                            <span className="text-sm">{option}</span>
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
@@ -479,7 +637,7 @@ export default function ExamPage() {
                       </Button>
                       <Button onClick={confirmAndSubmit} disabled={submitting}>
                         {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Submit Exam
+                        Submit Assessment
                       </Button>
                     </div>
                   </div>
@@ -501,7 +659,7 @@ export default function ExamPage() {
                   </div>
                   <div className="rounded-md border p-3">
                     <p className="text-muted-foreground">Answered</p>
-                    <p className="font-medium">{answers.filter((answer) => answer !== null).length} / {answers.length}</p>
+                    <p className="font-medium">{responses.filter((answer) => answer !== null && String(answer).trim() !== '').length} / {responses.length}</p>
                   </div>
                   <div className="rounded-md border p-3">
                     <p className="text-muted-foreground">Start Time</p>
@@ -543,20 +701,33 @@ export default function ExamPage() {
         <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Enter Email ID</DialogTitle>
+              <DialogTitle>Enter Details</DialogTitle>
               <DialogDescription>
                 Use your student email to start {activeExam?.title || 'the test'}. This email is logged in the Attempted sheet.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-2">
-              <Label htmlFor="attempt-email">Email ID</Label>
-              <Input
-                id="attempt-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="student@study.iitm.ac.in"
-              />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="attempt-email">Email ID</Label>
+                <Input
+                  id="attempt-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="student@study.iitm.ac.in"
+                />
+              </div>
+              {activeExam?.assessmentType === 'CSM' && (
+                <div className="space-y-2">
+                  <Label htmlFor="attempt-name">Full Name</Label>
+                  <Input
+                    id="attempt-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter your full name"
+                  />
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
                 {eligibleMatch === false
                   ? 'This email is not in the eligible list for this cycle. You may still attempt, but it will be flagged.'

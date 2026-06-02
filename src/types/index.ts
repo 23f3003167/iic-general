@@ -39,12 +39,15 @@ export interface Document {
 }
 
 export type ExamStatus = 'DRAFT' | 'UPCOMING' | 'OPEN' | 'CLOSED';
+export type AssessmentType = 'APTITUDE' | 'TECH_MCQ' | 'PREPLACEMENT' | 'CSM';
+export type QuestionResponseType = 'TEXT' | 'URL';
 
 export interface ExamQuestion {
   prompt: string;
-  options: string[];
-  answerIndex: number;
-  weight: number;
+  responseType?: QuestionResponseType;
+  options?: string[];
+  answerIndex?: number;
+  weight?: number;
   explanation?: string;
 }
 
@@ -58,6 +61,7 @@ export interface ExamConfig {
   endAt: string;
   durationMinutes: number;
   questions: ExamQuestion[];
+  assessmentType?: AssessmentType;
   eligibleEmails: string[];
   eligibleColumn?: string;
   createdAt?: string;
@@ -112,6 +116,7 @@ export interface BaseEvaluation {
   slot: string;
   name: string;
   email: string;
+  contact?: string;
   status: EvaluationStatus;
   feedback?: string;
   total?: number;

@@ -295,6 +295,7 @@ function getPendingEvaluations_(payload) {
       slot: slot,
       name: name,
       email: email,
+      contact: String(row[13] || '').trim(),
       status: status || 'Pending',
       relevance: row[6] || null,
       clarity: row[7] || null,

@@ -14,13 +14,14 @@ import { useToast } from '@/components/ui/use-toast';
 import { auth } from '@/lib/firebase';
 import { verifyAdminAccess } from '@/lib/adminAuth';
 import { getExams, upsertExam } from '@/lib/examsService';
-import type { ExamConfig, ExamStatus } from '@/types';
+import type { AssessmentType, ExamConfig, ExamStatus } from '@/types';
 
 type ExamFormState = {
   examId: string;
   title: string;
   description: string;
   status: ExamStatus;
+  assessmentType: AssessmentType;
   startAt: string;
   endAt: string;
   durationMinutes: string;
@@ -32,6 +33,7 @@ const emptyFormState: ExamFormState = {
   title: '',
   description: '',
   status: 'DRAFT',
+  assessmentType: 'PREPLACEMENT',
   startAt: '',
   endAt: '',
   durationMinutes: '45',
@@ -169,7 +171,7 @@ export default function ExamsManagement() {
     } catch (error) {
       console.error(error);
       toast({
-        title: 'Could not load exams',
+        title: 'Could not load assessments',
         description: error instanceof Error ? error.message : 'Please verify Apps Script deployment.',
         variant: 'destructive',
       });
@@ -191,6 +193,7 @@ export default function ExamsManagement() {
       title: exam.title,
       description: exam.description,
       status: exam.status,
+      assessmentType: exam.assessmentType || 'PREPLACEMENT',
       startAt: toDateTimeLocalInput(exam.startAt),
       endAt: toDateTimeLocalInput(exam.endAt),
       durationMinutes: String(exam.durationMinutes || 45),
@@ -221,9 +224,12 @@ export default function ExamsManagement() {
         throw new Error('Add at least one eligible email.');
       }
 
-      const examId = formData.examId.trim();
+      const examId = formData.assessmentType === 'CSM'
+        ? formData.examId.trim() || 'csm'
+        : formData.examId.trim();
+
       if (!examId) {
-        throw new Error('Exam ID is required.');
+        throw new Error('Assessment ID is required.');
       }
 
       const updated = await upsertExam({
@@ -231,14 +237,16 @@ export default function ExamsManagement() {
         title: formData.title.trim(),
         description: formData.description.trim(),
         status: formData.status,
+        assessmentType: formData.assessmentType,
         startAt: normalizeDateTimeForSave(formData.startAt),
         endAt: normalizeDateTimeForSave(formData.endAt),
-        durationMinutes: Number(formData.durationMinutes || 0),
+        durationMinutes: (formData.assessmentType === 'CSM' || formData.assessmentType === 'PREPLACEMENT') ? 0 : Number(formData.durationMinutes || 0),
         eligibleEmails,
+        forceCreate: !editingExam,
       });
 
       toast({
-        title: editingExam ? 'Exam updated' : 'Exam created',
+        title: editingExam ? 'Assessment updated' : 'Assessment created',
         description: `${updated.title} saved. Questions were loaded from Questions sheet using testID ${updated.examId}.`,
       });
       closeDialog();
@@ -246,7 +254,7 @@ export default function ExamsManagement() {
     } catch (error) {
       console.error(error);
       toast({
-        title: 'Could not save exam',
+        title: 'Could not save assessment',
         description: error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       });
@@ -269,8 +277,8 @@ export default function ExamsManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold">Exams Management</h2>
-          <p className="text-muted-foreground">Create aptitude tests, define the active window, and push eligible emails to the next Students column.</p>
+          <h2 className="text-2xl font-bold">Assessments Management</h2>
+          <p className="text-muted-foreground">Create Preplacement, Aptitude, or Tech MCQ assessments, define the active window, and push eligible emails to the next Students column.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={loadExams} disabled={loading}>
@@ -279,7 +287,7 @@ export default function ExamsManagement() {
           </Button>
           <Button onClick={openCreateDialog}>
             <Plus className="mr-2 h-4 w-4" />
-            New Exam
+            New Assessment
           </Button>
         </div>
       </div>
@@ -287,8 +295,8 @@ export default function ExamsManagement() {
       {activeExam && (
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader>
-            <CardTitle className="text-lg">Active Exam</CardTitle>
-            <CardDescription>Only one exam should normally be OPEN at a time.</CardDescription>
+            <CardTitle className="text-lg">Active Assessment</CardTitle>
+            <CardDescription>Only one assessment should normally be OPEN at a time.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap items-center gap-2 text-sm">
             <Badge>{activeExam.examId}</Badge>
@@ -299,11 +307,11 @@ export default function ExamsManagement() {
       )}
 
       {loading ? (
-        <p className="text-center text-muted-foreground py-8">Loading exams...</p>
+        <p className="text-center text-muted-foreground py-8">Loading assessments...</p>
       ) : exams.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">No exams created yet. Create your first aptitude test.</p>
+            <p className="text-muted-foreground">No assessments created yet. Create your first assessment.</p>
           </CardContent>
         </Card>
       ) : (
@@ -321,6 +329,9 @@ export default function ExamsManagement() {
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <p className="text-muted-foreground line-clamp-3">{exam.description || 'No description provided.'}</p>
+                <p>
+                  <span className="font-medium">Type:</span> {exam.assessmentType || 'PREPLACEMENT'}
+                </p>
                 <p>
                   <span className="font-medium">Window:</span> {formatDateTime(exam.startAt)} to {formatDateTime(exam.endAt)}
                 </p>
@@ -342,21 +353,21 @@ export default function ExamsManagement() {
       <Dialog open={dialogOpen} onOpenChange={(open) => (open ? setDialogOpen(true) : closeDialog())}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingExam ? 'Edit Exam' : 'Create Exam'}</DialogTitle>
+            <DialogTitle>{editingExam ? 'Edit Assessment' : 'Create Assessment'}</DialogTitle>
             <DialogDescription>
-              Configure the exam window and student eligibility. Questions are fetched from the Questions subsheet by testID.
+              Configure the assessment window and student eligibility. Questions are fetched from the Questions subsheet by testID.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="examId">Exam ID</Label>
+                <Label htmlFor="examId">Assessment ID</Label>
                 <Input
                   id="examId"
                   value={formData.examId}
                   onChange={(e) => setFormData({ ...formData, examId: e.target.value })}
-                  placeholder="aptitude-july-2026"
+                  placeholder={formData.assessmentType === 'CSM' ? 'csm (default for CSM)' : 'assessment-july-2026'}
                   required
                 />
               </div>
@@ -366,10 +377,50 @@ export default function ExamsManagement() {
                   id="title"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Aptitude Test - July 2026"
+                  placeholder="Assessment - July 2026"
                   required
                 />
               </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="assessmentType">Assessment Type</Label>
+                <Select
+                  value={formData.assessmentType}
+                  onValueChange={(value) => setFormData((prev) => ({
+                    ...prev,
+                    assessmentType: value as any,
+                    examId: value === 'CSM' && !prev.examId.trim() ? 'csm' : prev.examId,
+                    durationMinutes: (value === 'CSM' || value === 'PREPLACEMENT') ? '0' : prev.durationMinutes,
+                  }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PREPLACEMENT">PREPLACEMENT</SelectItem>
+                    <SelectItem value="APTITUDE">APTITUDE</SelectItem>
+                    <SelectItem value="TECH_MCQ">TECH_MCQ</SelectItem>
+                    <SelectItem value="CSM">CSM</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {formData.assessmentType !== 'CSM' ? (
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value as ExamStatus })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DRAFT">DRAFT</SelectItem>
+                      <SelectItem value="UPCOMING">UPCOMING</SelectItem>
+                      <SelectItem value="OPEN">OPEN</SelectItem>
+                      <SelectItem value="CLOSED">CLOSED</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-2">
@@ -379,37 +430,25 @@ export default function ExamsManagement() {
                 rows={3}
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="What the test covers and any instructions for students."
+                placeholder="What the assessment covers and any instructions for students."
               />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value as ExamStatus })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="DRAFT">DRAFT</SelectItem>
-                    <SelectItem value="UPCOMING">UPCOMING</SelectItem>
-                    <SelectItem value="OPEN">OPEN</SelectItem>
-                    <SelectItem value="CLOSED">CLOSED</SelectItem>
-                  </SelectContent>
-                </Select>
+            {formData.assessmentType !== 'CSM' && formData.assessmentType !== 'PREPLACEMENT' && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="durationMinutes">Duration (minutes)</Label>
+                  <Input
+                    id="durationMinutes"
+                    type="number"
+                    min={1}
+                    value={formData.durationMinutes}
+                    onChange={(e) => setFormData({ ...formData, durationMinutes: e.target.value })}
+                    required
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="durationMinutes">Duration (minutes)</Label>
-                <Input
-                  id="durationMinutes"
-                  type="number"
-                  min={1}
-                  value={formData.durationMinutes}
-                  onChange={(e) => setFormData({ ...formData, durationMinutes: e.target.value })}
-                  required
-                />
-              </div>
-            </div>
+            )}
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
@@ -435,9 +474,16 @@ export default function ExamsManagement() {
             </div>
 
             <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-              Questions source: <strong>Questions</strong> subsheet.
-              <br />
-              Required columns: A testID, B question number, C question, D option A, E option B, F option C, G option D, H correct option, I weight.
+              {formData.assessmentType === 'CSM' ? (
+                <>This assessment uses the built-in Communication Skills question set. No Questions sheet entries are required for CSM.</>
+              ) : formData.assessmentType === 'PREPLACEMENT' ? (
+                <>This is an untimed PREPLACEMENT assessment. No duration is required. Students can submit at any time within the open window.</>
+              ) : (
+                <>Questions source: <strong>Questions</strong> subsheet.
+                  <br />
+                  Required columns: A testID, B question number, C question, D option A, E option B, F option C, G option D, H correct option, I weight.
+                </>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -452,7 +498,7 @@ export default function ExamsManagement() {
                 spellCheck={false}
               />
               <p className="text-xs text-muted-foreground">
-                These emails are written into the first blank column of the Students sheet when the exam is saved. New lines are supported.
+                These emails are written into the first blank column of the Students sheet when the assessment is saved. New lines are supported.
               </p>
             </div>
 
@@ -462,7 +508,7 @@ export default function ExamsManagement() {
               </Button>
               <Button type="submit" disabled={saving}>
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {editingExam ? 'Update Exam' : 'Create Exam'}
+                {editingExam ? 'Update Assessment' : 'Create Assessment'}
               </Button>
             </DialogFooter>
           </form>

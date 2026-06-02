@@ -68,6 +68,7 @@ function getActiveExam_() {
 
 function upsertExam_(payload) {
   var examId = String(payload.examId || '').trim();
+  var assessmentType = String(payload.assessmentType || 'STANDARD').trim().toUpperCase();
   var title = String(payload.title || '').trim();
   var description = String(payload.description || '').trim();
   var status = String(payload.status || 'DRAFT').trim().toUpperCase();
@@ -75,13 +76,14 @@ function upsertExam_(payload) {
   var endAt = String(payload.endAt || '').trim();
   var durationMinutes = Number(payload.durationMinutes || 0);
   var eligibleEmails = normalizeAuthorizationEmails_(payload.eligibleEmails);
-  var questions = getQuestionsForTestId_(examId);
+  var forceCreate = payload.forceCreate === true || payload.forceCreate === 'true';
+  var questions = assessmentType === 'CSM' ? getCsmQuestions_() : getQuestionsForTestId_(examId);
 
-  if (!examId || !title || !startAt || !endAt || !durationMinutes) {
+  if (!examId || !startAt || !endAt || ((assessmentType !== 'CSM' && assessmentType !== 'PREPLACEMENT') && !durationMinutes)) {
     throw new Error('Missing exam configuration');
   }
 
-  if (questions.length === 0) {
+  if ((assessmentType !== 'CSM' && assessmentType !== 'PREPLACEMENT') && questions.length === 0) {
     throw new Error('No questions found in Questions sheet for testID: ' + examId);
   }
 
@@ -89,9 +91,27 @@ function upsertExam_(payload) {
     throw new Error('At least one eligible email is required');
   }
 
+  if (assessmentType === 'CSM') {
+    // Allow admin-provided title/description for CSM; fall back to defaults only if empty
+    if (!title) {
+      title = 'Communication Skills Assessment';
+    }
+    if (!description) {
+      description = 'A non-MCQ communication skills assessment. Students provide video and written responses directly in the response sheet.';
+    }
+    durationMinutes = 0;
+  } else if (assessmentType === 'PREPLACEMENT') {
+    durationMinutes = 0;
+  }
+
   var sheet = getExamsSheet_();
   var existing = findExamRow_(sheet, examId);
   var rowIndex = existing.rowIndex;
+  if (forceCreate) {
+    // Force creating a fresh exam row even if examId exists
+    rowIndex = -1;
+    existing = { rowIndex: -1, exam: null };
+  }
   var now = new Date().toISOString();
   var examRow = {
     examId: examId,
@@ -105,7 +125,8 @@ function upsertExam_(payload) {
     eligibleColumn: existing.exam ? existing.exam.eligibleColumn : '',
     eligibleCount: eligibleEmails.length,
     createdAt: existing.exam ? existing.exam.createdAt : now,
-    updatedAt: now
+    updatedAt: now,
+    assessmentType: assessmentType
   };
 
   if (!examRow.eligibleColumn) {
@@ -126,7 +147,8 @@ function upsertExam_(payload) {
     examRow.eligibleColumn,
     examRow.eligibleCount,
     examRow.createdAt,
-    examRow.updatedAt
+    examRow.updatedAt,
+    examRow.assessmentType
   ];
 
   if (rowIndex > 0) {
@@ -205,6 +227,8 @@ function submitAttempt_(payload) {
   var attemptId = String(payload.attemptId || '').trim();
   var examId = String(payload.examId || '').trim();
   var email = String(payload.email || '').trim().toLowerCase();
+  var name = String(payload.name || '').trim();
+  var responses = Array.isArray(payload.responses) ? payload.responses : [];
   var score = Number(payload.score || 0);
   var tabSwitchCount = Number(payload.tabSwitchCount || 0);
   var startAt = String(payload.startAt || '').trim();
@@ -243,6 +267,10 @@ function submitAttempt_(payload) {
       sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
     } else {
       sheet.appendRow(rowValues);
+    }
+
+    if (exam && String(exam.assessmentType || '').toUpperCase() === 'CSM') {
+      writeCsmResponse_(email, name, responses);
     }
 
     return {

@@ -8,18 +8,102 @@ import {
   deleteDoc,
   query,
   orderBy,
-  Timestamp,
+  where,
+  setDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { FormEntry, Announcement, FAQ, Document } from '@/types';
 import { computeFormsStatus } from './statusCompute';
 
+export type SlotAvailability = {
+  id?: string;
+  section: 'behavioral' | 'presentation';
+  instructorNumber: string;
+  instructorName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  active?: boolean;
+  createdBy?: string;
+  createdAt?: unknown;
+};
+
+export type SlotsAvailabilityWindow = {
+  editingEnabled: boolean;
+  availableDate: string;
+  availableStartTime: string;
+  availableEndTime: string;
+  updatedBy?: string;
+  updatedAt?: unknown;
+};
+
+const SLOT_AVAILABILITY_COLLECTION = 'slotsAvailability';
+const SLOT_AVAILABILITY_CONFIG_DOC = 'slotsAvailabilityConfig/config';
+
+export async function listSlotsAvailability(section: 'behavioral' | 'presentation'): Promise<SlotAvailability[]> {
+  const snapshot = await getDocs(collection(db, SLOT_AVAILABILITY_COLLECTION));
+  return snapshot.docs
+    .map((snapshotDoc) => ({ id: snapshotDoc.id, ...(snapshotDoc.data() as SlotAvailability) }))
+    .filter((item) => item.section === section && item.active !== false)
+    .sort((left, right) => {
+      const dateCompare = String(left.date || '').localeCompare(String(right.date || ''));
+      if (dateCompare !== 0) return dateCompare;
+      return String(left.startTime || '').localeCompare(String(right.startTime || ''));
+    });
+}
+
+export async function createSlotAvailability(payload: SlotAvailability): Promise<{ id: string }> {
+  const docRef = await addDoc(collection(db, SLOT_AVAILABILITY_COLLECTION), {
+    ...payload,
+    active: payload.active === undefined ? true : payload.active,
+  });
+  return { id: docRef.id };
+}
+
+export async function deleteSlotAvailability(id: string): Promise<void> {
+  await deleteDoc(doc(db, SLOT_AVAILABILITY_COLLECTION, id));
+}
+
+export async function getSlotsConfig(): Promise<SlotsAvailabilityWindow> {
+  const docRef = doc(db, ...SLOT_AVAILABILITY_CONFIG_DOC.split('/'));
+  const snapshot = await getDoc(docRef);
+  if (!snapshot.exists()) {
+    return {
+      editingEnabled: false,
+      availableDate: '',
+      availableStartTime: '',
+      availableEndTime: '',
+    };
+  }
+  const data = snapshot.data() as Partial<SlotsAvailabilityWindow>;
+  return {
+    editingEnabled: Boolean(data.editingEnabled),
+    availableDate: String(data.availableDate || ''),
+    availableStartTime: String(data.availableStartTime || ''),
+    availableEndTime: String(data.availableEndTime || ''),
+    updatedBy: data.updatedBy,
+    updatedAt: data.updatedAt,
+  };
+}
+
+export async function setSlotsConfig(config: SlotsAvailabilityWindow): Promise<void> {
+  const docRef = doc(db, ...SLOT_AVAILABILITY_CONFIG_DOC.split('/'));
+  await setDoc(docRef, {
+    editingEnabled: config.editingEnabled,
+    availableDate: config.availableDate,
+    availableStartTime: config.availableStartTime,
+    availableEndTime: config.availableEndTime,
+    updatedBy: config.updatedBy || '',
+    updatedAt: config.updatedAt || new Date(),
+  }, { merge: true });
+}
+
 // Forms CRUD
 export async function getForms(): Promise<FormEntry[]> {
   const q = query(collection(db, 'forms'), orderBy('startDate', 'desc'));
   const snapshot = await getDocs(q);
-  const forms = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as FormEntry));
-  // Auto-compute status based on current time
+  const forms = snapshot.docs.map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() } as FormEntry));
   return computeFormsStatus(forms).map((form) => ({ ...form, id: form.id } as FormEntry));
 }
 
@@ -27,7 +111,6 @@ export async function getForm(id: string): Promise<FormEntry | null> {
   const docSnap = await getDoc(doc(db, 'forms', id));
   if (!docSnap.exists()) return null;
   const form = { id: docSnap.id, ...docSnap.data() } as FormEntry;
-  // Auto-compute status based on current time
   const computedForm = computeFormsStatus([form])[0];
   return { ...computedForm, id: form.id } as FormEntry;
 }
@@ -49,7 +132,7 @@ export async function deleteForm(id: string): Promise<void> {
 export async function getAnnouncements(): Promise<Announcement[]> {
   const q = query(collection(db, 'announcements'), orderBy('date', 'desc'));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Announcement));
+  return snapshot.docs.map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() } as Announcement));
 }
 
 export async function getAnnouncement(id: string): Promise<Announcement | null> {
@@ -73,7 +156,7 @@ export async function deleteAnnouncement(id: string): Promise<void> {
 // FAQs CRUD
 export async function getFAQs(): Promise<FAQ[]> {
   const snapshot = await getDocs(collection(db, 'faqs'));
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as FAQ));
+  return snapshot.docs.map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() } as FAQ));
 }
 
 export async function getFAQ(id: string): Promise<FAQ | null> {
@@ -97,7 +180,7 @@ export async function deleteFAQ(id: string): Promise<void> {
 // Documents CRUD
 export async function getDocuments(): Promise<Document[]> {
   const snapshot = await getDocs(collection(db, 'documents'));
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Document));
+  return snapshot.docs.map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() } as Document));
 }
 
 export async function getDocument(id: string): Promise<Document | null> {
