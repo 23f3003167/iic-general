@@ -345,6 +345,14 @@ export async function releaseBehaviouralSlots(
   }
 }
 
+// Modify attempts helper — forwards to the Scores Apps Script endpoint.
+export async function modifyAttempts(args: { emails: string; attemptType: string; batch: string | number; activity: string; }) {
+  return callScoresAppsScript<any>({
+    action: 'modifyAttempts',
+    data: args,
+  });
+}
+
 export async function releasePresentationSlots(
   args: ReleasePresentationSlotsRequest,
 ): Promise<ReleasePresentationSlotsResponse> {

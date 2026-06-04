@@ -22,6 +22,9 @@ function doPost(e) {
       data = lookupStudentActivityPoints(payload);
     } else if (action === 'lookupStudentSubmissions') {
       data = lookupStudentSubmissions(payload);
+    } else if (action === 'modifyAttempts') {
+      // payload.data should contain { emails, attemptType, batch, activity }
+      data = modifyAttempts(payload.data || payload);
     } else {
       throw new Error('Unsupported action: ' + action);
     }

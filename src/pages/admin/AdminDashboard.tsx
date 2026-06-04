@@ -57,6 +57,7 @@ import ToolsManagement from './ToolsManagement';
 import EvaluatorsManagement from './EvaluatorsManagement';
 import ExamsManagement from './ExamsManagement';
 import SlotsAvailabilityPage from './SlotsAvailability';
+import AttemptsManagement from './AttemptsManagement';
 
 const adminNavItems = [
   { path: '/admin/dashboard', label: 'Overview', icon: Home },
@@ -69,6 +70,7 @@ const adminNavItems = [
   { path: '/admin/exams', label: 'Exams', icon: ClipboardList },
   { path: '/admin/slots-availability', label: 'Slots Availability', icon: Calendar },
   { path: '/admin/evaluators', label: 'Evaluators', icon: CheckCircle2 },
+  { path: '/admin/attempts', label: 'Attempts', icon: Plus },
 ];
 
 const AdminDashboard = () => {
@@ -275,6 +277,8 @@ const AdminDashboard = () => {
         return <ExamsManagement />;
       case '/admin/slots-availability':
         return <SlotsAvailabilityPage />;
+      case '/admin/attempts':
+        return <AttemptsManagement />;
             case '/admin/evaluators':
               return <EvaluatorsManagement />;
       default:

@@ -1,0 +1,131 @@
+<!doctype html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body { font-family: Arial, sans-serif; padding: 12px; }
+      label { display:block; margin-top:8px; }
+      textarea { width:100%; height:100px; }
+      input[type=text], select { width:100%; }
+      .row { display:flex; gap:8px; }
+      .col { flex:1; }
+      button { margin-top:12px; }
+      .hint { color:#666; font-size:12px }
+      .error { color: #a00; font-size:13px; margin-top:8px }
+    </style>
+  </head>
+  <body>
+    <h3>Modify Attempts</h3>
+    <label>Emails (comma/newline separated)</label>
+    <textarea id="emails" placeholder="student@study.iitm.ac.in, ..."></textarea>
+
+    <div class="row">
+      <div class="col">
+        <label>Attempt Type</label>
+        <select id="attemptType">
+          <option value="FA">First Attempt (FA)</option>
+          <option value="RA">ReAttempt (RA)</option>
+        </select>
+      </div>
+      <div class="col">
+        <label>Batch Number</label>
+        <input id="batch" type="text" placeholder="1 or 2">
+      </div>
+    </div>
+
+    <label>Activity</label>
+    <select id="activity">
+      <option value="PPM">PPM (Pre-placement module)</option>
+      <option value="CSM">CSM (Communication skills)</option>
+      <option value="SA">SA (Self Aptitude)</option>
+      <option value="BA">BA (Behavioural Assessment)</option>
+      <option value="PR">PR (Presentation)</option>
+      <option value="TMCQ">TMCQ (Tech MCQ)</option>
+      <option value="AI">AI Mock</option>
+      <option value="1ON1">1-on-1</option>
+    </select>
+
+    <div class="hint">The script will update the appropriate "Attempt" column in the Level sheets.</div>
+
+    <button id="applyBtn">Apply</button>
+    <div id="result" style="margin-top:10px"></div>
+
+    <script>
+      (function(){
+        const applyBtn = document.getElementById('applyBtn');
+        const resultEl = document.getElementById('result');
+
+        function showError(msg) {
+          resultEl.textContent = msg;
+          resultEl.className = 'error';
+        }
+
+        function clearResult() {
+          resultEl.textContent = '';
+          resultEl.className = '';
+        }
+
+        function parseEmails(raw) {
+          return raw.split(/[\n,;\s]+/).map(function(s){ return (s||'').trim().toLowerCase(); }).filter(Boolean);
+        }
+
+        function isValidEmail(e) {
+          return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(e);
+        }
+
+        function sanitizeActivity(act) {
+          return (act||'').toString().trim().toUpperCase();
+        }
+
+        function validate(data) {
+          if (!data.emails) return 'Please provide at least one email.';
+          const emails = parseEmails(data.emails);
+          if (!emails.length) return 'No valid emails found.';
+          if (emails.length > 200) return 'Too many emails (limit 200).';
+          for (let i=0;i<emails.length;i++) {
+            if (!isValidEmail(emails[i])) return 'Invalid email: ' + emails[i];
+          }
+          if (!data.batch || !/^\d{1,3}$/.test(String(data.batch).trim())) return 'Enter a valid batch number.';
+          const allowed = ['PPM','CSM','SA','BA','PR','TMCQ','AI','1ON1'];
+          if (allowed.indexOf(sanitizeActivity(data.activity)) === -1) return 'Unknown activity selected.';
+          return null;
+        }
+
+        function disableUI(dis) {
+          applyBtn.disabled = dis;
+        }
+
+        applyBtn.addEventListener('click', function(){
+          clearResult();
+          const data = {
+            emails: document.getElementById('emails').value || '',
+            attemptType: document.getElementById('attemptType').value || 'FA',
+            batch: document.getElementById('batch').value || '',
+            activity: sanitizeActivity(document.getElementById('activity').value || ''),
+          };
+
+          const err = validate(data);
+          if (err) return showError(err);
+
+          if (!confirm('Proceed to update ' + parseEmails(data.emails).length + ' students for ' + data.activity + ' ?')) return;
+
+          disableUI(true);
+          resultEl.textContent = 'Working...';
+          resultEl.className = '';
+
+          google.script.run.withSuccessHandler(function(resp){
+            disableUI(false);
+            if (!resp) return showError('No response from server');
+            if (!resp.success) return showError('Server error: ' + (resp.message || 'unknown'));
+            let txt = 'Updated ' + (resp.updated || 0) + ' rows.';
+            if (resp.notFound && resp.notFound.length) txt += ' Not found: ' + resp.notFound.join(', ');
+            resultEl.textContent = txt;
+          }).withFailureHandler(function(err){
+            disableUI(false);
+            showError('Request failed: ' + (err && err.message ? err.message : String(err)));
+          }).modifyAttempts(data);
+        });
+      })();
+    </script>
+  </body>
+</html>
