@@ -219,10 +219,10 @@ export function AnnouncementsManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Announcements Management</h2>
-          <p className="text-muted-foreground">Create and manage announcements</p>
+          <h2 className="text-3xl font-extrabold">Announcements Management</h2>
+          <p className="text-lg text-muted-foreground">Create and manage announcements</p>
         </div>
         <Button onClick={() => handleOpenDialog()}>
           <Plus className="mr-2 h-4 w-4" />
@@ -245,8 +245,8 @@ export function AnnouncementsManagement() {
               <CardHeader>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CardTitle className="text-lg">{announcement.title}</CardTitle>
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <CardTitle className="text-xl sm:text-2xl font-semibold">{announcement.title}</CardTitle>
                       {announcement.important && (
                         <Badge variant="destructive" className="gap-1">
                           <AlertCircle className="h-3 w-3" />
@@ -281,7 +281,7 @@ export function AnnouncementsManagement() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="prose prose-sm max-w-none text-sm leading-relaxed text-gray-700 dark:text-gray-300 space-y-2">
+                <div className="prose prose-lg max-w-none text-base leading-7 text-gray-800 dark:text-gray-200 space-y-4">
                   {formatAnnouncementContent(announcement.content)}
                 </div>
               </CardContent>

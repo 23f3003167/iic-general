@@ -5,9 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { auth } from '@/lib/firebase';
 import { listSlotsAvailability, createSlotAvailability, deleteSlotAvailability, getSlotsConfig, setSlotsConfig, type SlotAvailability, type SlotsAvailabilityWindow } from '@/lib/firestoreService';
 import { getBehavioralInstructors, getPresentationInstructors, type InstructorOption } from '@/lib/toolsService';
+import PresentationSlotsOverview from './PresentationSlotsOverview';
+import BehavioralSlotsOverview from './BehavioralSlotsOverview';
 
 const SUPER_ADMINS = ['sanjay_k@study.iitm.ac.in', 'jeyalakshmi_a@study.iitm.ac.in'];
 
@@ -147,123 +150,144 @@ const SlotsAvailabilityPage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Slots Availability</h2>
-        {isSuperAdmin ? (
-          <div className="flex items-center gap-3">
-            {config.editingEnabled ? (
-              <div className="text-xs text-muted-foreground text-right">
-                <div>Open: {config.availableDate || '—'}</div>
-                <div>{config.availableStartTime || '—'} to {config.availableEndTime || '—'}</div>
-                <div>{editingEnabled ? 'Status: open now' : 'Status: closed now'}</div>
-              </div>
-            ) : null}
-            <Button variant="outline" onClick={toggleEditing}>{config.editingEnabled ? 'Disable Editing' : 'Enable Editing'}</Button>
-          </div>
-        ) : null}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Add Availability</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {!config.editingEnabled ? (
-            <p className="text-sm text-muted-foreground">Adding availability is disabled by super admin. Saved availability is still shown below.</p>
-          ) : !canCreateAvailability ? (
-            <p className="text-sm text-muted-foreground">Adding availability is closed now. It is only open within the configured window. Saved availability is still shown below.</p>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <label className="text-sm font-medium">Section</label>
-                <Select value={section} onValueChange={(v) => setSection(v as any)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="behavioral">Behavioral</SelectItem>
-                    <SelectItem value="presentation">Presentation</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+      <Tabs defaultValue="management" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="management">Slot Management</TabsTrigger>
+          <TabsTrigger value="presentationOverview">Presentation Overview</TabsTrigger>
+          <TabsTrigger value="behavioralOverview">Behavioral Overview</TabsTrigger>
+        </TabsList>
 
-              <div>
-                <label className="text-sm font-medium">Instructor</label>
-                <Select value={instructorNumber} onValueChange={setInstructorNumber}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {instructors.map((ins) => (
-                      <SelectItem key={ins.number} value={ins.number}>{ins.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        <TabsContent value="management" className="space-y-4">
+          <div className="flex items-center justify-between">
+            {isSuperAdmin ? (
+              <div className="flex items-center gap-3">
+                {config.editingEnabled ? (
+                  <div className="text-xs text-muted-foreground text-right">
+                    <div>Open: {config.availableDate || '—'}</div>
+                    <div>{config.availableStartTime || '—'} to {config.availableEndTime || '—'}</div>
+                    <div>{editingEnabled ? 'Status: open now' : 'Status: closed now'}</div>
+                  </div>
+                ) : null}
+                <Button variant="outline" onClick={toggleEditing}>{config.editingEnabled ? 'Disable Editing' : 'Enable Editing'}</Button>
               </div>
+            ) : null}
+          </div>
 
-              <div>
-                <label className="text-sm font-medium">Date</label>
-                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-              </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Add Availability</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!config.editingEnabled ? (
+                <p className="text-sm text-muted-foreground">Adding availability is disabled by super admin. Saved availability is still shown below.</p>
+              ) : !canCreateAvailability ? (
+                <p className="text-sm text-muted-foreground">Adding availability is closed now. It is only open within the configured window. Saved availability is still shown below.</p>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <label className="text-sm font-medium">Section</label>
+                    <Select value={section} onValueChange={(v) => setSection(v as any)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="behavioral">Behavioral</SelectItem>
+                        <SelectItem value="presentation">Presentation</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div>
-                <label className="text-sm font-medium">Start Time</label>
-                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-              </div>
+                  <div>
+                    <label className="text-sm font-medium">Instructor</label>
+                    <Select value={instructorNumber} onValueChange={setInstructorNumber}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {instructors.map((ins) => (
+                          <SelectItem key={ins.number} value={ins.number}>{ins.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div>
-                <label className="text-sm font-medium">End Time</label>
-                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-              </div>
+                  <div>
+                    <label className="text-sm font-medium">Date</label>
+                    <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                  </div>
 
-              <div>
-                <label className="text-sm font-medium">Duration</label>
-                <Input value={`${duration[section]} mins`} disabled />
-              </div>
+                  <div>
+                    <label className="text-sm font-medium">Start Time</label>
+                    <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                  </div>
 
-              <div className="flex items-end">
-                <Button onClick={handleCreate}>Save Availability</Button>
-              </div>
-            </div>
-          )}
+                  <div>
+                    <label className="text-sm font-medium">End Time</label>
+                    <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                  </div>
 
-          {isSuperAdmin ? (
-            <div className="mt-4 grid gap-4 md:grid-cols-3 rounded-md border bg-muted/20 p-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Editing Date</label>
-                <Input type="date" value={windowDate} onChange={(e) => setWindowDate(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Editing Start Time</label>
-                <Input type="time" value={windowStartTime} onChange={(e) => setWindowStartTime(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Editing End Time</label>
-                <Input type="time" value={windowEndTime} onChange={(e) => setWindowEndTime(e.target.value)} />
-              </div>
-            </div>
-          ) : null}
+                  <div>
+                    <label className="text-sm font-medium">Duration</label>
+                    <Input value={`${duration[section]} mins`} disabled />
+                  </div>
 
-          <div className="mt-4 space-y-2">
-            <h3 className="text-lg font-medium">Existing Availability</h3>
-            {availabilities.map((a) => (
-              <div key={a.id} className="rounded-md border p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="font-medium">{a.instructorName || 'Unknown instructor'}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {a.section} | {a.date || '—'} | {a.startTime || '—'} - {a.endTime || '—'} | {a.durationMinutes || '—'} mins
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      ID: {a.id}
-                      {a.createdBy ? ` | Created by: ${a.createdBy}` : ''}
+                  <div className="flex items-end">
+                    <Button onClick={handleCreate}>Save Availability</Button>
+                  </div>
+                </div>
+              )}
+
+              {isSuperAdmin ? (
+                <div className="mt-4 grid gap-4 md:grid-cols-3 rounded-md border bg-muted/20 p-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Editing Date</label>
+                    <Input type="date" value={windowDate} onChange={(e) => setWindowDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Editing Start Time</label>
+                    <Input type="time" value={windowStartTime} onChange={(e) => setWindowStartTime(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Editing End Time</label>
+                    <Input type="time" value={windowEndTime} onChange={(e) => setWindowEndTime(e.target.value)} />
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-4 space-y-2">
+                <h3 className="text-lg font-medium">Existing Availability</h3>
+                {availabilities.map((a) => (
+                  <div key={a.id} className="rounded-md border p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="font-medium">{a.instructorName || 'Unknown instructor'}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {a.section} | {a.date || '—'} | {a.startTime || '—'} - {a.endTime || '—'} | {a.durationMinutes || '—'} mins
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          ID: {a.id}
+                          {a.createdBy ? ` | Created by: ${a.createdBy}` : ''}
+                        </div>
+                      </div>
+                      <Button variant="ghost" onClick={() => handleDelete(a.id)}>Delete</Button>
                     </div>
                   </div>
-                  <Button variant="ghost" onClick={() => handleDelete(a.id)}>Delete</Button>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="presentationOverview">
+          <PresentationSlotsOverview />
+        </TabsContent>
+
+        <TabsContent value="behavioralOverview">
+          <BehavioralSlotsOverview />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

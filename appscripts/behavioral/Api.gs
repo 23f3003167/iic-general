@@ -16,6 +16,8 @@ function doPost(e) {
       data = getInstructors_();
     } else if (action === 'getUniqueInstructors') {
       data = getUniqueInstructors_();
+    } else if (action === 'getBehavioralStats') {
+      data = getBehavioralStats_();
     } else if (action === 'getPendingEvaluations') {
       data = getPendingEvaluations_(payload);
     } else if (action === 'submitEvaluation') {
@@ -264,6 +266,54 @@ function getUniqueInstructors_() {
 
   unique.sort();
   return unique;
+}
+
+function getBehavioralStats_() {
+  var sheet = getSummarySheet_();
+  var values = sheet.getDataRange().getValues();
+  var statsMap = {};
+
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    var instructorName = String(row[1] || '').trim();
+    var instructorNumber = String(row[1] || '').trim();
+    var status = String(row[5] || '').trim().toLowerCase();
+
+    if (!instructorName) continue;
+
+    if (!statsMap[instructorName]) {
+      statsMap[instructorName] = {
+        instructorName: instructorName,
+        instructorNumber: instructorNumber,
+        slotsAllocated: 0,
+        slotsWithFeedback: 0,
+        absentees: 0,
+      };
+    }
+
+    statsMap[instructorName].slotsAllocated++;
+
+    if (status === 'completed') {
+      statsMap[instructorName].slotsWithFeedback++;
+    }
+
+    if (status === 'absent') {
+      statsMap[instructorName].absentees++;
+    }
+  }
+
+  var result = [];
+  for (var key in statsMap) {
+    if (Object.prototype.hasOwnProperty.call(statsMap, key)) {
+      result.push(statsMap[key]);
+    }
+  }
+
+  result.sort(function (a, b) {
+    return String(a.instructorName || '').localeCompare(String(b.instructorName || ''));
+  });
+
+  return result;
 }
 
 function getPendingEvaluations_(payload) {

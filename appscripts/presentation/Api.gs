@@ -1,6 +1,13 @@
+function doGet(e) {
+  return handleRequest_(e.parameter || {});
+}
+
 function doPost(e) {
+  return handleRequest_(parsePayload_(e));
+}
+
+function handleRequest_(payload) {
   try {
-    var payload = parsePayload_(e);
     validateApiToken_(payload);
 
     var action = String(payload.action || '').trim();
@@ -20,6 +27,8 @@ function doPost(e) {
       data = getPendingEvaluations_(payload);
     } else if (action === 'submitEvaluation') {
       data = submitEvaluation_(payload);
+    } else if (action === 'getPresentationStats') {
+      data = getPresentationStats_();
     } else {
       throw new Error('Unsupported action: ' + action);
     }
@@ -28,6 +37,14 @@ function doPost(e) {
   } catch (error) {
     return jsonResponse_(false, null, '', error && error.message ? error.message : String(error));
   }
+}
+
+function doOptions(e) {
+  return ContentService.createTextOutput('');
+}
+
+function addCorsHeaders_(response) {
+  return response;
 }
 
 function getInstructors_() {
@@ -75,11 +92,31 @@ function parsePayload_(e) {
     throw new Error('Empty request body');
   }
 
+  var contents = e.postData.contents;
   try {
-    return JSON.parse(e.postData.contents);
+    return JSON.parse(contents);
   } catch (_err) {
-    throw new Error('Invalid JSON body');
+    return parseFormEncodedPayload_(contents);
   }
+}
+
+function parseFormEncodedPayload_(contents) {
+  var params = {};
+  var pairs = contents.split('&');
+
+  for (var i = 0; i < pairs.length; i++) {
+    var pair = pairs[i];
+    if (!pair) continue;
+
+    var parts = pair.split('=');
+    var key = decodeURIComponent(parts[0] || '').trim();
+    if (!key) continue;
+
+    var value = decodeURIComponent((parts[1] || '').replace(/\+/g, ' '));
+    params[key] = value;
+  }
+
+  return params;
 }
 
 function validateApiToken_(payload) {
@@ -548,9 +585,70 @@ function jsonResponse_(success, data, message, error) {
     payload.error = error || 'Request failed';
   }
 
-  return ContentService
+  var response = ContentService
     .createTextOutput(JSON.stringify(payload))
     .setMimeType(ContentService.MimeType.JSON);
+  
+  return addCorsHeaders_(response);
+}
+
+function getPresentationStats_() {
+  var sheet = getSummarySheet_();
+  if (!sheet) {
+    throw new Error('Summary sheet not found');
+  }
+
+  var values = sheet.getDataRange().getValues();
+  var statsMap = {};
+
+  // Iterate through all rows (skip header at index 0)
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    var instructorName = String(row[1] || '').trim(); // Column B
+    var instructorNumber = String(row[1] || '').trim(); // For now, using name as number
+    var feedback = String(row[9] || '').trim(); // Column J - feedback field
+    var status = String(row[5] || '').trim(); // Column F - status
+
+    if (!instructorName) continue;
+
+    // Initialize stats object for this instructor if not exists
+    if (!statsMap[instructorName]) {
+      statsMap[instructorName] = {
+        instructorName: instructorName,
+        instructorNumber: instructorNumber, // Will be extracted from slot if available
+        slotsAllocated: 0,
+        slotsWithFeedback: 0,
+        absentees: 0
+      };
+    }
+
+    // Count slot allocated
+    statsMap[instructorName].slotsAllocated++;
+
+    // Count slots with feedback (non-empty feedback)
+    if (feedback && feedback.toLowerCase() !== '') {
+      statsMap[instructorName].slotsWithFeedback++;
+
+      // Count absentees (feedback == "Absent")
+      if (feedback.toLowerCase() === 'absent') {
+        statsMap[instructorName].absentees++;
+      }
+    }
+  }
+
+  // Convert map to array and sort
+  var result = [];
+  for (var key in statsMap) {
+    if (statsMap.hasOwnProperty(key)) {
+      result.push(statsMap[key]);
+    }
+  }
+
+  result.sort(function(a, b) {
+    return (a.instructorName || '').localeCompare(b.instructorName || '');
+  });
+
+  return result;
 }
 
 // Run once from Apps Script editor (Run button) to grant mail + spreadsheet scopes.

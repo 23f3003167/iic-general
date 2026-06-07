@@ -70,11 +70,11 @@ const Announcements = () => {
     <Layout>
       <div className="container py-8 space-y-6">
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold sm:text-3xl flex items-center gap-2">
-            <Bell className="h-7 w-7 text-primary" />
+          <h1 className="text-3xl font-extrabold sm:text-4xl flex items-center gap-3">
+            <Bell className="h-8 w-8 text-primary" />
             Announcements
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-lg text-muted-foreground max-w-3xl">
             Official updates from the Industry Interaction Cell.
           </p>
         </div>
@@ -89,9 +89,9 @@ const Announcements = () => {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <CardTitle className="text-lg">{announcement.title}</CardTitle>
+                        <CardTitle className="text-xl sm:text-2xl font-semibold">{announcement.title}</CardTitle>
                         {announcement.important && (
-                          <Badge variant="destructive" className="flex items-center gap-1 text-xs">
+                          <Badge variant="destructive" className="flex items-center gap-1 text-xs sm:text-sm">
                             <AlertCircle className="h-3 w-3" />
                             Important
                           </Badge>
@@ -104,7 +104,7 @@ const Announcements = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="prose prose-sm max-w-none text-sm leading-relaxed text-gray-700 dark:text-gray-300 space-y-2">
+                  <div className="prose prose-lg max-w-none text-base leading-7 text-gray-800 dark:text-gray-200 space-y-4">
                     {formatAnnouncementContent(announcement.content)}
                   </div>
                 </CardContent>

@@ -155,14 +155,21 @@ function mapToTickets() {
 
   skippedCount = Math.max(0, (data.length - 1) - importedCount - updatedCount);
 
-  SpreadsheetApp.getUi().alert(
-    'Tickets sync complete\n\n' +
-    'Imported: ' + importedCount + '\n' +
-    'Updated: ' + updatedCount + '\n' +
-    'Duplicates skipped: ' + duplicateCount + '\n' +
-    'Rows missing required data: ' + missingRequiredCount + '\n' +
+  const summary = [
+    'Tickets sync complete',
+    '',
+    'Imported: ' + importedCount,
+    'Updated: ' + updatedCount,
+    'Duplicates skipped: ' + duplicateCount,
+    'Rows missing required data: ' + missingRequiredCount,
     'Total source rows scanned: ' + Math.max(0, data.length - 1)
-  );
+  ].join('\n');
+
+  try {
+    SpreadsheetApp.getUi().alert(summary);
+  } catch (err) {
+    Logger.log(summary);
+  }
 }
 
 function normalizeHeader_(value) {
