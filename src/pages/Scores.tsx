@@ -40,6 +40,7 @@ type ScoreSummary = {
   // Level 1 specific
   ppm?: string;
   ppmStatus?: string;
+  ppmAttempt?: string;
   selfIntro?: string;
   selfIntroStatus?: string;
   listenSpeak?: string;
@@ -49,12 +50,20 @@ type ScoreSummary = {
   emailWriting?: string;
   emailWritingStatus?: string;
   csmPassFail?: string;
+  csmAttempt?: string;
   overallPassFail?: string;
+  // Level 2 specific
+  saAttempt?: string;
+  baAttempt?: string;
+  prAttempt?: string;
   // Level 3 specific
   techMcq?: string;
   mcqPassFail?: string;
   aiMock?: string;
   aiMockPassFail?: string;
+  tmcqAttempt?: string;
+  aiAttempt?: string;
+  oneOnOneAttempt?: string;
   oneOnOneSession?: string;
   oneOnOnePassFail?: string;
   level3PassFail?: string;
@@ -115,6 +124,32 @@ function isMissingValue(value: string | undefined): boolean {
   if (!value) return true;
   const normalized = String(value).trim().toLowerCase();
   return normalized === '' || normalized === '—' || normalized === '#n/a' || normalized === 'not found';
+}
+
+function resolveStudentEmail(input?: string): string {
+  const raw = String(input || '').trim().toLowerCase();
+  if (!raw) return '';
+  const localPart = raw.includes('@') ? raw.split('@')[0] : raw;
+  const rollNumber = localPart.slice(0, 10);
+  return `${rollNumber}@ds.study.iitm.ac.in`;
+}
+
+function formatAttemptCode(value: string | undefined): string {
+  if (!value) return '—';
+  const normalized = String(value).trim().toUpperCase();
+
+  switch (normalized) {
+    case 'FA1B':
+      return '1st Attempt - 1st Batch';
+    case 'FA2B':
+      return '1st Attempt - 2nd Batch';
+    case 'RA1B':
+      return 'Re-Attempt - 1st Batch';
+    case 'RA2B':
+      return 'Re-Attempt - 2nd Batch';
+    default:
+      return value;
+  }
 }
 
 function buildActivityPointsSummary(result: StudentActivityPointsLookup | null): ActivityPointsSummary | null {
@@ -214,6 +249,7 @@ export default function Scores() {
         ...base,
           ppm: tableValue(row, headers, ['ppm']),
           ppmStatus: tableValue(row, headers, ['ppm', 'pass', 'fail']),
+          ppmAttempt: tableValue(row, headers, ['ppm', 'attempt']),
           selfIntro: tableValue(row, headers, ['self', 'intro']),
           selfIntroStatus: tableValue(row, headers, ['si', 'status', 'si status']),
           listenSpeak: tableValue(row, headers, ['listen', 'speak']),
@@ -222,7 +258,8 @@ export default function Scores() {
           listenWriteStatus: tableValue(row, headers, ['lw', 'status']),
           emailWriting: tableValue(row, headers, ['email', 'writing']),
           emailWritingStatus: tableValue(row, headers, ['ew', 'status']),
-          csmPassFail: tableValue(row, headers, ['csm', 'pass']),
+          csmPassFail: tableValue(row, headers, ['csm', 'pass', 'fail']),
+          csmAttempt: tableValue(row, headers, ['csm', 'attempt']),
           overallPassFail: tableValue(row, headers, ['overall', 'pass', 'fail']),
         total: tableValue(row, headers, ['total']),
       };
@@ -245,6 +282,9 @@ export default function Scores() {
         mcqPassFail: tableValue(row, headers, ['mcq', 'pass', 'fail']),
         aiMock: tableValue(row, headers, ['ai', 'mock']),
         aiMockPassFail: tableValue(row, headers, ['ai', 'mock', 'pass', 'fail']),
+        tmcqAttempt: tableValue(row, headers, ['tmcq', 'attempt']),
+        aiAttempt: tableValue(row, headers, ['ai', 'attempt']),
+        oneOnOneAttempt: tableValue(row, headers, ['1on1', 'attempt']) || tableValue(row, headers, ['1-on-1', 'attempt']),
         oneOnOneSession: oneOnOneSession,
         oneOnOnePassFail: oneOnOnePassFail,
         level3PassFail: tableValue(row, headers, ['level', '3', 'pass', 'fail']),
@@ -262,6 +302,9 @@ export default function Scores() {
       presentation: tableValue(row, headers, ['presentation']),
       presentationStatus: tableValue(row, headers, ['presentation', 'pass', 'fail']),
       level2: tableValue(row, headers, ['level 2']),
+      saAttempt: tableValue(row, headers, ['sa', 'attempt']),
+      baAttempt: tableValue(row, headers, ['ba', 'attempt']),
+      prAttempt: tableValue(row, headers, ['pr', 'attempt']),
     };
   }, [scoreResult, selectedLevel]);
 
@@ -276,7 +319,13 @@ export default function Scores() {
 
   const submitScoreLookup = async () => {
     if (!scoreForm.level || !scoreForm.email.trim()) {
-      toast({ title: 'Missing details', description: 'Enter level and email.', variant: 'destructive' });
+      toast({ title: 'Missing details', description: 'Enter your roll number.', variant: 'destructive' });
+      return;
+    }
+
+    const studentEmail = resolveStudentEmail(scoreForm.email);
+    if (studentEmail.length < 12) {
+      toast({ title: 'Invalid roll number', description: 'Enter the first 10 characters of your email ID.', variant: 'destructive' });
       return;
     }
 
@@ -285,7 +334,7 @@ export default function Scores() {
     try {
       const result = await lookupStudentScore({
         level: scoreForm.level,
-        email: scoreForm.email,
+        email: studentEmail,
         domain: scoreForm.domain,
         plan: scoreForm.plan,
       });
@@ -306,7 +355,13 @@ export default function Scores() {
 
   const submitFeedbackLookup = async () => {
     if (!feedbackForm.category || !feedbackForm.email.trim()) {
-      toast({ title: 'Missing details', description: 'Choose a category and enter email.', variant: 'destructive' });
+      toast({ title: 'Missing details', description: 'Choose a category and enter your roll number.', variant: 'destructive' });
+      return;
+    }
+
+    const studentEmail = resolveStudentEmail(feedbackForm.email);
+    if (studentEmail.length < 12) {
+      toast({ title: 'Invalid roll number', description: 'Enter the first 10 characters of your email ID.', variant: 'destructive' });
       return;
     }
 
@@ -315,7 +370,7 @@ export default function Scores() {
     try {
       const result = await lookupStudentFeedback({
         category: feedbackForm.category,
-        email: feedbackForm.email,
+        email: studentEmail,
       });
       setFeedbackResult(result);
       setActiveTab('feedback');
@@ -332,7 +387,13 @@ export default function Scores() {
 
   const submitActivityPointsLookup = async () => {
     if (!activityPointsForm.email.trim()) {
-      toast({ title: 'Missing details', description: 'Enter email.', variant: 'destructive' });
+      toast({ title: 'Missing details', description: 'Enter your roll number.', variant: 'destructive' });
+      return;
+    }
+
+    const studentEmail = resolveStudentEmail(activityPointsForm.email);
+    if (studentEmail.length < 12) {
+      toast({ title: 'Invalid roll number', description: 'Enter the first 10 characters of your email ID.', variant: 'destructive' });
       return;
     }
 
@@ -340,7 +401,7 @@ export default function Scores() {
     setActivityPointsResult(null);
     try {
       const result = await lookupStudentActivityPoints({
-        email: activityPointsForm.email,
+        email: studentEmail,
         domain: activityPointsForm.domain,
         plan: activityPointsForm.plan,
       });
@@ -400,8 +461,8 @@ export default function Scores() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input value={scoreForm.email} onChange={(e) => setScoreForm({ ...scoreForm, email: e.target.value })} placeholder="2xfxxxxxxx@ds.study.iitm.ac.in" />
+                    <Label>Roll Number</Label>
+                    <Input value={scoreForm.email} onChange={(e) => setScoreForm({ ...scoreForm, email: e.target.value })} placeholder="First 10 chars of email ID (roll number)" />
                   </div>
                   <div className="space-y-2">
                     <Label>Domain</Label>
@@ -459,11 +520,13 @@ export default function Scores() {
                               <p className="mt-1 text-xl font-semibold text-emerald-900">{scoreSummary?.overallPassFail || '—'}</p>
                             </div>
                             <ScoreRow label="PPM / Status" value={`${scoreSummary?.ppm || '—'} / ${scoreSummary?.ppmStatus || '—'}`} />
+                            <ScoreRow label="PPM Attempt" value={formatAttemptCode(scoreSummary?.ppmAttempt)} />
                             <ScoreRow label="Self Intro / SI Status" value={`${scoreSummary?.selfIntro || '—'} / ${scoreSummary?.selfIntroStatus || '—'}`} />
                             <ScoreRow label="Listen & Speak / LS Status" value={`${scoreSummary?.listenSpeak || '—'} / ${scoreSummary?.listenSpeakStatus || '—'}`} />
                             <ScoreRow label="Listen & Write / LW Status" value={`${scoreSummary?.listenWrite || '—'} / ${scoreSummary?.listenWriteStatus || '—'}`} />
                             <ScoreRow label="Email Writing / EW Status" value={`${scoreSummary?.emailWriting || '—'} / ${scoreSummary?.emailWritingStatus || '—'}`} />
                             <ScoreRow label="CSM Pass/Fail" value={scoreSummary?.csmPassFail || '—'} />
+                            <ScoreRow label="CSM Attempt" value={formatAttemptCode(scoreSummary?.csmAttempt)} />
                           </>
                         ) : isLevel2 ? (
                           <>
@@ -473,8 +536,11 @@ export default function Scores() {
                               <p className="mt-1 text-xl font-semibold text-sky-900">{scoreSummary?.level2 || '—'}</p>
                             </div>
                             <ScoreRow label="Aptitude" value={`${scoreSummary?.selfAptitude || '—'} / ${scoreSummary?.aptitudeStatus || '—'}`} />
+                            <ScoreRow label="Aptitude Attempt" value={formatAttemptCode(scoreSummary?.saAttempt)} />
                             <ScoreRow label="Behavioural" value={`${scoreSummary?.behavioural || '—'} / ${scoreSummary?.behaviouralStatus || '—'}`} />
+                            <ScoreRow label="Behavioural Attempt" value={formatAttemptCode(scoreSummary?.baAttempt)} />
                             <ScoreRow label="Presentation" value={`${scoreSummary?.presentation || '—'} / ${scoreSummary?.presentationStatus || '—'}`} />
+                            <ScoreRow label="Presentation Attempt" value={formatAttemptCode(scoreSummary?.prAttempt)} />
                           </>
                         ) : isLevel3 ? (
                           <>
@@ -485,10 +551,13 @@ export default function Scores() {
                             </div>
                             <ScoreRow label="TECH MCQ" value={scoreSummary?.techMcq || '—'} />
                             <ScoreRow label="MCQ Pass/Fail" value={scoreSummary?.mcqPassFail || '—'} />
+                            <ScoreRow label="TMCQ Attempt" value={formatAttemptCode(scoreSummary?.tmcqAttempt)} />
                             <ScoreRow label="AI MOCK" value={scoreSummary?.aiMock || '—'} />
                             <ScoreRow label="AI Mock Pass/Fail" value={scoreSummary?.aiMockPassFail || '—'} />
+                            <ScoreRow label="AI Attempt" value={formatAttemptCode(scoreSummary?.aiAttempt)} />
                             <ScoreRow label="1on1 Session" value={scoreSummary?.oneOnOneSession || '—'} />
                             <ScoreRow label="1on1 Pass/Fail" value={scoreSummary?.oneOnOnePassFail || '—'} />
+                            <ScoreRow label="1on1 Attempt" value={formatAttemptCode(scoreSummary?.oneOnOneAttempt)} />
                             <ScoreRow label="Activity Points" value={scoreSummary?.activityPoints || '—'} />
                             <ScoreRow label="CMA" value={scoreSummary?.cma || '—'} />
                           </>
@@ -526,8 +595,8 @@ export default function Scores() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input value={feedbackForm.email} onChange={(e) => setFeedbackForm({ ...feedbackForm, email: e.target.value })} placeholder="student@ds.study.iitm.ac.in" />
+                    <Label>Roll Number</Label>
+                    <Input value={feedbackForm.email} onChange={(e) => setFeedbackForm({ ...feedbackForm, email: e.target.value })} placeholder="First 10 chars of email ID (roll number)" />
                   </div>
                   <Button onClick={submitFeedbackLookup} disabled={loadingFeedback} className="w-full">
                     {loadingFeedback ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
@@ -574,8 +643,8 @@ export default function Scores() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input value={activityPointsForm.email} onChange={(e) => setActivityPointsForm({ ...activityPointsForm, email: e.target.value })} placeholder="student@ds.study.iitm.ac.in" />
+                    <Label>Roll Number</Label>
+                    <Input value={activityPointsForm.email} onChange={(e) => setActivityPointsForm({ ...activityPointsForm, email: e.target.value })} placeholder="First 10 chars of email ID (roll number)" />
                   </div>
                   <div className="space-y-2">
                     <Label>Domain</Label>

@@ -38,6 +38,105 @@ export interface Document {
   type: 'PDF' | 'Drive' | 'External';
 }
 
+export type RecruiterVerificationStatus = 'VERIFIED' | 'PENDING' | 'REJECTED' | 'DISABLED';
+
+export interface Recruiter {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  designation: string;
+  companyName: string;
+  companyWebsite?: string;
+  linkedInUrl?: string;
+  industry: string;
+  companySize: string;
+  companyDescription?: string;
+  status: RecruiterVerificationStatus;
+  verificationNotes?: string;
+  verifiedBy?: string;
+  verificationDate?: string;
+  opportunitiesPosted: number;
+  applicationsCount: number;
+  selectionCount: number;
+  createdAt: string;
+}
+
+export interface Company {
+  id: string;
+  name: string;
+  website?: string;
+  linkedInUrl?: string;
+  industry?: string;
+  size?: string;
+  headquarters?: string;
+  active?: boolean;
+  createdAt: string;
+}
+
+export type OpportunityType = 'Internship' | 'Full Time' | 'Apprenticeship' | 'Contract' | 'Draft';
+export type OpportunityStatus = 'Draft' | 'Pending Approval' | 'Approved' | 'Closed' | 'Rejected';
+export type OpportunityDomainTargeting = 'Programming' | 'Data Science' | 'Both';
+export type OpportunityWorkMode = 'Remote' | 'Hybrid' | 'Onsite';
+export type OpportunityQuestionType = 'text' | 'textarea' | 'number' | 'dropdown' | 'file';
+
+export interface OpportunityQuestion {
+  id: string;
+  label: string;
+  type: OpportunityQuestionType;
+  required: boolean;
+  options?: string[];
+}
+
+export interface Opportunity {
+  id: string;
+  title: string;
+  companyId?: string;
+  companyName: string;
+  type: OpportunityType;
+  domain: OpportunityDomainTargeting;
+  location: string;
+  workMode: OpportunityWorkMode;
+  description: string;
+  stipendCtc: string;
+  deadline: string;
+  eligibility: {
+    diploma: boolean;
+    bsc: boolean;
+    bs: boolean;
+    trainingCompleted: boolean;
+    internshipPlan: boolean;
+    employmentPlan: boolean;
+  };
+  minActivityPoints: number;
+  skillsRequired: string[];
+  experienceRequired: string;
+  applicationQuestions: OpportunityQuestion[];
+  status: OpportunityStatus;
+  applicationsCount: number;
+  offersReleased: number;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface OpportunityApplication {
+  id: string;
+  opportunityId: string;
+  applicantName: string;
+  email: string;
+  phone: string;
+  degreeStatus: string;
+  domain: string;
+  resumeUrl?: string;
+  skills: string[];
+  projects: string;
+  experience: string;
+  stage: 'Applied' | 'Shortlisted' | 'Assessment' | 'Interview' | 'Offer' | 'Rejected' | 'Joined';
+  appliedAt: string;
+  answers: Record<string, string>;
+  status: string;
+}
+
 export type ExamStatus = 'DRAFT' | 'UPCOMING' | 'OPEN' | 'CLOSED';
 export type AssessmentType = 'APTITUDE' | 'TECH_MCQ' | 'PREPLACEMENT' | 'CSM';
 export type QuestionResponseType = 'TEXT' | 'URL';

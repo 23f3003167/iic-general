@@ -71,6 +71,8 @@ const adminNavItems = [
   { path: '/admin/slots-availability', label: 'Slots Availability', icon: Calendar },
   { path: '/admin/evaluators', label: 'Evaluators', icon: CheckCircle2 },
   { path: '/admin/attempts', label: 'Attempts', icon: Plus },
+  { path: '/admin/recruiters', label: 'Recruiters', icon: MailCheck },
+  { path: '/admin/company-outreach', label: 'Company Outreach', icon: FileText },
 ];
 
 const AdminDashboard = () => {
@@ -279,8 +281,12 @@ const AdminDashboard = () => {
         return <SlotsAvailabilityPage />;
       case '/admin/attempts':
         return <AttemptsManagement />;
-            case '/admin/evaluators':
-              return <EvaluatorsManagement />;
+      case '/admin/evaluators':
+        return <EvaluatorsManagement />;
+      case '/admin/recruiters':
+        return <RecruitersManagement />;
+      case '/admin/company-outreach':
+        return <CompanyOutreachManagement />;
       default:
         return (
           <div className="space-y-6">

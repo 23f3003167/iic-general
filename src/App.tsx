@@ -16,6 +16,8 @@ const ExamPage = lazy(() => import("./pages/Exam"));
 const ScoresPage = lazy(() => import("./pages/Scores"));
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const RecruitersManagement = lazy(() => import("./pages/admin/RecruitersManagement"));
+const CompanyOutreachManagement = lazy(() => import("./pages/admin/CompanyOutreachManagement"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -57,6 +59,8 @@ const App = () => {
             <Route path="/admin/slots-availability" element={<AdminDashboard />} />
             <Route path="/admin/attempts" element={<AdminDashboard />} />
             <Route path="/admin/evaluators" element={<AdminDashboard />} />
+            <Route path="/admin/recruiters" element={<RecruitersManagement />} />
+            <Route path="/admin/company-outreach" element={<CompanyOutreachManagement />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

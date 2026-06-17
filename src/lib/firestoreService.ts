@@ -12,7 +12,7 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { FormEntry, Announcement, FAQ, Document } from '@/types';
+import type { Announcement, Document, FAQ, FormEntry, Opportunity, OpportunityApplication, Recruiter } from '@/types';
 import { computeFormsStatus } from './statusCompute';
 
 export type SlotAvailability = {
@@ -199,4 +199,49 @@ export async function updateDocument(id: string, document: Partial<Omit<Document
 
 export async function deleteDocument(id: string): Promise<void> {
   await deleteDoc(doc(db, 'documents', id));
+}
+
+// Recruiters CRUD
+export async function getRecruiters(): Promise<Recruiter[]> {
+  const snapshot = await getDocs(query(collection(db, 'recruiters'), orderBy('createdAt', 'desc')));
+  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Recruiter) }));
+}
+
+export async function getRecruiter(id: string): Promise<Recruiter | null> {
+  const docSnap = await getDoc(doc(db, 'recruiters', id));
+  return docSnap.exists() ? ({ id: docSnap.id, ...docSnap.data() } as Recruiter) : null;
+}
+
+export async function createRecruiter(recruiter: Omit<Recruiter, 'id'>): Promise<string> {
+  const docRef = await addDoc(collection(db, 'recruiters'), recruiter);
+  return docRef.id;
+}
+
+export async function updateRecruiter(id: string, recruiter: Partial<Omit<Recruiter, 'id'>>): Promise<void> {
+  await updateDoc(doc(db, 'recruiters', id), recruiter);
+}
+
+// Opportunities CRUD
+export async function getOpportunities(): Promise<Opportunity[]> {
+  const snapshot = await getDocs(query(collection(db, 'opportunities'), orderBy('createdAt', 'desc')));
+  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Opportunity) }));
+}
+
+export async function getOpportunity(id: string): Promise<Opportunity | null> {
+  const docSnap = await getDoc(doc(db, 'opportunities', id));
+  return docSnap.exists() ? ({ id: docSnap.id, ...docSnap.data() } as Opportunity) : null;
+}
+
+export async function createOpportunity(opportunity: Omit<Opportunity, 'id'>): Promise<string> {
+  const docRef = await addDoc(collection(db, 'opportunities'), opportunity);
+  return docRef.id;
+}
+
+export async function updateOpportunity(id: string, opportunity: Partial<Omit<Opportunity, 'id'>>): Promise<void> {
+  await updateDoc(doc(db, 'opportunities', id), opportunity);
+}
+
+export async function getApplications(): Promise<OpportunityApplication[]> {
+  const snapshot = await getDocs(query(collection(db, 'applications'), orderBy('appliedAt', 'desc')));
+  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as OpportunityApplication) }));
 }
