@@ -177,6 +177,7 @@ export interface ExamAttempt {
   endAt: string;
   submittedAt: string;
   eligible: boolean;
+  previousSubmissionAt?: string;
 }
 
 export type TicketCategory = string;

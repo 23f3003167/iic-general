@@ -16,6 +16,10 @@ function doPost(e) {
       data = { exam: getActiveExam_() };
     } else if (action === 'upsertExam') {
       data = { exam: upsertExam_(payload) };
+    } else if (action === 'getLastSubmission') {
+      data = getLastSubmission_(payload);
+    } else if (action === 'getPreviousSubmissions') {
+      data = getPreviousSubmissions_(payload);
     } else if (action === 'startAttempt') {
       data = startAttempt_(payload);
     } else if (action === 'submitAttempt') {
@@ -183,6 +187,7 @@ function startAttempt_(payload) {
       throw new Error('Exam is not currently open');
     }
 
+    var previousSubmissionAt = findLastSubmittedAttemptAt_(getAttemptedSheet_(), exam.examId, email);
     var attemptId = Utilities.getUuid();
     var eligible = exam.eligibleEmails.indexOf(email) >= 0;
     var startedAt = now.toISOString();
@@ -214,7 +219,8 @@ function startAttempt_(payload) {
         startAt: startedAt,
         endAt: '',
         submittedAt: '',
-        eligible: eligible
+        eligible: eligible,
+        previousSubmissionAt: previousSubmissionAt
       },
       exam: exam
     };
@@ -289,6 +295,19 @@ function submitAttempt_(payload) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function getPreviousSubmissions_(payload) {
+  var examId = String(payload.examId || '').trim();
+  var email = String(payload.email || '').trim().toLowerCase();
+  if (!examId || !email) {
+    throw new Error('examId and email are required');
+  }
+
+  var sheet = getAttemptedSheet_();
+  return {
+    submissions: findSubmittedAttemptTimestamps_(sheet, examId, email)
+  };
 }
 
 function getExamById_(examId) {

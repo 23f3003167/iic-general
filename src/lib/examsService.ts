@@ -54,6 +54,14 @@ type SubmitAttemptResponse = {
   attempt: ExamAttempt;
 };
 
+type GetLastSubmissionResponse = {
+  lastSubmissionAt: string;
+};
+
+type GetPreviousSubmissionsResponse = {
+  submissions: string[];
+};
+
 const examsWebAppUrl = import.meta.env.VITE_EXAMS_APPS_SCRIPT_WEB_APP_URL as string | undefined;
 const examsApiToken = import.meta.env.VITE_EXAMS_APPS_SCRIPT_API_TOKEN as string | undefined;
 
@@ -126,6 +134,24 @@ export async function startExamAttempt(request: StartAttemptRequest): Promise<St
     action: 'startAttempt',
     ...request,
   });
+}
+
+export async function getLastSubmission(examId: string, email: string): Promise<string> {
+  const data = await callExamsAppsScript<GetLastSubmissionResponse>({
+    action: 'getLastSubmission',
+    examId,
+    email,
+  });
+  return data.lastSubmissionAt || '';
+}
+
+export async function getPreviousSubmissions(examId: string, email: string): Promise<string[]> {
+  const data = await callExamsAppsScript<GetPreviousSubmissionsResponse>({
+    action: 'getPreviousSubmissions',
+    examId,
+    email,
+  });
+  return Array.isArray(data.submissions) ? data.submissions : [];
 }
 
 export async function submitExamAttempt(request: SubmitAttemptRequest): Promise<SubmitAttemptResponse> {

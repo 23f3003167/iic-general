@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { getExams, startExamAttempt, submitExamAttempt } from '@/lib/examsService';
+import { getExams, getPreviousSubmissions, startExamAttempt, submitExamAttempt } from '@/lib/examsService';
 import type { ExamAttempt, ExamConfig, ExamQuestion } from '@/types';
 import { AlertCircle, Clock3, Loader2, ShieldAlert } from 'lucide-react';
 
@@ -76,6 +76,9 @@ export default function ExamPage() {
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [warningVisible, setWarningVisible] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const [previousSubmissions, setPreviousSubmissions] = useState<string[]>([]);
+  const [previousSubmissionsLoading, setPreviousSubmissionsLoading] = useState(false);
+  const [previousSubmissionsFetched, setPreviousSubmissionsFetched] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [detailsExam, setDetailsExam] = useState<ExamConfig | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -156,10 +159,44 @@ export default function ExamPage() {
     return activeExam.eligibleEmails.some((item) => item.toLowerCase() === email.trim().toLowerCase());
   }, [activeExam, email]);
 
+  useEffect(() => {
+    if (!emailDialogOpen) {
+      setPreviousSubmissions([]);
+      setPreviousSubmissionsFetched(false);
+      setPreviousSubmissionsLoading(false);
+    }
+  }, [emailDialogOpen]);
+
   const totalPossible = useMemo(() => {
     if (!activeExam) return 0;
     return getTotalWeight(activeExam.questions || []);
   }, [activeExam]);
+
+  const fetchPreviousSubmissions = async () => {
+    if (!activeExam || !email.trim()) {
+      return;
+    }
+
+    setPreviousSubmissionsLoading(true);
+    setPreviousSubmissionsFetched(false);
+    setPreviousSubmissions([]);
+
+    try {
+      const submissions = await getPreviousSubmissions(activeExam.examId, email.trim().toLowerCase());
+      setPreviousSubmissions(submissions || []);
+    } catch (error) {
+      console.error('Unable to load previous submissions', error);
+      toast({
+        title: 'Unable to load previous submissions',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+      setPreviousSubmissions([]);
+    } finally {
+      setPreviousSubmissionsFetched(true);
+      setPreviousSubmissionsLoading(false);
+    }
+  };
 
   const currentQuestion = activeExam?.questions?.[currentIndex] || null;
 
@@ -669,6 +706,12 @@ export default function ExamPage() {
                     <p className="text-muted-foreground">Eligible Status</p>
                     <p className="font-medium">{eligibleMatch === false ? 'Not matched' : eligibleMatch === true ? 'Matched' : 'Unchecked'}</p>
                   </div>
+                  {attempt?.previousSubmissionAt ? (
+                    <div className="rounded-md border p-3">
+                      <p className="text-muted-foreground">Last submission</p>
+                      <p className="font-medium">{formatDateTime(attempt.previousSubmissionAt)}</p>
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
             </div>
@@ -728,13 +771,38 @@ export default function ExamPage() {
                   />
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                 {eligibleMatch === false
                   ? 'This email is not in the eligible list for this cycle. You may still attempt, but it will be flagged.'
                   : eligibleMatch === true
                     ? 'Email matches the eligible list for this cycle.'
                     : 'Enter your email to check against the eligible list.'}
               </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={fetchPreviousSubmissions}
+                  disabled={!email.trim() || previousSubmissionsLoading}
+                >
+                  {previousSubmissionsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Check Previous Submissions
+                </Button>
+              </div>
+              {previousSubmissionsFetched ? (
+                <div className="space-y-2 pt-2">
+                  <p className="text-xs text-muted-foreground">Previous submissions for this exam:</p>
+                  {previousSubmissions.length > 0 ? (
+                    <ul className="list-disc list-inside text-sm text-foreground">
+                      {previousSubmissions.map((timestamp, index) => (
+                        <li key={index}>{formatDateTime(timestamp)}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No previous submissions found for this email.</p>
+                  )}
+                </div>
+              ) : null}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEmailDialogOpen(false)} disabled={submitting}>

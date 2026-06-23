@@ -129,9 +129,26 @@ function isMissingValue(value: string | undefined): boolean {
 function resolveStudentEmail(input?: string): string {
   const raw = String(input || '').trim().toLowerCase();
   if (!raw) return '';
-  const localPart = raw.includes('@') ? raw.split('@')[0] : raw;
-  const rollNumber = localPart.slice(0, 10);
-  return `${rollNumber}@ds.study.iitm.ac.in`;
+
+  // If the user pasted the full email, use it directly
+  if (raw.includes('@')) {
+    return raw;
+  }
+
+  // Detect roll-number length:
+  // 11-char rolls start with two digits (e.g. 23ds..., 23dp...)
+  // 10-char rolls start with two letters (e.g. 21f1..., 22f3...)
+  const isElevenChar = /^\d{2}[a-z]{2}\d{7}$/.test(raw);
+  const rollNumber = isElevenChar ? raw.slice(0, 11) : raw.slice(0, 10);
+
+  // Detect subdomain: 'es' students vs 'ds' students
+  // ES students have rolls matching 2xfxxxxxxx where position 1 is a letter like 'e'
+  // Safest: if they explicitly typed the full roll + domain hint, we already handled it above.
+  // For the short-input case, 'es' rolls follow pattern: digit-letter(e/s)-f-digits
+  const isES = /^\d{1}[es]{1}f\d/.test(raw);
+  const domain = isES ? 'es.study.iitm.ac.in' : 'ds.study.iitm.ac.in';
+
+  return `${rollNumber}@${domain}`;
 }
 
 function formatAttemptCode(value: string | undefined): string {
@@ -324,8 +341,9 @@ export default function Scores() {
     }
 
     const studentEmail = resolveStudentEmail(scoreForm.email);
-    if (studentEmail.length < 12) {
-      toast({ title: 'Invalid roll number', description: 'Enter the first 10 characters of your email ID.', variant: 'destructive' });
+    const localPart = studentEmail.split('@')[0];
+    if (localPart.length < 10) {
+      toast({ title: 'Invalid roll number', description: 'Enter a valid roll number (10 or 11 characters).', variant: 'destructive' });
       return;
     }
 
@@ -596,7 +614,7 @@ export default function Scores() {
                   </div>
                   <div className="space-y-2">
                     <Label>Roll Number</Label>
-                    <Input value={feedbackForm.email} onChange={(e) => setFeedbackForm({ ...feedbackForm, email: e.target.value })} placeholder="First 10 chars of email ID (roll number)" />
+                    <Input value={feedbackForm.email} onChange={(e) => setFeedbackForm({ ...feedbackForm, email: e.target.value })} placeholder="Roll number or full IITM email ID" />
                   </div>
                   <Button onClick={submitFeedbackLookup} disabled={loadingFeedback} className="w-full">
                     {loadingFeedback ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}

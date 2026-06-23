@@ -20,8 +20,12 @@ export async function fetchAllowedEmails(): Promise<string[]> {
 
 export async function verifyAdminAccess(user: User | null): Promise<boolean> {
   if (!user?.email) return false;
-  const allowedEmails = await fetchAllowedEmails();
-  return allowedEmails.includes(user.email.toLowerCase());
+  try {
+    const allowedEmails = await fetchAllowedEmails();
+    return allowedEmails.includes(user.email.toLowerCase());
+  } catch {
+    return false; // Fail closed — don't crash the auth listener
+  }
 }
 
 export async function signOutUnauthorized(message?: string) {

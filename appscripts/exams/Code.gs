@@ -491,6 +491,92 @@ function findAttemptRow_(sheet, attemptId) {
   return -1;
 }
 
+function findLastSubmittedAttemptAt_(sheet, examId, email) {
+  if (!examId || !email) {
+    return '';
+  }
+
+  var normalizedEmail = String(email || '').trim().toLowerCase();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    return '';
+  }
+
+  var values = sheet.getRange(2, 1, lastRow - 1, ATTEMPT_HEADERS.length).getValues();
+  var latestTimestamp = '';
+  var latestTime = 0;
+
+  for (var i = 0; i < values.length; i++) {
+    if (String(values[i][1] || '').trim() !== examId) {
+      continue;
+    }
+
+    if (String(values[i][3] || '').trim().toLowerCase() !== normalizedEmail) {
+      continue;
+    }
+
+    var submittedAt = String(values[i][9] || '').trim();
+    if (!submittedAt) {
+      continue;
+    }
+
+    var submittedTime = new Date(submittedAt).getTime();
+    if (isNaN(submittedTime)) {
+      continue;
+    }
+
+    if (submittedTime > latestTime) {
+      latestTime = submittedTime;
+      latestTimestamp = submittedAt;
+    }
+  }
+
+  return latestTimestamp;
+}
+
+function findSubmittedAttemptTimestamps_(sheet, examId, email) {
+  if (!examId || !email) {
+    return [];
+  }
+
+  var normalizedEmail = String(email || '').trim().toLowerCase();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    return [];
+  }
+
+  var values = sheet.getRange(2, 1, lastRow - 1, ATTEMPT_HEADERS.length).getValues();
+  var timestamps = [];
+
+  for (var i = 0; i < values.length; i++) {
+    if (String(values[i][1] || '').trim() !== examId) {
+      continue;
+    }
+
+    if (String(values[i][3] || '').trim().toLowerCase() !== normalizedEmail) {
+      continue;
+    }
+
+    var submittedAt = String(values[i][9] || '').trim();
+    if (!submittedAt) {
+      continue;
+    }
+
+    var submittedTime = new Date(submittedAt).getTime();
+    if (isNaN(submittedTime)) {
+      continue;
+    }
+
+    timestamps.push(submittedAt);
+  }
+
+  timestamps.sort(function(a, b) {
+    return new Date(b).getTime() - new Date(a).getTime();
+  });
+
+  return timestamps;
+}
+
 function writeEligibleStudents_(examId, title, eligibleEmails, existingColumnRef) {
   var sheet = getStudentsSheet_();
   var column = existingColumnRef ? resolveColumnIndex_(sheet, existingColumnRef) : findFirstBlankColumn_(sheet);
