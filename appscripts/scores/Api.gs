@@ -25,6 +25,8 @@ function doPost(e) {
     } else if (action === 'modifyAttempts') {
       // payload.data should contain { emails, attemptType, batch, activity }
       data = modifyAttempts(payload.data || payload);
+    } else if (action === 'getDatabaseData') {
+      data = getDatabaseData();
     } else {
       throw new Error('Unsupported action: ' + action);
     }
@@ -627,6 +629,60 @@ function jsonResponse_(success, data, message, error) {
       error: error || ''
     }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getDatabaseData() {
+  var props = PropertiesService.getScriptProperties();
+  var spreadsheetId = String(props.getProperty('DATABASE_SPREADSHEET_ID') || '').trim();
+  
+  if (!spreadsheetId) {
+    throw new Error('DATABASE_SPREADSHEET_ID not configured in Script Properties');
+  }
+  
+  var ss = SpreadsheetApp.openById(spreadsheetId);
+  
+  var level1 = getLevelData_(ss, 'Level 1', 18); // Column S (index 18)
+  var level2 = getLevelData_(ss, 'Level 2', 12); // Column M (index 12)
+  var level3 = getLevelData_(ss, 'Level 3', 11); // Column L (index 11)
+  
+  return {
+    level1: level1,
+    level2: level2,
+    level3: level3
+  };
+}
+
+function getLevelData_(ss, sheetName, statusColumnIndex) {
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    return { error: sheetName + ' sheet not found' };
+  }
+  
+  var data = sheet.getDataRange().getValues();
+  var categories = {};
+  
+  // Skip header row (index 0)
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var email = row[2]; // Column C
+    var status = row[statusColumnIndex];
+    
+    // Check if status indicates pending activities
+    if (status && String(status).indexOf('Pending:') !== -1) {
+      // Extract the pending category
+      var category = String(status).replace('Pending: ', '').trim();
+      
+      if (!categories[category]) {
+        categories[category] = [];
+      }
+      categories[category].push(email);
+    }
+  }
+  
+  return {
+    level: sheetName,
+    categories: categories
+  };
 }
 
 // NOTE: `getDomainPlanOptions` removed — domain/plan are now static on the frontend.

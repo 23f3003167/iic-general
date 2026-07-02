@@ -495,4 +495,25 @@ export async function lookupStudentSubmissions(): Promise<StudentSubmissionsLook
     action: 'lookupStudentSubmissions',
   });
 }
+
+export async function getDatabaseData(): Promise<DatabaseDataResponse> {
+  return callScoresAppsScript<DatabaseDataResponse>({
+    action: 'getDatabaseData',
+  });
+}
+
+export type DatabaseDataResponse = {
+  level1: {
+    level: string;
+    categories: Record<string, string[]>;
+  };
+  level2: {
+    level: string;
+    categories: Record<string, string[]>;
+  };
+  level3: {
+    level: string;
+    categories: Record<string, string[]>;
+  };
+};
 // Domain/Plan options are handled statically in the frontend now.

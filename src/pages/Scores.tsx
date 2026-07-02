@@ -217,7 +217,7 @@ export default function Scores() {
     domain: 'Data Science',
     plan: 'Internship',
   });
-  const [domainOptions] = useState<string[]>(['Data Science', 'Programming']);
+  const [domainOptions] = useState<string[]>(['Data Science', 'Programming', 'Electronics']);
   const [planOptions] = useState<string[]>(['Internship', 'Employment']);
   const [feedbackForm, setFeedbackForm] = useState<FeedbackFormState>({
     category: 'Behavioral',
@@ -492,7 +492,7 @@ export default function Scores() {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <Input value={scoreForm.domain} onChange={(e) => setScoreForm({ ...scoreForm, domain: e.target.value })} placeholder="Data Science / Programming" />
+                      <Input value={scoreForm.domain} onChange={(e) => setScoreForm({ ...scoreForm, domain: e.target.value })} placeholder="Data Science / Programming / Electronics" />
                     )}
                   </div>
                   <div className="space-y-2">

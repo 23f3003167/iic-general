@@ -668,15 +668,9 @@ export default function ExamPage() {
                     <Button variant="outline" onClick={() => moveQuestion(-1)} disabled={currentIndex === 0}>
                       Previous
                     </Button>
-                    <div className="flex gap-2">
-                      <Button variant="outline" onClick={() => moveQuestion(1)} disabled={currentIndex === activeExam.questions.length - 1}>
-                        Next
-                      </Button>
-                      <Button onClick={confirmAndSubmit} disabled={submitting}>
-                        {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Submit Assessment
-                      </Button>
-                    </div>
+                    <Button variant="outline" onClick={() => moveQuestion(1)} disabled={currentIndex === activeExam.questions.length - 1}>
+                      Next
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -712,6 +706,10 @@ export default function ExamPage() {
                       <p className="font-medium">{formatDateTime(attempt.previousSubmissionAt)}</p>
                     </div>
                   ) : null}
+                  <Button className="w-full" onClick={confirmAndSubmit} disabled={submitting}>
+                    {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Submit Assessment
+                  </Button>
                 </CardContent>
               </Card>
             </div>

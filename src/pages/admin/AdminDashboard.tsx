@@ -14,6 +14,7 @@ import {
   Plus,
   ClipboardList,
   Calendar,
+  Database,
 } from 'lucide-react';
 import { CheckCircle2 } from 'lucide-react';
 import {
@@ -58,6 +59,9 @@ import EvaluatorsManagement from './EvaluatorsManagement';
 import ExamsManagement from './ExamsManagement';
 import SlotsAvailabilityPage from './SlotsAvailability';
 import AttemptsManagement from './AttemptsManagement';
+import DatabaseManagement from './DatabaseManagement';
+import { RecruitersManagement } from './RecruitersManagement';
+import { CompanyOutreachManagement } from './CompanyOutreachManagement';
 
 const adminNavItems = [
   { path: '/admin/dashboard', label: 'Overview', icon: Home },
@@ -73,6 +77,7 @@ const adminNavItems = [
   { path: '/admin/attempts', label: 'Attempts', icon: Plus },
   { path: '/admin/recruiters', label: 'Recruiters', icon: MailCheck },
   { path: '/admin/company-outreach', label: 'Company Outreach', icon: FileText },
+  { path: '/admin/database', label: 'Database', icon: Database },
 ];
 
 const AdminDashboard = () => {
@@ -287,6 +292,8 @@ const AdminDashboard = () => {
         return <RecruitersManagement />;
       case '/admin/company-outreach':
         return <CompanyOutreachManagement />;
+      case '/admin/database':
+        return <DatabaseManagement />;
       default:
         return (
           <div className="space-y-6">
