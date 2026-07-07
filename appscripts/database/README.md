@@ -107,6 +107,12 @@ YOUR_WEB_APP_URL?action=level3
 ```
 Returns Level 3 pending categories and email IDs.
 
+### Search Student by Email Across All Levels
+```
+YOUR_WEB_APP_URL?action=searchStudent&email=student@ds.study.iitm.ac.in
+```
+Returns matched row details from Level 1, Level 2, and Level 3 sheets (including attempt columns).
+
 ## Response Format
 
 ```json

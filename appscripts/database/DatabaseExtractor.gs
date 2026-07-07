@@ -20,6 +20,7 @@ const SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID_HERE';
 function doGet(e) {
   const action = e.parameter.action;
   const callback = e.parameter.callback;
+  const email = e.parameter.email;
   
   let data;
   
@@ -31,10 +32,12 @@ function doGet(e) {
     data = getLevel3Data();
   } else if (action === 'all') {
     data = getAllData();
+  } else if (action === 'searchStudent') {
+    data = searchStudentByEmail(email);
   } else {
-    data = createResponse({
-      error: 'Invalid action. Use: level1, level2, level3, or all'
-    });
+    data = {
+      error: 'Invalid action. Use: level1, level2, level3, all, or searchStudent'
+    };
   }
   
   // If callback is provided, use JSONP (for CORS workaround)
@@ -170,6 +173,122 @@ function getAllData() {
     level2: level2,
     level3: level3
   };
+}
+
+/**
+ * Search student row in all level sheets by email
+ */
+function searchStudentByEmail(email) {
+  const normalizedEmail = normalizeEmail_(email);
+  if (!normalizedEmail) {
+    return { error: 'Email is required for searchStudent action' };
+  }
+
+  return {
+    email: normalizedEmail,
+    level1: getStudentRowByEmail_('Level 1', normalizedEmail, ['PPM Attempt', 'CSM Attempt']),
+    level2: getStudentRowByEmail_('Level 2', normalizedEmail, ['SA Attempt', 'BA Attempt', 'PR Attempt']),
+    level3: getStudentRowByEmail_('Level 3', normalizedEmail, ['TMCQ Attempt', 'AI Attempt', '1on1 Attempt'])
+  };
+}
+
+function getStudentRowByEmail_(sheetName, email, attemptHeaders) {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(sheetName);
+  if (!sheet) {
+    return {
+      level: sheetName,
+      found: false,
+      error: sheetName + ' sheet not found'
+    };
+  }
+
+  const data = sheet.getDataRange().getValues();
+  if (!data || data.length < 2) {
+    return {
+      level: sheetName,
+      found: false
+    };
+  }
+
+  const headers = data[0];
+  const emailIndex = findHeaderIndex_(headers, ['email']);
+  if (emailIndex < 0) {
+    return {
+      level: sheetName,
+      found: false,
+      error: 'Email column not found in ' + sheetName
+    };
+  }
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const rowEmail = normalizeEmail_(row[emailIndex]);
+    if (rowEmail !== email) {
+      continue;
+    }
+
+    const fields = [];
+    for (let c = 0; c < headers.length; c++) {
+      fields.push({
+        header: String(headers[c] || '').trim(),
+        value: stringifyCell_(row[c])
+      });
+    }
+
+    const attempts = [];
+    for (let a = 0; a < attemptHeaders.length; a++) {
+      const attemptHeader = attemptHeaders[a];
+      const attemptIndex = findHeaderIndex_(headers, [attemptHeader]);
+      attempts.push({
+        header: attemptHeader,
+        value: attemptIndex >= 0 ? stringifyCell_(row[attemptIndex]) : ''
+      });
+    }
+
+    return {
+      level: sheetName,
+      found: true,
+      fields: fields,
+      attempts: attempts
+    };
+  }
+
+  return {
+    level: sheetName,
+    found: false
+  };
+}
+
+function findHeaderIndex_(headers, keywords) {
+  for (let i = 0; i < headers.length; i++) {
+    const header = String(headers[i] || '').trim().toLowerCase();
+    if (!header) continue;
+
+    let matched = true;
+    for (let k = 0; k < keywords.length; k++) {
+      if (header.indexOf(String(keywords[k]).toLowerCase()) === -1) {
+        matched = false;
+        break;
+      }
+    }
+
+    if (matched) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+function normalizeEmail_(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function stringifyCell_(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return String(value).trim();
 }
 
 /**
