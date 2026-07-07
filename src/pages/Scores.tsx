@@ -327,11 +327,23 @@ export default function Scores() {
 
   const activityPointsSummary = useMemo(() => buildActivityPointsSummary(activityPointsResult), [activityPointsResult]);
   const feedbackSummary = useMemo(() => {
-    if (!feedbackResult) return null;
-    return feedbackResult.headers.map((header, index) => ({
-      header: String(header || '').trim(),
-      value: String(feedbackResult.row[index] || '').trim(),
-    })).filter((item) => item.header && item.value);
+    if (!feedbackResult) return [];
+
+    return feedbackResult.rows
+      .map((row, rowIndex) => {
+        const items = feedbackResult.headers
+          .map((header, index) => ({
+            header: String(header || '').trim(),
+            value: String(row[index] || '').trim(),
+          }))
+          .filter((item) => item.header && item.value);
+
+        return {
+          rowIndex,
+          items,
+        };
+      })
+      .filter((entry) => entry.items.length > 0);
   }, [feedbackResult]);
 
   const submitScoreLookup = async () => {
@@ -636,12 +648,22 @@ export default function Scores() {
                       <div className="flex flex-wrap gap-2">
                         <Badge variant="secondary">{feedbackResult.sheetName}</Badge>
                         <Badge>{feedbackResult.email}</Badge>
+                        <Badge variant="outline">{feedbackResult.count ?? feedbackResult.rows.length} matches</Badge>
                       </div>
                       <div className="space-y-3">
-                        {feedbackSummary?.map((item) => (
-                          <div key={item.header} className="rounded-lg border bg-muted/20 p-3">
-                            <p className="text-xs uppercase tracking-wide text-muted-foreground">{item.header}</p>
-                            <p className="mt-1 text-sm whitespace-pre-wrap break-words">{item.value}</p>
+                        {feedbackSummary.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">No filled feedback fields found for the matched rows.</p>
+                        ) : feedbackSummary.map((entry) => (
+                          <div key={entry.rowIndex} className="rounded-lg border bg-muted/10 p-3 space-y-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              Entry {entry.rowIndex + 1}
+                            </p>
+                            {entry.items.map((item, itemIndex) => (
+                              <div key={`${entry.rowIndex}-${item.header}-${itemIndex}`} className="rounded-lg border bg-muted/20 p-3">
+                                <p className="text-xs uppercase tracking-wide text-muted-foreground">{item.header}</p>
+                                <p className="mt-1 text-sm whitespace-pre-wrap break-words">{item.value}</p>
+                              </div>
+                            ))}
                           </div>
                         ))}
                       </div>

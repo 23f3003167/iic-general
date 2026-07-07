@@ -223,16 +223,15 @@ function lookupStudentFeedback(payload) {
     throw new Error('Email column not found in ' + sheet.getName());
   }
 
-  var matchedRow = null;
+  var matchedRows = [];
   for (var i = 1; i < values.length; i++) {
     var row = values[i];
     if (String(row[emailIndex] || '').trim().toLowerCase() === email) {
-      matchedRow = row;
-      break;
+      matchedRows.push(row);
     }
   }
 
-  if (!matchedRow) {
+  if (matchedRows.length === 0) {
     throw new Error('No feedback found for the entered email.');
   }
 
@@ -240,7 +239,9 @@ function lookupStudentFeedback(payload) {
     sheetName: sheet.getName(),
     category: category,
     headers: headers,
-    row: matchedRow,
+    row: matchedRows[0], // Backward compatibility for clients expecting a single row
+    rows: matchedRows,
+    count: matchedRows.length,
     email: email
   };
 }

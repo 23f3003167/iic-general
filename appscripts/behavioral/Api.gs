@@ -22,6 +22,8 @@ function doPost(e) {
       data = getPendingEvaluations_(payload);
     } else if (action === 'submitEvaluation') {
       data = submitEvaluation_(payload);
+    } else if (action === 'checkSlot') {
+      data = checkSlot_(payload);
     } else {
       throw new Error('Unsupported action: ' + action);
     }
@@ -411,6 +413,44 @@ function submitEvaluation_(payload) {
   sheet.getRange(targetRow, 13).setValue(feedback);
 
   return { updated: true };
+}
+
+function checkSlot_(payload) {
+  var email = String(payload.email || '').trim().toLowerCase();
+  var assessmentType = String(payload.assessmentType || '').trim().toLowerCase();
+
+  if (!email) {
+    throw new Error('Email is required');
+  }
+
+  if (assessmentType !== 'behavioral' && assessmentType !== 'presentation') {
+    throw new Error('Invalid assessment type');
+  }
+
+  var sheet = getSummarySheet_();
+  var values = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    var rowEmail = String(row[4] || '').trim().toLowerCase();
+
+    if (rowEmail === email) {
+      return {
+        found: true,
+        email: email,
+        name: String(row[3] || '').trim(),
+        instructor: String(row[1] || '').trim(),
+        slot: String(row[2] || '').trim(),
+        status: String(row[5] || '').trim()
+      };
+    }
+  }
+
+  return {
+    found: false,
+    email: email,
+    message: 'No slot found for this email'
+  };
 }
 
 function jsonResponse_(success, data, message, error) {

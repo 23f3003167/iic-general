@@ -14,6 +14,7 @@ const Documents = lazy(() => import("./pages/Documents"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const ExamPage = lazy(() => import("./pages/Exam"));
 const ScoresPage = lazy(() => import("./pages/Scores"));
+const SlotBookings = lazy(() => import("./pages/SlotBookings"));
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const RecruitersManagement = lazy(() => import("./pages/admin/RecruitersManagement"));
@@ -47,6 +48,7 @@ const App = () => {
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/exam" element={<ExamPage />} />
             <Route path="/scores" element={<ScoresPage />} />
+            <Route path="/slot-bookings" element={<SlotBookings />} />
             <Route path="/admin" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/forms" element={<AdminDashboard />} />

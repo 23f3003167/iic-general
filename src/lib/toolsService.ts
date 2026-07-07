@@ -87,7 +87,9 @@ export type StudentFeedbackLookup = {
   sheetName: string;
   category: string;
   headers: string[];
-  row: string[];
+  row?: string[];
+  rows: string[][];
+  count?: number;
   email: string;
 };
 
@@ -473,10 +475,20 @@ export async function lookupStudentFeedback(request: {
   category: string;
   email: string;
 }): Promise<StudentFeedbackLookup> {
-  return callScoresAppsScript<StudentFeedbackLookup>({
+  const result = await callScoresAppsScript<StudentFeedbackLookup>({
     action: 'lookupStudentFeedback',
     ...request,
   });
+
+  const normalizedRows = Array.isArray(result.rows) && result.rows.length > 0
+    ? result.rows
+    : (result.row ? [result.row] : []);
+
+  return {
+    ...result,
+    rows: normalizedRows,
+    count: result.count ?? normalizedRows.length,
+  };
 }
 
 export async function lookupStudentActivityPoints(request: {

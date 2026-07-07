@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { FileText, Megaphone, HelpCircle, BookOpen, LifeBuoy, Mail, Menu, MessageSquare, ClipboardList, BarChart3 } from 'lucide-react';
+import { FileText, Megaphone, HelpCircle, BookOpen, LifeBuoy, Mail, Menu, MessageSquare, ClipboardList, BarChart3, CalendarClock } from 'lucide-react';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ const navItems = [
   { path: '/documents', label: 'Documents', icon: BookOpen },
   { path: '/exam', label: 'Exam', icon: ClipboardList },
   { path: '/scores', label: 'Scores', icon: BarChart3 },
+  { path: '/slot-bookings', label: 'Slot Bookings', icon: CalendarClock },
   { path: '/chat', label: 'Chat', icon: MessageSquare },
 ];
 
