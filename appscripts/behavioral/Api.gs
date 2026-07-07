@@ -206,17 +206,14 @@ function appendAuthorizationEmailsToStudents_(emailInput) {
 
   var nextColumn = sheet.getLastColumn() > 0 ? sheet.getLastColumn() + 1 : 1;
   var timestamp = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'dd/MM/yyyy HH:mm:ss');
-  var emailHeader = 'Authorized ' + timestamp;
-  var timestampHeader = 'Authorization Timestamp (' + timestamp + ')';
 
-  sheet.getRange(1, nextColumn).setValue(emailHeader);
-  sheet.getRange(1, nextColumn + 1).setValue(timestampHeader);
+  sheet.getRange(1, nextColumn).setValue(timestamp);
 
   var rows = [];
   for (var i = 0; i < emails.length; i++) {
-    rows.push([emails[i], timestamp]);
+    rows.push([emails[i]]);
   }
-  sheet.getRange(2, nextColumn, rows.length, 2).setValues(rows);
+  sheet.getRange(2, nextColumn, rows.length, 1).setValues(rows);
 
   var columnLetter = columnIndexToLetter_(nextColumn);
   PropertiesService
