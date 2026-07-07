@@ -722,7 +722,7 @@ const ToolsManagement = () => {
       bookingWindowDate: toDdMmYyyy(bookingWindowDate),
       bookingWindowStartTime: bookingWindowStartTime,
       bookingWindowEndTime: bookingWindowEndTime,
-      syncToForm: false,
+      syncToForm: true,
       resetFormResponses: false,
       studentAuthorizationEmails: studentAuthorizationEmails.trim() || undefined,
     };
