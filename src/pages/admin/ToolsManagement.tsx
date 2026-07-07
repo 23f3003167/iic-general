@@ -208,9 +208,10 @@ const ToolsManagement = () => {
   const [slotDate, setSlotDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [bookingWindowDate, setBookingWindowDate] = useState('');
+  const [bookingWindowStartTime, setBookingWindowStartTime] = useState('');
+  const [bookingWindowEndTime, setBookingWindowEndTime] = useState('');
   const [instructorNumber, setInstructorNumber] = useState('1');
-  const [syncToForm, setSyncToForm] = useState(true);
-  const [resetFormResponses, setResetFormResponses] = useState(false);
   const [studentAuthorizationEmails, setStudentAuthorizationEmails] = useState('');
   const [isReleasingSlots, setIsReleasingSlots] = useState(false);
   const [behavioralInstructors, setBehavioralInstructors] = useState<InstructorOption[]>([]);
@@ -322,6 +323,16 @@ const ToolsManagement = () => {
 
     loadInstructors();
     loadAvailabilities();
+    
+    // Load booking window values from localStorage
+    const savedBookingWindowDate = localStorage.getItem('bookingWindowDate');
+    const savedBookingWindowStartTime = localStorage.getItem('bookingWindowStartTime');
+    const savedBookingWindowEndTime = localStorage.getItem('bookingWindowEndTime');
+    
+    if (savedBookingWindowDate) setBookingWindowDate(savedBookingWindowDate);
+    if (savedBookingWindowStartTime) setBookingWindowStartTime(savedBookingWindowStartTime);
+    if (savedBookingWindowEndTime) setBookingWindowEndTime(savedBookingWindowEndTime);
+    
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -399,9 +410,10 @@ const ToolsManagement = () => {
     setSlotDate('');
     setStartTime('');
     setEndTime('');
+    setBookingWindowDate('');
+    setBookingWindowStartTime('');
+    setBookingWindowEndTime('');
     setInstructorNumber(behavioralInstructors[0]?.number || '1');
-    setSyncToForm(true);
-    setResetFormResponses(false);
     setStudentAuthorizationEmails('');
   };
 
@@ -675,7 +687,7 @@ const ToolsManagement = () => {
   };
 
   const handleReleaseSlots = async () => {
-    if (!slotDate || !startTime || !endTime || !instructorNumber) {
+    if (!slotDate || !startTime || !endTime || !instructorNumber || !bookingWindowDate || !bookingWindowStartTime || !bookingWindowEndTime) {
       toast({
         title: 'Missing details',
         description: 'Please fill all slot fields before releasing.',
@@ -692,6 +704,14 @@ const ToolsManagement = () => {
       });
       return;
     }
+    if (bookingWindowEndTime <= bookingWindowStartTime) {
+      toast({
+        title: 'Invalid booking window',
+        description: 'Booking window end time should be after start time.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     const payload = {
       date: toDdMmYyyy(slotDate),
@@ -699,8 +719,11 @@ const ToolsManagement = () => {
       endTime: toAmPmFrom24Hour(endTime),
       durationMinutes: BA_SLOT_DURATION_MINUTES,
       instructorNumber: instructorNumber.trim(),
-      syncToForm,
-      resetFormResponses,
+      bookingWindowDate: toDdMmYyyy(bookingWindowDate),
+      bookingWindowStartTime: bookingWindowStartTime,
+      bookingWindowEndTime: bookingWindowEndTime,
+      syncToForm: false,
+      resetFormResponses: false,
       studentAuthorizationEmails: studentAuthorizationEmails.trim() || undefined,
     };
 
@@ -710,11 +733,10 @@ const ToolsManagement = () => {
       const authSummary = response.authorizationColumn
         ? ` Auth column ${response.authorizationColumn}: ${response.addedStudents ?? response.validStudents ?? 0} emails added.`
         : '';
-      const resetSummary = response.resetFormResponses ? ' Form responses reset for reattempts.' : '';
 
       toast({
         title: 'Slots released',
-        description: `${response.slotsCreated} slots created${response.syncToForm ? ' and synced to form.' : '.'}${resetSummary}${authSummary}`,
+        description: `${response.slotsCreated} slots created. Booking window: ${response.bookingWindowDate || payload.bookingWindowDate} ${response.bookingWindowStartTime || payload.bookingWindowStartTime} - ${response.bookingWindowEndTime || payload.bookingWindowEndTime}.${authSummary}`,
       });
 
       addHistory({
@@ -724,6 +746,11 @@ const ToolsManagement = () => {
         message: `${response.slotsCreated} slots created`,
         result: response,
       });
+      
+      // Save booking window values to localStorage for next time
+      localStorage.setItem('bookingWindowDate', bookingWindowDate);
+      localStorage.setItem('bookingWindowStartTime', bookingWindowStartTime);
+      localStorage.setItem('bookingWindowEndTime', bookingWindowEndTime);
     } catch (error) {
       console.error(error);
       const message = error instanceof Error ? error.message : 'Could not release slots.';
@@ -1167,7 +1194,7 @@ const ToolsManagement = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Sync To Form</label>
+              <label className="text-sm font-medium">Sync To Form (Legacy)</label>
               <Button
                 type="button"
                 variant={oneOnOneSyncToForm ? 'default' : 'outline'}
@@ -1740,27 +1767,18 @@ const ToolsManagement = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Sync To Form</label>
-              <Button
-                type="button"
-                variant={syncToForm ? 'default' : 'outline'}
-                className="w-full"
-                onClick={() => setSyncToForm((prev) => !prev)}
-              >
-                {syncToForm ? 'Enabled' : 'Disabled'}
-              </Button>
+              <label className="text-sm font-medium">Booking Window Date</label>
+              <Input type="date" value={bookingWindowDate} onChange={(e) => setBookingWindowDate(e.target.value)} />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Reset Form Responses</label>
-              <Button
-                type="button"
-                variant={resetFormResponses ? 'default' : 'outline'}
-                className="w-full"
-                onClick={() => setResetFormResponses((prev) => !prev)}
-              >
-                {resetFormResponses ? 'Enabled' : 'Disabled'}
-              </Button>
+              <label className="text-sm font-medium">Booking Window Start Time</label>
+              <Input type="time" value={bookingWindowStartTime} onChange={(e) => setBookingWindowStartTime(e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Booking Window End Time</label>
+              <Input type="time" value={bookingWindowEndTime} onChange={(e) => setBookingWindowEndTime(e.target.value)} />
             </div>
           </div>
 

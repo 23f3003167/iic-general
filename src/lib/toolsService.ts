@@ -11,6 +11,9 @@ type ReleaseBehaviouralSlotsRequest = {
   endTime: string;
   durationMinutes: number;
   instructorNumber: string;
+  bookingWindowDate: string;
+  bookingWindowStartTime: string;
+  bookingWindowEndTime: string;
   syncToForm?: boolean;
   resetFormResponses?: boolean;
   studentAuthorizationEmails?: string;
@@ -47,6 +50,9 @@ export type ReleaseBehaviouralSlotsResponse = {
   validStudents?: number;
   invalidStudents?: number;
   addedStudents?: number;
+  bookingWindowDate?: string;
+  bookingWindowStartTime?: string;
+  bookingWindowEndTime?: string;
 };
 
 export type ReleasePresentationSlotsResponse = ReleaseBehaviouralSlotsResponse & {

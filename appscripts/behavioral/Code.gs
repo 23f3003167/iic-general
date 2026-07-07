@@ -249,7 +249,10 @@ function buildDate(match, isStart) {
 }
 
 function createOrUpdateMeeting(eventId, start, end, evaluatorEmail, studentEmail) {
-  var CALENDAR_ID = "c_6f35047cccd7bac679e647b411414afe318551830edf885aa33ddea1a8772f84@group.calendar.google.com";
+  var configuredCalendarId = String(
+    PropertiesService.getScriptProperties().getProperty('BEHAVIORAL_CALENDAR_ID') || ''
+  ).trim();
+  var calendarId = configuredCalendarId || "c_6f35047cccd7bac679e647b411414afe318551830edf885aa33ddea1a8772f84@group.calendar.google.com";
 
   if (!eventId) {
     var event = {
@@ -268,21 +271,44 @@ function createOrUpdateMeeting(eventId, start, end, evaluatorEmail, studentEmail
         }
       }
     };
-
-    return Calendar.Events.insert(
-      event,
-      CALENDAR_ID,
-      { conferenceDataVersion: 1, sendUpdates: "all" }
-    ).id;
+    try {
+      return Calendar.Events.insert(
+        event,
+        calendarId,
+        { conferenceDataVersion: 1, sendUpdates: "all" }
+      ).id;
+    } catch (_err) {
+      // Fallback to script owner's primary calendar when writer access to configured calendar is missing.
+      return Calendar.Events.insert(
+        event,
+        'primary',
+        { conferenceDataVersion: 1, sendUpdates: "all" }
+      ).id;
+    }
   }
 
-  var existing = Calendar.Events.get(CALENDAR_ID, eventId);
+  var existing;
+  try {
+    existing = Calendar.Events.get(calendarId, eventId);
+  } catch (_getErr) {
+    existing = Calendar.Events.get('primary', eventId);
+    calendarId = 'primary';
+  }
   existing.attendees = existing.attendees || [];
-  existing.attendees.push({ email: studentEmail });
+  var alreadyAdded = false;
+  for (var i = 0; i < existing.attendees.length; i++) {
+    if (String(existing.attendees[i].email || '').trim().toLowerCase() === String(studentEmail || '').trim().toLowerCase()) {
+      alreadyAdded = true;
+      break;
+    }
+  }
+  if (!alreadyAdded) {
+    existing.attendees.push({ email: studentEmail });
+  }
 
   Calendar.Events.update(
     existing,
-    CALENDAR_ID,
+    calendarId,
     eventId,
     { sendUpdates: "all" }
   );

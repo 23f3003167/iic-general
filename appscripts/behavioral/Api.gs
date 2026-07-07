@@ -24,6 +24,14 @@ function doPost(e) {
       data = submitEvaluation_(payload);
     } else if (action === 'checkSlot') {
       data = checkSlot_(payload);
+    } else if (action === 'verifyBehavioralStudent') {
+      data = verifyBehavioralStudent_(payload);
+    } else if (action === 'getBehavioralBookableSlots') {
+      data = getBehavioralBookableSlots_(payload);
+    } else if (action === 'bookBehavioralSlot') {
+      data = bookBehavioralSlot_(payload);
+    } else if (action === 'getLastBookingWindow') {
+      data = getLastBookingWindow_();
     } else {
       throw new Error('Unsupported action: ' + action);
     }
@@ -105,6 +113,9 @@ function releaseBehaviouralSlots_(payload) {
   var endTime = String(payload.endTime || '').trim();
   var durationMinutes = Number(payload.durationMinutes || 0);
   var instructorNumber = String(payload.instructorNumber || '').trim();
+  var bookingWindowDate = String(payload.bookingWindowDate || '').trim();
+  var bookingWindowStartTime = String(payload.bookingWindowStartTime || '').trim();
+  var bookingWindowEndTime = String(payload.bookingWindowEndTime || '').trim();
   var syncToForm = payload.syncToForm !== false;
   var resetFormResponses = payload.resetFormResponses === true;
   var studentAuthorizationColumn = String(payload.studentAuthorizationColumn || '').trim().toUpperCase();
@@ -113,6 +124,18 @@ function releaseBehaviouralSlots_(payload) {
   if (!date || !startTime || !endTime || !durationMinutes || !instructorNumber) {
     throw new Error('Missing slot details');
   }
+  if (!bookingWindowDate || !bookingWindowStartTime || !bookingWindowEndTime) {
+    throw new Error('Booking window date and time are required');
+  }
+  if (bookingWindowEndTime <= bookingWindowStartTime) {
+    throw new Error('Booking window end time should be after start time');
+  }
+
+  setBehavioralBookingWindow_({
+    date: bookingWindowDate,
+    startTime: bookingWindowStartTime,
+    endTime: bookingWindowEndTime
+  });
 
   var slotsCreated = createSlots(
     date,
@@ -163,7 +186,10 @@ function releaseBehaviouralSlots_(payload) {
     authorizationColumn: studentAuthorizationColumn || '',
     validStudents: validStudents,
     invalidStudents: invalidStudents,
-    addedStudents: addedStudents
+    addedStudents: addedStudents,
+    bookingWindowDate: bookingWindowDate,
+    bookingWindowStartTime: bookingWindowStartTime,
+    bookingWindowEndTime: bookingWindowEndTime
   };
 }
 
@@ -179,15 +205,18 @@ function appendAuthorizationEmailsToStudents_(emailInput) {
   }
 
   var nextColumn = sheet.getLastColumn() > 0 ? sheet.getLastColumn() + 1 : 1;
-  var header = 'Authorized ' + Utilities.formatDate(new Date(), 'Asia/Kolkata', 'dd/MM/yyyy HH:mm');
+  var timestamp = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'dd/MM/yyyy HH:mm:ss');
+  var emailHeader = 'Authorized ' + timestamp;
+  var timestampHeader = 'Authorization Timestamp (' + timestamp + ')';
 
-  sheet.getRange(1, nextColumn).setValue(header);
+  sheet.getRange(1, nextColumn).setValue(emailHeader);
+  sheet.getRange(1, nextColumn + 1).setValue(timestampHeader);
 
   var rows = [];
   for (var i = 0; i < emails.length; i++) {
-    rows.push([emails[i]]);
+    rows.push([emails[i], timestamp]);
   }
-  sheet.getRange(2, nextColumn, rows.length, 1).setValues(rows);
+  sheet.getRange(2, nextColumn, rows.length, 2).setValues(rows);
 
   var columnLetter = columnIndexToLetter_(nextColumn);
   PropertiesService
@@ -427,6 +456,27 @@ function checkSlot_(payload) {
     throw new Error('Invalid assessment type');
   }
 
+  var bookedSheet = getBookedSlotsSheet_(false);
+  if (bookedSheet) {
+    var bookedData = bookedSheet.getDataRange().getValues();
+    for (var b = 1; b < bookedData.length; b++) {
+      var bookedRow = bookedData[b];
+      var bookedEmail = normalizeEmail_(bookedRow[2]);
+      if (bookedEmail !== email) {
+        continue;
+      }
+
+      return {
+        found: true,
+        email: email,
+        name: String(bookedRow[1] || '').trim(),
+        slot: String(bookedRow[4] || '').trim(),
+        status: String(bookedRow[6] || '').trim() || 'Booked',
+        source: 'booked-slots'
+      };
+    }
+  }
+
   var sheet = getSummarySheet_();
   var values = sheet.getDataRange().getValues();
 
@@ -451,6 +501,395 @@ function checkSlot_(payload) {
     email: email,
     message: 'No slot found for this email'
   };
+}
+
+function verifyBehavioralStudent_(payload) {
+  assertBookingWindowOpen_();
+
+  var email = normalizeEmail_(payload.email);
+  if (!email) {
+    throw new Error('Email is required');
+  }
+
+  var eligibility = getStudentEligibility_(email);
+  var existingBooking = findExistingBookedSlotByEmail_(email);
+
+  return {
+    verified: eligibility.authorized,
+    email: email,
+    alreadyBooked: !!existingBooking,
+    booking: existingBooking
+      ? {
+        timestamp: existingBooking.timestamp,
+        name: existingBooking.name,
+        email: existingBooking.email,
+        contact: existingBooking.contact,
+        slot: existingBooking.slot,
+        status: existingBooking.status
+      }
+      : null
+  };
+}
+
+function getBehavioralBookableSlots_(payload) {
+  assertBookingWindowOpen_();
+
+  var email = normalizeEmail_(payload.email);
+  if (!email) {
+    throw new Error('Email is required');
+  }
+
+  var eligibility = getStudentEligibility_(email);
+  if (!eligibility.authorized) {
+    return {
+      email: email,
+      verified: false,
+      slots: []
+    };
+  }
+
+  if (findExistingBookedSlotByEmail_(email)) {
+    return {
+      email: email,
+      verified: true,
+      slots: []
+    };
+  }
+
+  var slotSheet = getSlotSheet_();
+  var values = slotSheet.getDataRange().getValues();
+  var slots = [];
+
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    var slotText = String(row[0] || '').trim();
+    var seatRemaining = Number(row[2] || 0);
+    var evaluatorEmail = String(row[4] || '').trim();
+    if (!slotText || seatRemaining <= 0) {
+      continue;
+    }
+
+    slots.push({
+      slot: slotText,
+      seatRemaining: seatRemaining,
+      evaluatorEmail: evaluatorEmail
+    });
+  }
+
+  return {
+    email: email,
+    verified: true,
+    slots: slots
+  };
+}
+
+function bookBehavioralSlot_(payload) {
+  assertBookingWindowOpen_();
+
+  var email = normalizeEmail_(payload.email);
+  var name = String(payload.name || '').trim();
+  var contact = String(payload.contact || '').trim();
+  var slot = String(payload.slot || '').trim();
+  var bookingId = String(payload.bookingId || payload.idempotencyKey || '').trim();
+
+  if (!email) {
+    throw new Error('Email is required');
+  }
+  if (!name) {
+    throw new Error('Name is required');
+  }
+  if (!contact) {
+    throw new Error('Contact is required');
+  }
+  if (!slot) {
+    throw new Error('Slot is required');
+  }
+  if (!bookingId) {
+    throw new Error('bookingId is required');
+  }
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+
+  try {
+    var eligibility = getStudentEligibility_(email);
+    if (!eligibility.authorized) {
+      throw new Error('This email is not authorized to book a behavioral slot.');
+    }
+
+    var bookedSheet = getBookedSlotsSheet_(true);
+    ensureBookedSlotsHeader_(bookedSheet);
+
+    var existingByBookingId = findExistingBookedSlotByBookingId_(bookingId);
+    if (existingByBookingId) {
+      return {
+        success: true,
+        alreadyProcessed: true,
+        timestamp: existingByBookingId.timestamp,
+        name: existingByBookingId.name,
+        email: existingByBookingId.email,
+        contact: existingByBookingId.contact,
+        slot: existingByBookingId.slot,
+        status: existingByBookingId.status,
+        bookingId: existingByBookingId.bookingId
+      };
+    }
+
+    var existingByEmail = findExistingBookedSlotByEmail_(email);
+    if (existingByEmail) {
+      if (existingByEmail.slot === slot) {
+        return {
+          success: true,
+          alreadyProcessed: true,
+          timestamp: existingByEmail.timestamp,
+          name: existingByEmail.name,
+          email: existingByEmail.email,
+          contact: existingByEmail.contact,
+          slot: existingByEmail.slot,
+          status: existingByEmail.status,
+          bookingId: existingByEmail.bookingId
+        };
+      }
+      throw new Error('This email already has a booked slot.');
+    }
+
+    var slotSheet = getSlotSheet_();
+    var slotValues = slotSheet.getDataRange().getValues();
+    var slotRowIndex = -1;
+
+    for (var i = 1; i < slotValues.length; i++) {
+      if (String(slotValues[i][0] || '').trim() === slot) {
+        slotRowIndex = i;
+        break;
+      }
+    }
+
+    if (slotRowIndex < 0) {
+      throw new Error('Selected slot is no longer available.');
+    }
+
+    var rowValues = slotValues[slotRowIndex];
+    var seatTaken = Number(rowValues[1] || 0);
+    var seatRemaining = Number(rowValues[2] || 0);
+    var evaluatorEmail = normalizeEmail_(rowValues[4]);
+
+    if (seatRemaining <= 0) {
+      throw new Error('Selected slot is already booked.');
+    }
+
+    slotSheet.getRange(slotRowIndex + 1, 2).setValue(seatTaken + 1);
+    slotSheet.getRange(slotRowIndex + 1, 3).setValue(seatRemaining - 1);
+
+    try {
+      if (evaluatorEmail) {
+        handleEvaluatorSession(
+          slotValues,
+          slotSheet,
+          slotRowIndex,
+          email,
+          evaluatorEmail
+        );
+      }
+    } catch (calendarError) {
+      slotSheet.getRange(slotRowIndex + 1, 2).setValue(seatTaken);
+      slotSheet.getRange(slotRowIndex + 1, 3).setValue(seatRemaining);
+      throw calendarError;
+    }
+
+    var timestamp = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'dd/MM/yyyy hh:mm:ss a');
+    bookedSheet.appendRow([
+      timestamp,
+      name,
+      email,
+      contact,
+      slot,
+      bookingId,
+      'Booked'
+    ]);
+
+    return {
+      success: true,
+      alreadyProcessed: false,
+      timestamp: timestamp,
+      name: name,
+      email: email,
+      contact: contact,
+      slot: slot,
+      status: 'Booked',
+      bookingId: bookingId
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function getSlotSheet_() {
+  var sheet = SpreadsheetApp.getActive().getSheetByName('Slot');
+  if (!sheet) {
+    throw new Error('Slot sheet not found');
+  }
+  return sheet;
+}
+
+function getBookedSlotsSheet_(createIfMissing) {
+  var ss = SpreadsheetApp.getActive();
+  var sheet = ss.getSheetByName('Booked Slots');
+  if (!sheet && createIfMissing) {
+    sheet = ss.insertSheet('Booked Slots');
+  }
+  return sheet;
+}
+
+function ensureBookedSlotsHeader_(sheet) {
+  if (!sheet) {
+    throw new Error('Booked Slots sheet not found');
+  }
+
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow([
+      'Timestamp',
+      'Name',
+      'Email ID',
+      'Contact',
+      'Slots (Timing in IST)',
+      'Booking ID',
+      'Status'
+    ]);
+  }
+}
+
+function getStudentEligibility_(email) {
+  return {
+    authorized: isAuthorizedStudent(email)
+  };
+}
+
+function setBehavioralBookingWindow_(windowConfig) {
+  PropertiesService
+    .getScriptProperties()
+    .setProperties({
+      BEHAVIORAL_BOOKING_WINDOW_DATE: String(windowConfig.date || '').trim(),
+      BEHAVIORAL_BOOKING_WINDOW_START_TIME: String(windowConfig.startTime || '').trim(),
+      BEHAVIORAL_BOOKING_WINDOW_END_TIME: String(windowConfig.endTime || '').trim()
+    }, true);
+}
+
+function getBehavioralBookingWindow_() {
+  var props = PropertiesService.getScriptProperties();
+  return {
+    date: String(props.getProperty('BEHAVIORAL_BOOKING_WINDOW_DATE') || '').trim(),
+    startTime: String(props.getProperty('BEHAVIORAL_BOOKING_WINDOW_START_TIME') || '').trim(),
+    endTime: String(props.getProperty('BEHAVIORAL_BOOKING_WINDOW_END_TIME') || '').trim()
+  };
+}
+
+function getLastBookingWindow_() {
+  return getBehavioralBookingWindow_();
+}
+
+function assertBookingWindowOpen_() {
+  var windowConfig = getBehavioralBookingWindow_();
+  if (!windowConfig.date || !windowConfig.startTime || !windowConfig.endTime) {
+    throw new Error('Slot booking window is currently closed.');
+  }
+
+  var parts = windowConfig.date.split('/');
+  if (parts.length !== 3) {
+    throw new Error('Slot booking window is currently closed.');
+  }
+
+  var day = Number(parts[0]);
+  var month = Number(parts[1]) - 1;
+  var year = Number(parts[2]);
+  var startParts = windowConfig.startTime.split(':');
+  var endParts = windowConfig.endTime.split(':');
+  if (startParts.length !== 2 || endParts.length !== 2) {
+    throw new Error('Slot booking window is currently closed.');
+  }
+
+  var startAt = new Date(
+    year,
+    month,
+    day,
+    Number(startParts[0]),
+    Number(startParts[1]),
+    0,
+    0
+  );
+  var endAt = new Date(
+    year,
+    month,
+    day,
+    Number(endParts[0]),
+    Number(endParts[1]),
+    59,
+    999
+  );
+  var now = new Date();
+
+  if (now < startAt || now > endAt) {
+    throw new Error('Slot booking window is currently closed.');
+  }
+}
+
+function findExistingBookedSlotByEmail_(email) {
+  var sheet = getBookedSlotsSheet_(false);
+  if (!sheet || sheet.getLastRow() < 2) {
+    return null;
+  }
+
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    var rowEmail = normalizeEmail_(row[2]);
+    var status = String(row[6] || '').trim();
+    if (rowEmail === email && status !== 'Cancelled') {
+      return {
+        rowIndex: i + 1,
+        timestamp: String(row[0] || '').trim(),
+        name: String(row[1] || '').trim(),
+        email: rowEmail,
+        contact: String(row[3] || '').trim(),
+        slot: String(row[4] || '').trim(),
+        bookingId: String(row[5] || '').trim(),
+        status: status || 'Booked'
+      };
+    }
+  }
+
+  return null;
+}
+
+function findExistingBookedSlotByBookingId_(bookingId) {
+  var sheet = getBookedSlotsSheet_(false);
+  if (!sheet || sheet.getLastRow() < 2 || !bookingId) {
+    return null;
+  }
+
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    if (String(row[5] || '').trim() !== bookingId) {
+      continue;
+    }
+
+    return {
+      rowIndex: i + 1,
+      timestamp: String(row[0] || '').trim(),
+      name: String(row[1] || '').trim(),
+      email: normalizeEmail_(row[2]),
+      contact: String(row[3] || '').trim(),
+      slot: String(row[4] || '').trim(),
+      bookingId: String(row[5] || '').trim(),
+      status: String(row[6] || '').trim() || 'Booked'
+    };
+  }
+
+  return null;
+}
+
+function normalizeEmail_(value) {
+  return String(value || '').trim().toLowerCase();
 }
 
 function jsonResponse_(success, data, message, error) {
