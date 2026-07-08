@@ -1567,30 +1567,6 @@ const ToolsManagement = () => {
               <label className="text-sm font-medium">Booking Window End Time</label>
               <Input type="time" value={presentationBookingWindowEndTime} onChange={(e) => setPresentationBookingWindowEndTime(e.target.value)} />
             </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Sync To Form</label>
-              <Button
-                type="button"
-                variant={presentationSyncToForm ? 'default' : 'outline'}
-                className="w-full"
-                onClick={() => setPresentationSyncToForm((prev) => !prev)}
-              >
-                {presentationSyncToForm ? 'Enabled' : 'Disabled'}
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Reset Form Responses</label>
-              <Button
-                type="button"
-                variant={presentationResetFormResponses ? 'default' : 'outline'}
-                className="w-full"
-                onClick={() => setPresentationResetFormResponses((prev) => !prev)}
-              >
-                {presentationResetFormResponses ? 'Enabled' : 'Disabled'}
-              </Button>
-            </div>
           </div>
 
           <div className="space-y-2">
