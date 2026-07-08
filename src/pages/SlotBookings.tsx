@@ -178,14 +178,87 @@ const SlotBookings = () => {
   return (
     <Layout>
       <div className="container py-8 space-y-6">
-        <div className="text-center space-y-2 pb-4 border-b">
-          <h1 className="text-2xl font-bold sm:text-3xl">Slot Bookings</h1>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Check your scheduled assessment slot time
-          </p>
+        <div className="flex justify-between items-center pb-4 border-b gap-4">
+          <div className="text-left space-y-2">
+            <h1 className="text-2xl font-bold sm:text-3xl">Slot Bookings</h1>
+            <p className="text-muted-foreground max-w-2xl">
+              Check your scheduled assessment slot time
+            </p>
+          </div>
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+              <Button size="lg" className="gap-2 whitespace-nowrap">
+                <CalendarClock className="h-5 w-5" />
+                Check Your Slot
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Check Your Assessment Slot</DialogTitle>
+                <DialogDescription>
+                  Enter your email ID to find your scheduled slot
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email ID</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="your.email@study.iitm.ac.in"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="assessment-type">Assessment Type</Label>
+                  <Select
+                    value={assessmentType}
+                    onValueChange={setAssessmentType}
+                    disabled={loading}
+                  >
+                    <SelectTrigger id="assessment-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="behavioral">Behavioral Assessment</SelectItem>
+                      <SelectItem value="presentation">Presentation Assessment</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                {slotInfo && (
+                  <Alert className="border-l-4 border-l-green-600 bg-green-50/50">
+                    <Clock className="h-4 w-4 text-green-600" />
+                    <AlertDescription className="text-green-900">
+                      <div className="space-y-2">
+                        <p className="font-semibold">Your Scheduled Slot:</p>
+                        <p className="text-lg font-bold">{slotInfo.slot}</p>
+                        <p className="text-sm">Instructor: {slotInfo.instructor}</p>
+                        <p className="text-sm">Name: {slotInfo.name}</p>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                <Button
+                  onClick={handleCheckSlot}
+                  disabled={loading}
+                  className="w-full"
+                >
+                  {loading ? 'Checking...' : 'Check Slot'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
-        <div className="max-w-2xl mx-auto space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl mx-auto">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Book Behavioral Slot</CardTitle>
@@ -221,13 +294,13 @@ const SlotBookings = () => {
               {verification?.alreadyBooked && verification.booking ? (
                 <Alert className="border-l-4 border-l-green-600 bg-green-50/50">
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-900">
+                  <AlertDescription className="text-green-900 text-sm">
                     <p className="font-semibold">You already have a booked behavioral slot.</p>
-                    <p>Name: {verification.booking.name}</p>
-                    <p>Email: {verification.booking.email}</p>
-                    <p>Contact: {verification.booking.contact}</p>
-                    <p>Slot: {verification.booking.slot}</p>
-                    <p>Timestamp: {verification.booking.timestamp}</p>
+                    <p className="text-xs mt-1">Name: {verification.booking.name}</p>
+                    <p className="text-xs">Email: {verification.booking.email}</p>
+                    <p className="text-xs">Contact: {verification.booking.contact}</p>
+                    <p className="text-xs">Slot: {verification.booking.slot}</p>
+                    <p className="text-xs">Timestamp: {verification.booking.timestamp}</p>
                   </AlertDescription>
                 </Alert>
               ) : null}
@@ -235,107 +308,96 @@ const SlotBookings = () => {
               {bookingSuccess ? (
                 <Alert className="border-l-4 border-l-green-600 bg-green-50/50">
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-900">
+                  <AlertDescription className="text-green-900 text-sm">
                     <p className="font-semibold">Slot booked successfully.</p>
-                    <p>Name: {bookingSuccess.name}</p>
-                    <p>Email: {bookingSuccess.email}</p>
-                    <p>Contact: {bookingSuccess.contact}</p>
-                    <p>Slot: {bookingSuccess.slot}</p>
-                    <p>Timestamp: {bookingSuccess.timestamp}</p>
+                    <p className="text-xs mt-1">Name: {bookingSuccess.name}</p>
+                    <p className="text-xs">Email: {bookingSuccess.email}</p>
+                    <p className="text-xs">Contact: {bookingSuccess.contact}</p>
+                    <p className="text-xs">Slot: {bookingSuccess.slot}</p>
+                    <p className="text-xs">Timestamp: {bookingSuccess.timestamp}</p>
                   </AlertDescription>
                 </Alert>
               ) : null}
+
+              <Alert className="border-l-4 border-l-orange-600 bg-orange-50/50 shadow-sm">
+                <AlertCircle className="h-5 w-5 text-orange-600" />
+                <AlertDescription className="text-orange-900 text-xs leading-relaxed">
+                  <div className="space-y-1">
+                    <p className="font-semibold text-sm">Important Instructions</p>
+                    <p className="text-orange-800">
+                      Everyone who have a behavioural assessment session scheduled, please join only at your booked slot time. Do not join too early or too late.
+                    </p>
+                    <p className="text-orange-800 font-medium">
+                      Please note: Joining outside your scheduled time is not permitted. If evaluators report early logins, the slot will be cancelled and marked as absent.
+                    </p>
+                  </div>
+                </AlertDescription>
+              </Alert>
             </CardContent>
           </Card>
 
-          <Alert className="border-l-4 border-l-orange-600 bg-orange-50/50 shadow-sm">
-            <AlertCircle className="h-5 w-5 text-orange-600" />
-            <AlertDescription className="text-orange-900 text-sm leading-relaxed">
-              <div className="space-y-1">
-                <p className="font-semibold text-base">Important Instructions</p>
-                <p className="text-orange-800">
-                  Everyone who have a behavioural assessment session scheduled, please join only at your booked slot time. Do not join too early or too late.
-                </p>
-                <p className="text-orange-800 font-medium">
-                  Please note: Joining outside your scheduled time is not permitted. If evaluators report early logins, the slot will be cancelled and marked as absent.
-                </p>
-              </div>
-            </AlertDescription>
-          </Alert>
-
-          <div className="flex justify-center">
-            <Dialog open={isOpen} onOpenChange={setIsOpen}>
-              <DialogTrigger asChild>
-                <Button size="lg" className="gap-2">
-                  <CalendarClock className="h-5 w-5" />
-                  Check Your Slot
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Check Your Assessment Slot</DialogTitle>
-                  <DialogDescription>
-                    Enter your email ID to find your scheduled slot
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email ID</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="your.email@study.iitm.ac.in"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="assessment-type">Assessment Type</Label>
-                    <Select
-                      value={assessmentType}
-                      onValueChange={setAssessmentType}
-                      disabled={loading}
-                    >
-                      <SelectTrigger id="assessment-type">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="behavioral">Behavioral Assessment</SelectItem>
-                        <SelectItem value="presentation">Presentation Assessment</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {error && (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
-                  {slotInfo && (
-                    <Alert className="border-l-4 border-l-green-600 bg-green-50/50">
-                      <Clock className="h-4 w-4 text-green-600" />
-                      <AlertDescription className="text-green-900">
-                        <div className="space-y-2">
-                          <p className="font-semibold">Your Scheduled Slot:</p>
-                          <p className="text-lg font-bold">{slotInfo.slot}</p>
-                          <p className="text-sm">Instructor: {slotInfo.instructor}</p>
-                          <p className="text-sm">Name: {slotInfo.name}</p>
-                        </div>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  <Button
-                    onClick={handleCheckSlot}
-                    disabled={loading}
-                    className="w-full"
-                  >
-                    {loading ? 'Checking...' : 'Check Slot'}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Book Presentation Slot</CardTitle>
+              <CardDescription>
+                Verify your IITM email first. If verified, you can book an available slot directly from the portal.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="presentation-verify-email">Email ID</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="presentation-verify-email"
+                    type="email"
+                    placeholder="your.email@study.iitm.ac.in"
+                    value={verifyEmail}
+                    onChange={(e) => setVerifyEmail(e.target.value)}
+                    disabled={verifyLoading}
+                  />
+                  <Button onClick={handleVerifyForBooking} disabled={verifyLoading}>
+                    {verifyLoading ? 'Verifying...' : 'Verify & Continue'}
                   </Button>
                 </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+              </div>
+
+              {verifyError ? (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{verifyError}</AlertDescription>
+                </Alert>
+              ) : null}
+
+              {verification?.alreadyBooked && verification.booking ? (
+                <Alert className="border-l-4 border-l-green-600 bg-green-50/50">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-900 text-sm">
+                    <p className="font-semibold">You already have a booked presentation slot.</p>
+                    <p className="text-xs mt-1">Name: {verification.booking.name}</p>
+                    <p className="text-xs">Email: {verification.booking.email}</p>
+                    <p className="text-xs">Contact: {verification.booking.contact}</p>
+                    <p className="text-xs">Slot: {verification.booking.slot}</p>
+                    <p className="text-xs">Timestamp: {verification.booking.timestamp}</p>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+
+              <Alert className="border-l-4 border-l-blue-600 bg-blue-50/50 shadow-sm">
+                <AlertCircle className="h-5 w-5 text-blue-600" />
+                <AlertDescription className="text-blue-900 text-xs leading-relaxed">
+                  <div className="space-y-1">
+                    <p className="font-semibold text-sm">Important Instructions</p>
+                    <p className="text-blue-800">
+                      Everyone who have a presentation assessment session scheduled, please join only at your booked slot time. Do not join too early or too late.
+                    </p>
+                    <p className="text-blue-800 font-medium">
+                      Please note: Joining outside your scheduled time is not permitted. If evaluators report early logins, the slot will be cancelled and marked as absent.
+                    </p>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
         </div>
 
         <Dialog open={bookingDialogOpen} onOpenChange={setBookingDialogOpen}>
