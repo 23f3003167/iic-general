@@ -99,6 +99,46 @@ export async function setSlotsConfig(config: SlotsAvailabilityWindow): Promise<v
   }, { merge: true });
 }
 
+const BOOKING_WINDOWS_COLLECTION = 'bookingWindows';
+
+export type BookingWindow = {
+  id?: string;
+  type: 'behavioral' | 'presentation';
+  availableDate: string;
+  availableStartTime: string;
+  availableEndTime: string;
+  createdBy?: string;
+  createdAt?: unknown;
+};
+
+export async function getBookingWindowsFromFirestore(): Promise<BookingWindow[]> {
+  const snapshot = await getDocs(collection(db, BOOKING_WINDOWS_COLLECTION));
+  return snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as BookingWindow) }));
+}
+
+export async function createBookingWindowIfNotExists(window: BookingWindow): Promise<{ id?: string; existed: boolean }> {
+  const q = query(
+    collection(db, BOOKING_WINDOWS_COLLECTION),
+    where('type', '==', window.type),
+    where('availableDate', '==', window.availableDate),
+    where('availableStartTime', '==', window.availableStartTime),
+    where('availableEndTime', '==', window.availableEndTime),
+  );
+  const snapshot = await getDocs(q);
+  if (snapshot.size > 0) {
+    return { existed: true };
+  }
+  const docRef = await addDoc(collection(db, BOOKING_WINDOWS_COLLECTION), {
+    type: window.type,
+    availableDate: window.availableDate,
+    availableStartTime: window.availableStartTime,
+    availableEndTime: window.availableEndTime,
+    createdBy: window.createdBy || '',
+    createdAt: window.createdAt || new Date(),
+  });
+  return { id: docRef.id, existed: false };
+}
+
 // Forms CRUD
 export async function getForms(): Promise<FormEntry[]> {
   const q = query(collection(db, 'forms'), orderBy('startDate', 'desc'));
