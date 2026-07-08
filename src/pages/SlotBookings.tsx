@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CalendarClock, AlertCircle, Clock, CheckCircle2 } from 'lucide-react';
+import { CalendarClock, AlertCircle, Clock, CheckCircle2, Info } from 'lucide-react';
 import {
   bookBehavioralSlot,
   checkStudentSlot as checkBehavioralSlot,
@@ -22,6 +22,7 @@ const SlotBookings = () => {
   const [email, setEmail] = useState('');
   const [assessmentType, setAssessmentType] = useState('behavioral');
   const [isOpen, setIsOpen] = useState(false);
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [slotInfo, setSlotInfo] = useState<any>(null);
   const [error, setError] = useState('');
@@ -185,80 +186,116 @@ const SlotBookings = () => {
               Check your scheduled assessment slot time
             </p>
           </div>
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-              <Button size="lg" className="gap-2 whitespace-nowrap">
-                <CalendarClock className="h-5 w-5" />
-                Check Your Slot
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Check Your Assessment Slot</DialogTitle>
-                <DialogDescription>
-                  Enter your email ID to find your scheduled slot
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email ID</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your.email@study.iitm.ac.in"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={loading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="assessment-type">Assessment Type</Label>
-                  <Select
-                    value={assessmentType}
-                    onValueChange={setAssessmentType}
-                    disabled={loading}
-                  >
-                    <SelectTrigger id="assessment-type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="behavioral">Behavioral Assessment</SelectItem>
-                      <SelectItem value="presentation">Presentation Assessment</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-                {slotInfo && (
-                  <Alert className="border-l-4 border-l-green-600 bg-green-50/50">
-                    <Clock className="h-4 w-4 text-green-600" />
-                    <AlertDescription className="text-green-900">
-                      <div className="space-y-2">
-                        <p className="font-semibold">Your Scheduled Slot:</p>
-                        <p className="text-lg font-bold">{slotInfo.slot}</p>
-                        <p className="text-sm">Instructor: {slotInfo.instructor}</p>
-                        <p className="text-sm">Name: {slotInfo.name}</p>
-                      </div>
-                    </AlertDescription>
-                  </Alert>
-                )}
-                <Button
-                  onClick={handleCheckSlot}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  {loading ? 'Checking...' : 'Check Slot'}
+          <div className="flex gap-2 items-center whitespace-nowrap">
+            <Dialog open={instructionsOpen} onOpenChange={setInstructionsOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="lg" className="gap-2">
+                  <Info className="h-5 w-5" />
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Important Instructions</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="font-semibold text-orange-900 mb-2">Behavioral Assessment</h3>
+                      <p className="text-sm text-orange-800 mb-2">
+                        Everyone who have a behavioural assessment session scheduled, please join only at your booked slot time. Do not join too early or too late.
+                      </p>
+                      <p className="text-sm text-orange-800 font-medium">
+                        Please note: Joining outside your scheduled time is not permitted. If evaluators report early logins, the slot will be cancelled and marked as absent.
+                      </p>
+                    </div>
+                    <div className="border-t pt-3">
+                      <h3 className="font-semibold text-blue-900 mb-2">Presentation Assessment</h3>
+                      <p className="text-sm text-blue-800 mb-2">
+                        Everyone who have a presentation assessment session scheduled, please join only at your booked slot time. Do not join too early or too late.
+                      </p>
+                      <p className="text-sm text-blue-800 font-medium">
+                        Please note: Joining outside your scheduled time is not permitted. If evaluators report early logins, the slot will be cancelled and marked as absent.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={isOpen} onOpenChange={setIsOpen}>
+              <DialogTrigger asChild>
+                <Button size="lg" className="gap-2">
+                  <CalendarClock className="h-5 w-5" />
+                  Check Your Slot
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Check Your Assessment Slot</DialogTitle>
+                  <DialogDescription>
+                    Enter your email ID to find your scheduled slot
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email ID</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="your.email@study.iitm.ac.in"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="assessment-type">Assessment Type</Label>
+                    <Select
+                      value={assessmentType}
+                      onValueChange={setAssessmentType}
+                      disabled={loading}
+                    >
+                      <SelectTrigger id="assessment-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="behavioral">Behavioral Assessment</SelectItem>
+                        <SelectItem value="presentation">Presentation Assessment</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+                  {slotInfo && (
+                    <Alert className="border-l-4 border-l-green-600 bg-green-50/50">
+                      <Clock className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="text-green-900">
+                        <div className="space-y-2">
+                          <p className="font-semibold">Your Scheduled Slot:</p>
+                          <p className="text-lg font-bold">{slotInfo.slot}</p>
+                          <p className="text-sm">Instructor: {slotInfo.instructor}</p>
+                          <p className="text-sm">Name: {slotInfo.name}</p>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  <Button
+                    onClick={handleCheckSlot}
+                    disabled={loading}
+                    className="w-full"
+                  >
+                    {loading ? 'Checking...' : 'Check Slot'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-6xl mx-auto">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Book Behavioral Slot</CardTitle>
@@ -318,21 +355,6 @@ const SlotBookings = () => {
                   </AlertDescription>
                 </Alert>
               ) : null}
-
-              <Alert className="border-l-4 border-l-orange-600 bg-orange-50/50 shadow-sm">
-                <AlertCircle className="h-5 w-5 text-orange-600" />
-                <AlertDescription className="text-orange-900 text-xs leading-relaxed">
-                  <div className="space-y-1">
-                    <p className="font-semibold text-sm">Important Instructions</p>
-                    <p className="text-orange-800">
-                      Everyone who have a behavioural assessment session scheduled, please join only at your booked slot time. Do not join too early or too late.
-                    </p>
-                    <p className="text-orange-800 font-medium">
-                      Please note: Joining outside your scheduled time is not permitted. If evaluators report early logins, the slot will be cancelled and marked as absent.
-                    </p>
-                  </div>
-                </AlertDescription>
-              </Alert>
             </CardContent>
           </Card>
 
@@ -381,21 +403,6 @@ const SlotBookings = () => {
                   </AlertDescription>
                 </Alert>
               ) : null}
-
-              <Alert className="border-l-4 border-l-blue-600 bg-blue-50/50 shadow-sm">
-                <AlertCircle className="h-5 w-5 text-blue-600" />
-                <AlertDescription className="text-blue-900 text-xs leading-relaxed">
-                  <div className="space-y-1">
-                    <p className="font-semibold text-sm">Important Instructions</p>
-                    <p className="text-blue-800">
-                      Everyone who have a presentation assessment session scheduled, please join only at your booked slot time. Do not join too early or too late.
-                    </p>
-                    <p className="text-blue-800 font-medium">
-                      Please note: Joining outside your scheduled time is not permitted. If evaluators report early logins, the slot will be cancelled and marked as absent.
-                    </p>
-                  </div>
-                </AlertDescription>
-              </Alert>
             </CardContent>
           </Card>
         </div>
