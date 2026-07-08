@@ -10,12 +10,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CalendarClock, AlertCircle, Clock, CheckCircle2 } from 'lucide-react';
 import {
   bookBehavioralSlot,
-  checkStudentSlot,
+  checkStudentSlot as checkBehavioralSlot,
   getBehavioralBookableSlots,
   type BehavioralBookableSlot,
   type BehavioralStudentVerification,
   verifyBehavioralStudent
 } from '@/lib/behavioralService';
+import { checkStudentSlot as checkPresentationSlot } from '@/lib/presentationService';
 
 const SlotBookings = () => {
   const [email, setEmail] = useState('');
@@ -58,7 +59,14 @@ const SlotBookings = () => {
     setSlotInfo(null);
 
     try {
-      const data = await checkStudentSlot(email, assessmentType);
+      let data;
+      if (assessmentType === 'behavioral') {
+        data = await checkBehavioralSlot(email, assessmentType);
+      } else if (assessmentType === 'presentation') {
+        data = await checkPresentationSlot(email, assessmentType);
+      } else {
+        throw new Error('Invalid assessment type');
+      }
 
       if (!data.found) {
         setError(data.message || 'No slot found for this email');
@@ -294,7 +302,7 @@ const SlotBookings = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="behavioral">Behavioral Assessment</SelectItem>
-                        <SelectItem value="presentation" disabled>Presentation Assessment (Coming Soon)</SelectItem>
+                        <SelectItem value="presentation">Presentation Assessment</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

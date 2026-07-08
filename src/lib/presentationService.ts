@@ -60,6 +60,41 @@ export async function fetchPresentationSummaryStats(): Promise<SummaryStats[]> {
   return result.data || [];
 }
 
+export async function checkStudentSlot(email: string, assessmentType: string): Promise<any> {
+  if (!webAppUrl) {
+    throw new Error(
+      'Presentation Apps Script URL not configured. Set VITE_PRESENTATION_APPS_SCRIPT_WEB_APP_URL.'
+    );
+  }
+
+  const response = await fetch(normalizeWebAppUrl(webAppUrl), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8',
+    },
+    body: JSON.stringify({
+      action: 'checkSlot',
+      email: email,
+      assessmentType: assessmentType,
+      ...(apiToken ? { apiToken } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Presentation Apps Script request failed: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const result = await parseJsonResponse<any>(response);
+
+  if (!result.success) {
+    throw new Error(result.message || result.error || 'Unknown error from Apps Script');
+  }
+
+  return result.data;
+}
+
 export type PresentationSlotsOverview = {
   instructorName: string;
   instructorNumber: string;

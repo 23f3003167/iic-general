@@ -231,6 +231,9 @@ const ToolsManagement = () => {
   const [presentationSyncToForm, setPresentationSyncToForm] = useState(true);
   const [presentationResetFormResponses, setPresentationResetFormResponses] = useState(false);
   const [presentationStudentAuthorizationEmails, setPresentationStudentAuthorizationEmails] = useState('');
+  const [presentationBookingWindowDate, setPresentationBookingWindowDate] = useState('');
+  const [presentationBookingWindowStartTime, setPresentationBookingWindowStartTime] = useState('');
+  const [presentationBookingWindowEndTime, setPresentationBookingWindowEndTime] = useState('');
   const [isReleasingPresentationSlots, setIsReleasingPresentationSlots] = useState(false);
   const [presentationInstructors, setPresentationInstructors] = useState<InstructorOption[]>([]);
 
@@ -793,6 +796,30 @@ const ToolsManagement = () => {
       });
       return;
     }
+    if (presentationBookingWindowDate && !presentationBookingWindowStartTime) {
+      toast({
+        title: 'Invalid booking window',
+        description: 'Booking window start time is required.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (presentationBookingWindowDate && !presentationBookingWindowEndTime) {
+      toast({
+        title: 'Invalid booking window',
+        description: 'Booking window end time is required.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (presentationBookingWindowEndTime <= presentationBookingWindowStartTime) {
+      toast({
+        title: 'Invalid booking window',
+        description: 'Booking window end time should be after start time.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     const payload = {
       date: toDdMmYyyy(presentationSlotDate),
@@ -800,6 +827,9 @@ const ToolsManagement = () => {
       endTime: toAmPmFrom24Hour(presentationEndTime),
       durationMinutes: PRESENTATION_SLOT_DURATION_MINUTES,
       instructorNumber: presentationInstructorNumber.trim(),
+      bookingWindowDate: presentationBookingWindowDate ? toDdMmYyyy(presentationBookingWindowDate) : undefined,
+      bookingWindowStartTime: presentationBookingWindowStartTime || undefined,
+      bookingWindowEndTime: presentationBookingWindowEndTime || undefined,
       syncToForm: presentationSyncToForm,
       resetFormResponses: presentationResetFormResponses,
       studentAuthorizationEmails: presentationStudentAuthorizationEmails.trim() || undefined,

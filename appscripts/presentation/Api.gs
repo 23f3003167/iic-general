@@ -29,6 +29,10 @@ function handleRequest_(payload) {
       data = submitEvaluation_(payload);
     } else if (action === 'getPresentationStats') {
       data = getPresentationStats_();
+    } else if (action === 'checkSlot') {
+      data = checkSlot_(payload);
+    } else if (action === 'getLastBookingWindow') {
+      data = getLastBookingWindow_();
     } else {
       throw new Error('Unsupported action: ' + action);
     }
@@ -138,6 +142,9 @@ function releasePresentationSlots_(payload) {
   var endTime = String(payload.endTime || '').trim();
   var durationMinutes = Number(payload.durationMinutes || 0);
   var instructorNumber = String(payload.instructorNumber || '').trim();
+  var bookingWindowDate = String(payload.bookingWindowDate || '').trim();
+  var bookingWindowStartTime = String(payload.bookingWindowStartTime || '').trim();
+  var bookingWindowEndTime = String(payload.bookingWindowEndTime || '').trim();
   var syncToForm = payload.syncToForm !== false;
   var resetFormResponses = payload.resetFormResponses === true;
   var studentAuthorizationColumn = String(payload.studentAuthorizationColumn || '').trim().toUpperCase();
@@ -145,6 +152,23 @@ function releasePresentationSlots_(payload) {
 
   if (!date || !startTime || !endTime || !durationMinutes || !instructorNumber) {
     throw new Error('Missing slot details');
+  }
+  if (bookingWindowDate && !bookingWindowStartTime) {
+    throw new Error('Booking window start time is required when booking window date is provided');
+  }
+  if (bookingWindowDate && !bookingWindowEndTime) {
+    throw new Error('Booking window end time is required when booking window date is provided');
+  }
+  if (bookingWindowDate && bookingWindowStartTime && bookingWindowEndTime && bookingWindowEndTime <= bookingWindowStartTime) {
+    throw new Error('Booking window end time should be after start time');
+  }
+
+  if (bookingWindowDate && bookingWindowStartTime && bookingWindowEndTime) {
+    setPresentationBookingWindow_({
+      date: bookingWindowDate,
+      startTime: bookingWindowStartTime,
+      endTime: bookingWindowEndTime
+    });
   }
 
   createSlots(
@@ -198,7 +222,10 @@ function releasePresentationSlots_(payload) {
     authorizationColumn: studentAuthorizationColumn || '',
     validStudents: validStudents,
     invalidStudents: invalidStudents,
-    addedStudents: addedStudents
+    addedStudents: addedStudents,
+    bookingWindowDate: bookingWindowDate,
+    bookingWindowStartTime: bookingWindowStartTime,
+    bookingWindowEndTime: bookingWindowEndTime
   };
 }
 
@@ -343,9 +370,9 @@ function appendAuthorizationEmailsToStudents_(emailInput) {
   }
 
   var nextColumn = sheet.getLastColumn() > 0 ? sheet.getLastColumn() + 1 : 1;
-  var header = 'Authorized ' + Utilities.formatDate(new Date(), 'Asia/Kolkata', 'dd/MM/yyyy HH:mm');
+  var timestamp = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'dd/MM/yyyy HH:mm:ss');
 
-  sheet.getRange(1, nextColumn).setValue(header);
+  sheet.getRange(1, nextColumn).setValue(timestamp);
 
   var rows = [];
   for (var i = 0; i < emails.length; i++) {
@@ -649,6 +676,67 @@ function getPresentationStats_() {
   });
 
   return result;
+}
+
+function checkSlot_(payload) {
+  var email = String(payload.email || '').trim().toLowerCase();
+  var assessmentType = String(payload.assessmentType || '').trim().toLowerCase();
+
+  if (!email) {
+    throw new Error('Email is required');
+  }
+
+  if (assessmentType !== 'behavioral' && assessmentType !== 'presentation') {
+    throw new Error('Invalid assessment type');
+  }
+
+  var sheet = getSummarySheet_();
+  var values = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    var rowEmail = String(row[4] || '').trim().toLowerCase();
+
+    if (rowEmail === email) {
+      return {
+        found: true,
+        email: email,
+        name: String(row[3] || '').trim(),
+        instructor: String(row[1] || '').trim(),
+        slot: String(row[2] || '').trim(),
+        status: String(row[5] || '').trim()
+      };
+    }
+  }
+
+  return {
+    found: false,
+    email: email,
+    message: 'No slot found for this email'
+  };
+}
+
+function setPresentationBookingWindow_(windowConfig) {
+  PropertiesService
+    .getScriptProperties()
+    .setProperties({
+      PRESENTATION_BOOKING_WINDOW_DATE: String(windowConfig.date || '').trim(),
+      PRESENTATION_BOOKING_WINDOW_START_TIME: String(windowConfig.startTime || '').trim(),
+      PRESENTATION_BOOKING_WINDOW_END_TIME: String(windowConfig.endTime || '').trim()
+    }, true);
+}
+
+function getPresentationBookingWindow_() {
+  var props = PropertiesService.getScriptProperties();
+  return {
+    date: String(props.getProperty('PRESENTATION_BOOKING_WINDOW_DATE') || '').trim(),
+    startTime: String(props.getProperty('PRESENTATION_BOOKING_WINDOW_START_TIME') || '').trim(),
+    endTime: String(props.getProperty('PRESENTATION_BOOKING_WINDOW_END_TIME') || '').trim()
+  };
+}
+
+function getLastBookingWindow_() {
+  return getPresentationBookingWindow_();
 }
 
 // Run once from Apps Script editor (Run button) to grant mail + spreadsheet scopes.
