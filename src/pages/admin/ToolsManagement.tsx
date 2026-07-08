@@ -425,6 +425,9 @@ const ToolsManagement = () => {
     setPresentationStartTime('');
     setPresentationEndTime('');
     setPresentationInstructorNumber(presentationInstructors[0]?.number || '1');
+    setPresentationBookingWindowDate('');
+    setPresentationBookingWindowStartTime('');
+    setPresentationBookingWindowEndTime('');
     setPresentationSyncToForm(true);
     setPresentationResetFormResponses(false);
     setPresentationStudentAuthorizationEmails('');
@@ -1548,6 +1551,21 @@ const ToolsManagement = () => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Booking Window Date</label>
+              <Input type="date" value={presentationBookingWindowDate} onChange={(e) => setPresentationBookingWindowDate(e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Booking Window Start Time</label>
+              <Input type="time" value={presentationBookingWindowStartTime} onChange={(e) => setPresentationBookingWindowStartTime(e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Booking Window End Time</label>
+              <Input type="time" value={presentationBookingWindowEndTime} onChange={(e) => setPresentationBookingWindowEndTime(e.target.value)} />
             </div>
 
             <div className="space-y-2">
