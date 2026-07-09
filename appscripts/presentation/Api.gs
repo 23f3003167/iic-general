@@ -33,6 +33,12 @@ function handleRequest_(payload) {
       data = checkSlot_(payload);
     } else if (action === 'getLastBookingWindow') {
       data = getLastBookingWindow_();
+    } else if (action === 'bookPresentationSlot') {
+      data = bookPresentationSlot_(payload);
+    } else if (action === 'getPresentationBookableSlots') {
+      data = getPresentationBookableSlots_(payload);
+    } else if (action === 'setBookingWindow') {
+      data = setBookingWindow_(payload);
     } else {
       throw new Error('Unsupported action: ' + action);
     }
@@ -169,6 +175,13 @@ function releasePresentationSlots_(payload) {
       startTime: bookingWindowStartTime,
       endTime: bookingWindowEndTime
     });
+
+    // Attempt to sync booking window to Firestore via REST API (optional)
+    try {
+      syncBookingWindowToFirestore_('presentation', bookingWindowDate, bookingWindowStartTime, bookingWindowEndTime);
+    } catch (_err) {
+      Logger.log('Failed to sync presentation booking window: %s', _err && _err.message ? _err.message : String(_err));
+    }
   }
 
   createSlots(
@@ -601,6 +614,84 @@ function logMailSend_(recipient, status, error, context) {
   }
 }
 
+function syncBookingWindowToFirestore_(type, date, startTime, endTime) {
+  var projectId = PropertiesService.getScriptProperties().getProperty('FIREBASE_PROJECT_ID');
+  var apiKey = PropertiesService.getScriptProperties().getProperty('FIREBASE_API_KEY');
+  
+  Logger.log('syncBookingWindowToFirestore_ called with type=%s, date=%s, startTime=%s, endTime=%s', type, date, startTime, endTime);
+  Logger.log('Project ID: %s, API Key configured: %s', projectId || 'NOT SET', apiKey ? 'YES' : 'NO');
+  
+  if (!projectId || !apiKey) {
+    Logger.log('Firebase credentials not configured. Skipping Firestore sync.');
+    return;
+  }
+
+  var collection = 'bookingWindows';
+  var baseUrl = 'https://firestore.googleapis.com/v1/projects/' + projectId + '/databases/(default)/documents/' + collection;
+  
+  // Check if booking window already exists
+  var queryUrl = baseUrl + '?where=' + encodeURIComponent(JSON.stringify({
+    compositeFilter: {
+      op: 'AND',
+      filters: [
+        { fieldFilter: { field: { fieldPath: 'type' }, op: 'EQUAL', value: { stringValue: type } } },
+        { fieldFilter: { field: { fieldPath: 'availableDate' }, op: 'EQUAL', value: { stringValue: String(date || '').trim() } } },
+        { fieldFilter: { field: { fieldPath: 'availableStartTime' }, op: 'EQUAL', value: { stringValue: String(startTime || '').trim() } } },
+        { fieldFilter: { field: { fieldPath: 'availableEndTime' }, op: 'EQUAL', value: { stringValue: String(endTime || '').trim() } } }
+      ]
+    }
+  }));
+
+  try {
+    Logger.log('Querying Firestore: %s', queryUrl.substring(0, 200) + '...');
+    var queryResponse = UrlFetchApp.fetch(queryUrl + '&key=' + apiKey, {
+      method: 'get',
+      muteHttpExceptions: true
+    });
+
+    Logger.log('Firestore query response code: %s', queryResponse.getResponseCode());
+    Logger.log('Firestore query response content: %s', queryResponse.getContentText());
+
+    if (queryResponse.getResponseCode() === 200) {
+      var queryData = JSON.parse(queryResponse.getContentText());
+      if (queryData.documents && queryData.documents.length > 0) {
+        Logger.log('Booking window already exists in Firestore. Skipping creation.');
+        return;
+      }
+    }
+  } catch (err) {
+    Logger.log('Error checking existing booking window: %s', err && err.message ? err.message : String(err));
+    return;
+  }
+
+  // Create new booking window document
+  var documentData = {
+    fields: {
+      type: { stringValue: type },
+      availableDate: { stringValue: String(date || '').trim() },
+      availableStartTime: { stringValue: String(startTime || '').trim() },
+      availableEndTime: { stringValue: String(endTime || '').trim() },
+      createdBy: { stringValue: Session.getActiveUser().getEmail ? Session.getActiveUser().getEmail() : '' },
+      createdAt: { timestampValue: new Date().toISOString() }
+    }
+  };
+
+  try {
+    Logger.log('Creating document in Firestore with data: %s', JSON.stringify(documentData));
+    var createResponse = UrlFetchApp.fetch(baseUrl + '?key=' + apiKey, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(documentData),
+      muteHttpExceptions: true
+    });
+
+    Logger.log('Firestore booking window creation response code: %s', createResponse.getResponseCode());
+    Logger.log('Firestore booking window creation response content: %s', createResponse.getContentText());
+  } catch (err) {
+    Logger.log('syncBookingWindowToFirestore_ failed: %s', err && err.message ? err.message : String(err));
+  }
+}
+
 function jsonResponse_(success, data, message, error) {
   var payload = {
     success: success,
@@ -739,10 +830,371 @@ function getLastBookingWindow_() {
   return getPresentationBookingWindow_();
 }
 
+function setBookingWindow_(payload) {
+  var date = String(payload.date || '').trim();
+  var startTime = String(payload.startTime || '').trim();
+  var endTime = String(payload.endTime || '').trim();
+  
+  if (!date || !startTime || !endTime) {
+    throw new Error('Date, startTime, and endTime are required');
+  }
+  
+  setPresentationBookingWindow_({
+    date: date,
+    startTime: startTime,
+    endTime: endTime
+  });
+  
+  return {
+    success: true,
+    date: date,
+    startTime: startTime,
+    endTime: endTime
+  };
+}
+
+function bookPresentationSlot_(payload) {
+  // assertPresentationBookingWindowOpen_(); // Booking window check moved to frontend
+
+  var email = normalizeEmail_(payload.email);
+  var name = String(payload.name || '').trim();
+  var contact = String(payload.contact || '').trim();
+  var slot = String(payload.slot || '').trim();
+  var bookingId = String(payload.bookingId || payload.idempotencyKey || '').trim();
+
+  if (!email) {
+    throw new Error('Email is required');
+  }
+  if (!name) {
+    throw new Error('Name is required');
+  }
+  if (!contact) {
+    throw new Error('Contact is required');
+  }
+  if (!slot) {
+    throw new Error('Slot is required');
+  }
+  if (!bookingId) {
+    throw new Error('bookingId is required');
+  }
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+
+  try {
+    var bookedSheet = getBookedSlotsSheet_(true);
+    ensureBookedSlotsHeader_(bookedSheet);
+
+    var existingByBookingId = findExistingBookedSlotByBookingId_(bookingId);
+    if (existingByBookingId) {
+      return {
+        success: true,
+        alreadyProcessed: true,
+        timestamp: existingByBookingId.timestamp,
+        name: existingByBookingId.name,
+        email: existingByBookingId.email,
+        contact: existingByBookingId.contact,
+        slot: existingByBookingId.slot,
+        status: existingByBookingId.status,
+        bookingId: existingByBookingId.bookingId
+      };
+    }
+
+    var existingByEmail = findExistingBookedSlotByEmail_(email);
+    if (existingByEmail) {
+      if (existingByEmail.slot === slot) {
+        return {
+          success: true,
+          alreadyProcessed: true,
+          timestamp: existingByEmail.timestamp,
+          name: existingByEmail.name,
+          email: existingByEmail.email,
+          contact: existingByEmail.contact,
+          slot: existingByEmail.slot,
+          status: existingByEmail.status,
+          bookingId: existingByEmail.bookingId
+        };
+      }
+      throw new Error('This email already has a booked slot.');
+    }
+
+    var slotSheet = getSlotSheet_();
+    var slotValues = slotSheet.getDataRange().getValues();
+    var slotRowIndex = -1;
+
+    for (var i = 1; i < slotValues.length; i++) {
+      if (String(slotValues[i][0] || '').trim() === slot) {
+        slotRowIndex = i;
+        break;
+      }
+    }
+
+    if (slotRowIndex < 0) {
+      throw new Error('Selected slot is no longer available.');
+    }
+
+    var rowValues = slotValues[slotRowIndex];
+    var seatTaken = Number(rowValues[1] || 0);
+    var seatRemaining = Number(rowValues[2] || 0);
+    var evaluatorEmail = normalizeEmail_(rowValues[4]);
+
+    if (seatRemaining <= 0) {
+      throw new Error('Selected slot is already booked.');
+    }
+
+    slotSheet.getRange(slotRowIndex + 1, 2).setValue(seatTaken + 1);
+    slotSheet.getRange(slotRowIndex + 1, 3).setValue(seatRemaining - 1);
+
+    try {
+      if (evaluatorEmail) {
+        handleEvaluatorSession(
+          slotValues,
+          slotSheet,
+          slotRowIndex,
+          email,
+          evaluatorEmail
+        );
+      }
+    } catch (calendarError) {
+      slotSheet.getRange(slotRowIndex + 1, 2).setValue(seatTaken);
+      slotSheet.getRange(slotRowIndex + 1, 3).setValue(seatRemaining);
+      throw calendarError;
+    }
+
+    var timestamp = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'dd/MM/yyyy hh:mm:ss a');
+    bookedSheet.appendRow([
+      timestamp,
+      name,
+      email,
+      contact,
+      slot,
+      bookingId,
+      'Booked'
+    ]);
+
+    return {
+      success: true,
+      alreadyProcessed: false,
+      timestamp: timestamp,
+      name: name,
+      email: email,
+      contact: contact,
+      slot: slot,
+      status: 'Booked',
+      bookingId: bookingId
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function assertPresentationBookingWindowOpen_() {
+  var window = getPresentationBookingWindow_();
+  var now = new Date();
+  var windowDate = new Date(window.date);
+  var [startHour, startMin] = (window.startTime || '').split(':').map(Number);
+  var [endHour, endMin] = (window.endTime || '').split(':').map(Number);
+
+  if (!window.date || !window.startTime || !window.endTime) {
+    throw new Error('Slot booking window is currently closed');
+  }
+
+  var windowStart = new Date(windowDate);
+  windowStart.setHours(startHour, startMin, 0, 0);
+
+  var windowEnd = new Date(windowDate);
+  windowEnd.setHours(endHour, endMin, 0, 0);
+
+  if (now < windowStart || now > windowEnd) {
+    throw new Error('Slot booking window is currently closed');
+  }
+}
+
+function normalizeEmail_(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function getBookedSlotsSheet_(createIfMissing) {
+  var sheet = SpreadsheetApp.getActive().getSheetByName('Booked Slots');
+  if (!sheet && createIfMissing) {
+    sheet = SpreadsheetApp.getActive().insertSheet('Booked Slots');
+  }
+  return sheet;
+}
+
+function ensureBookedSlotsHeader_(sheet) {
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['Timestamp', 'Name', 'Email', 'Contact', 'Slot', 'Booking ID', 'Status']);
+  }
+}
+
+function findExistingBookedSlotByBookingId_(bookingId) {
+  var sheet = getBookedSlotsSheet_(false);
+  if (!sheet) return null;
+
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][5] || '').trim() === bookingId) {
+      return {
+        timestamp: String(values[i][0] || '').trim(),
+        name: String(values[i][1] || '').trim(),
+        email: String(values[i][2] || '').trim(),
+        contact: String(values[i][3] || '').trim(),
+        slot: String(values[i][4] || '').trim(),
+        status: String(values[i][6] || '').trim(),
+        bookingId: bookingId
+      };
+    }
+  }
+  return null;
+}
+
+function findExistingBookedSlotByEmail_(email) {
+  var sheet = getBookedSlotsSheet_(false);
+  if (!sheet) return null;
+
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][2] || '').trim().toLowerCase() === email.toLowerCase()) {
+      return {
+        timestamp: String(values[i][0] || '').trim(),
+        name: String(values[i][1] || '').trim(),
+        email: String(values[i][2] || '').trim(),
+        contact: String(values[i][3] || '').trim(),
+        slot: String(values[i][4] || '').trim(),
+        status: String(values[i][6] || '').trim(),
+        bookingId: String(values[i][5] || '').trim()
+      };
+    }
+  }
+  return null;
+}
+
+function getPresentationBookableSlots_(payload) {
+  // assertPresentationBookingWindowOpen_(); // Booking window check moved to frontend
+
+  var email = normalizeEmail_(payload.email);
+  if (!email) {
+    throw new Error('Email is required');
+  }
+
+  if (findExistingBookedSlotByEmail_(email)) {
+    return {
+      email: email,
+      verified: true,
+      slots: []
+    };
+  }
+
+  var slotSheet = getSlotSheet_();
+  var values = slotSheet.getDataRange().getValues();
+  var slots = [];
+
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    var slotText = String(row[0] || '').trim();
+    var seatRemaining = Number(row[2] || 0);
+    var evaluatorEmail = String(row[4] || '').trim();
+    if (!slotText || seatRemaining <= 0) {
+      continue;
+    }
+
+    slots.push({
+      slot: slotText,
+      seatRemaining: seatRemaining,
+      evaluatorEmail: evaluatorEmail
+    });
+  }
+
+  return {
+    email: email,
+    verified: true,
+    slots: slots
+  };
+}
+
 // Run once from Apps Script editor (Run button) to grant mail + spreadsheet scopes.
 function authorizePresentationMail_() {
   SpreadsheetApp.getActiveSpreadsheet().getId();
   GmailApp.getAliases();
   Gmail.Users.Settings.SendAs.list('me');
   return 'Authorization successful';
+}
+
+// Test function to check Firebase configuration and booking window
+function testFirebaseBookingWindow() {
+  var projectId = PropertiesService.getScriptProperties().getProperty('FIREBASE_PROJECT_ID');
+  var apiKey = PropertiesService.getScriptProperties().getProperty('FIREBASE_API_KEY');
+  
+  var result = {
+    projectId: projectId || 'NOT SET',
+    apiKey: apiKey ? 'SET' : 'NOT SET',
+    scriptProperties: getPresentationBookingWindow_()
+  };
+  
+  if (projectId && apiKey) {
+    try {
+      var baseUrl = 'https://firestore.googleapis.com/v1/projects/' + projectId + '/databases/(default)/documents:runQuery';
+      
+      var structuredQuery = {
+        structuredQuery: {
+          from: [{collectionId: 'bookingWindows'}],
+          where: {
+            fieldFilter: {
+              field: {fieldPath: 'type'},
+              op: 'EQUAL',
+              value: {stringValue: 'presentation'}
+            }
+          }
+        }
+      };
+
+      var queryResponse = UrlFetchApp.fetch(baseUrl + '?key=' + apiKey, {
+        method: 'post',
+        contentType: 'application/json',
+        payload: JSON.stringify(structuredQuery),
+        muteHttpExceptions: true
+      });
+
+      result.firestoreResponseCode = queryResponse.getResponseCode();
+      result.firestoreResponse = queryResponse.getContentText();
+      
+      if (queryResponse.getResponseCode() === 200) {
+        var queryData = JSON.parse(queryResponse.getContentText());
+        result.documentsFound = queryData.length || 0;
+        
+        if (queryData && queryData.length > 0) {
+          var doc = queryData[0].document;
+          var fields = doc.fields;
+          result.firestoreBookingWindow = {
+            date: fields.availableDate ? fields.availableDate.stringValue : '',
+            startTime: fields.availableStartTime ? fields.availableStartTime.stringValue : '',
+            endTime: fields.availableEndTime ? fields.availableEndTime.stringValue : ''
+          };
+        }
+      }
+    } catch (err) {
+      result.firestoreError = err && err.message ? err.message : String(err);
+    }
+  }
+  
+  var output = '=== Firebase Booking Window Test ===\n';
+  output += 'Project ID: ' + result.projectId + '\n';
+  output += 'API Key: ' + result.apiKey + '\n';
+  output += 'Script Properties: ' + JSON.stringify(result.scriptProperties) + '\n';
+  
+  if (result.firestoreResponseCode) {
+    output += 'Firestore Response Code: ' + result.firestoreResponseCode + '\n';
+    output += 'Documents Found: ' + result.documentsFound + '\n';
+    if (result.firestoreBookingWindow) {
+      output += 'Firestore Booking Window: ' + JSON.stringify(result.firestoreBookingWindow) + '\n';
+    }
+  }
+  
+  if (result.firestoreError) {
+    output += 'Firestore Error: ' + result.firestoreError + '\n';
+  }
+  
+  Logger.log(output);
+  return output;
 }

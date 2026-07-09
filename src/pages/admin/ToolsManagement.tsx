@@ -22,7 +22,7 @@ import {
 import { Copy, Loader2, Upload, Wrench } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { auth } from '@/lib/firebase';
-import { listSlotsAvailability, type SlotAvailability, getSlotsConfig } from '@/lib/firestoreService';
+import { listSlotsAvailability, type SlotAvailability, getSlotsConfig, createBookingWindowIfNotExists, type BookingWindow } from '@/lib/firestoreService';
 import {
   releaseBehaviouralSlots,
   getBehavioralInstructors,
@@ -41,6 +41,8 @@ import {
   type PublishScoreActivity,
   type ReleaseBehaviouralSlotsResponse,
 } from '@/lib/toolsService';
+import { callPresentationAppsScript } from '@/lib/presentationService';
+import { callBehavioralAppsScript } from '@/lib/behavioralService';
 
 const BA_SLOT_DURATION_MINUTES = 10;
 const PRESENTATION_SLOT_DURATION_MINUTES = 15;
@@ -740,6 +742,35 @@ const ToolsManagement = () => {
         ? ` Auth column ${response.authorizationColumn}: ${response.addedStudents ?? response.validStudents ?? 0} emails added.`
         : '';
 
+      // Sync booking window to Firestore directly
+      if (bookingWindowDate && bookingWindowStartTime && bookingWindowEndTime) {
+        try {
+          await createBookingWindowIfNotExists({
+            type: 'behavioral',
+            availableDate: toDdMmYyyy(bookingWindowDate),
+            availableStartTime: bookingWindowStartTime,
+            availableEndTime: bookingWindowEndTime,
+            createdBy: auth.currentUser?.email || '',
+            createdAt: new Date()
+          });
+        } catch (firestoreError) {
+          console.error('Failed to sync booking window to Firestore:', firestoreError);
+        }
+
+        // Also set booking window in Apps Script properties
+        try {
+          await callBehavioralAppsScript({
+            action: 'setBookingWindow',
+            date: toDdMmYyyy(bookingWindowDate),
+            startTime: bookingWindowStartTime,
+            endTime: bookingWindowEndTime,
+          });
+          console.log('Behavioral Apps Script booking window set successfully');
+        } catch (appsScriptError) {
+          console.error('Failed to set booking window in behavioral Apps Script:', appsScriptError);
+        }
+      }
+
       toast({
         title: 'Slots released',
         description: `${response.slotsCreated} slots created. Booking window: ${response.bookingWindowDate || payload.bookingWindowDate} ${response.bookingWindowStartTime || payload.bookingWindowStartTime} - ${response.bookingWindowEndTime || payload.bookingWindowEndTime}.${authSummary}`,
@@ -845,6 +876,49 @@ const ToolsManagement = () => {
         ? ` Auth column ${response.authorizationColumn}: ${response.addedStudents ?? response.validStudents ?? 0} emails added.`
         : '';
       const resetSummary = response.resetFormResponses ? ' Form responses reset for reattempts.' : '';
+
+      // Sync booking window to Firestore directly
+      if (presentationBookingWindowDate && presentationBookingWindowStartTime && presentationBookingWindowEndTime) {
+        try {
+          console.log('Creating presentation booking window in Firestore:', {
+            type: 'presentation',
+            availableDate: toDdMmYyyy(presentationBookingWindowDate),
+            availableStartTime: presentationBookingWindowStartTime,
+            availableEndTime: presentationBookingWindowEndTime,
+            createdBy: auth.currentUser?.email || '',
+            createdAt: new Date()
+          });
+          const result = await createBookingWindowIfNotExists({
+            type: 'presentation',
+            availableDate: toDdMmYyyy(presentationBookingWindowDate),
+            availableStartTime: presentationBookingWindowStartTime,
+            availableEndTime: presentationBookingWindowEndTime,
+            createdBy: auth.currentUser?.email || '',
+            createdAt: new Date()
+          });
+          console.log('Firestore booking window created:', result);
+        } catch (firestoreError) {
+          console.error('Failed to sync booking window to Firestore:', firestoreError);
+          toast({
+            title: 'Firestore sync warning',
+            description: 'Booking window synced to sheet but not to Firestore.',
+            variant: 'destructive',
+          });
+        }
+
+        // Also set booking window in Apps Script properties
+        try {
+          await callPresentationAppsScript({
+            action: 'setBookingWindow',
+            date: toDdMmYyyy(presentationBookingWindowDate),
+            startTime: presentationBookingWindowStartTime,
+            endTime: presentationBookingWindowEndTime,
+          });
+          console.log('Apps Script booking window set successfully');
+        } catch (appsScriptError) {
+          console.error('Failed to set booking window in Apps Script:', appsScriptError);
+        }
+      }
 
       toast({
         title: 'Presentation slots released',

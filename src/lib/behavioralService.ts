@@ -237,3 +237,36 @@ export async function bookBehavioralSlot(request: BehavioralBookSlotRequest): Pr
 }
 
 export { combineSlotsData };
+
+export async function callBehavioralAppsScript<T>(payload: Record<string, any>): Promise<T> {
+  if (!webAppUrl) {
+    throw new Error(
+      'Behavioral Apps Script URL not configured. Set VITE_BEHAVIORAL_APPS_SCRIPT_WEB_APP_URL.'
+    );
+  }
+
+  const response = await fetch(normalizeWebAppUrl(webAppUrl), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8',
+    },
+    body: JSON.stringify({
+      ...payload,
+      ...(apiToken ? { apiToken } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Behavioral Apps Script request failed: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const result = await parseJsonResponse<T>(response);
+
+  if (!result.success) {
+    throw new Error(result.message || result.error || 'Unknown error from Apps Script');
+  }
+
+  return result.data as T;
+}

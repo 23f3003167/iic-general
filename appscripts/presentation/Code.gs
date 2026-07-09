@@ -221,7 +221,8 @@ function buildDate(match, isStart) {
 }
 
 function createOrUpdateMeeting(eventId, start, end, evaluatorEmail, studentEmail) {
-  var CALENDAR_ID = "c_d0f61069328b5f6bcce8d3c7c6ce34f0826cbb8d2291f9029448ff2da38746ae@group.calendar.google.com";
+  var configuredCalendarId = String(PropertiesService.getScriptProperties().getProperty('PRESENTATION_CALENDAR_ID') || '').trim();
+  var calendarId = configuredCalendarId || "c_d0f61069328b5f6bcce8d3c7c6ce34f0826cbb8d2291f9029448ff2da38746ae@group.calendar.google.com";
 
   if (!eventId) {
     var event = {
@@ -241,24 +242,55 @@ function createOrUpdateMeeting(eventId, start, end, evaluatorEmail, studentEmail
       }
     };
 
-    return Calendar.Events.insert(
-      event,
-      CALENDAR_ID,
-      { conferenceDataVersion: 1, sendUpdates: "all" }
-    ).id;
+    try {
+      var created = Calendar.Events.insert(event, calendarId, { conferenceDataVersion: 1, sendUpdates: "all" });
+      Logger.log('✅ Calendar event created on %s: %s', calendarId, created.id);
+      return created.id;
+    } catch (_err) {
+      Logger.log('⚠️ Calendar insert failed for %s: %s — falling back to primary', calendarId, _err && _err.message);
+      var createdFallback = Calendar.Events.insert(event, 'primary', { conferenceDataVersion: 1, sendUpdates: "all" });
+      Logger.log('✅ Calendar event created on primary: %s', createdFallback.id);
+      return createdFallback.id;
+    }
   }
 
-  var existing = Calendar.Events.get(CALENDAR_ID, eventId);
+  var existing;
+  try {
+    existing = Calendar.Events.get(calendarId, eventId);
+  } catch (_getErr) {
+    Logger.log('⚠️ Failed to fetch event %s from %s: %s — trying primary', eventId, calendarId, _getErr && _getErr.message);
+    existing = Calendar.Events.get('primary', eventId);
+    calendarId = 'primary';
+  }
+
   existing.attendees = existing.attendees || [];
-  existing.attendees.push({ email: studentEmail });
+  var alreadyAdded = false;
+  for (var i = 0; i < existing.attendees.length; i++) {
+    if (String(existing.attendees[i].email || '').trim().toLowerCase() === String(studentEmail || '').trim().toLowerCase()) {
+      alreadyAdded = true;
+      break;
+    }
+  }
+  if (!alreadyAdded) existing.attendees.push({ email: studentEmail });
 
-  Calendar.Events.update(
-    existing,
-    CALENDAR_ID,
-    eventId,
-    { sendUpdates: "all" }
-  );
+  try {
+    Calendar.Events.update(existing, calendarId, eventId, { sendUpdates: "all" });
+  } catch (_updateErr) {
+    Logger.log('⚠️ Calendar update failed on %s for event %s: %s — attempting update on primary', calendarId, eventId, _updateErr && _updateErr.message);
+    if (calendarId !== 'primary') {
+      // try updating on primary calendar
+      try {
+        Calendar.Events.update(existing, 'primary', eventId, { sendUpdates: "all" });
+        calendarId = 'primary';
+      } catch (_err2) {
+        throw _err2;
+      }
+    } else {
+      throw _updateErr;
+    }
+  }
 
+  Logger.log('✅ Event %s updated on calendar %s', eventId, calendarId);
   return eventId;
 }
 

@@ -95,6 +95,80 @@ export async function checkStudentSlot(email: string, assessmentType: string): P
   return result.data;
 }
 
+export async function bookPresentationSlot(bookingData: {
+  bookingId: string;
+  name: string;
+  email: string;
+  contact: string;
+  slot: string;
+}): Promise<any> {
+  if (!webAppUrl) {
+    throw new Error(
+      'Presentation Apps Script URL not configured. Set VITE_PRESENTATION_APPS_SCRIPT_WEB_APP_URL.'
+    );
+  }
+
+  const response = await fetch(normalizeWebAppUrl(webAppUrl), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8',
+    },
+    body: JSON.stringify({
+      action: 'bookPresentationSlot',
+      ...bookingData,
+      ...(apiToken ? { apiToken } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Presentation Apps Script request failed: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const result = await parseJsonResponse<any>(response);
+
+  if (!result.success) {
+    throw new Error(result.message || result.error || 'Unknown error from Apps Script');
+  }
+
+  return result.data;
+}
+
+export async function getPresentationBookableSlots(email: string): Promise<{ slots: Array<{ slot: string; seatRemaining: number; evaluatorEmail: string }> }> {
+  if (!webAppUrl) {
+    throw new Error(
+      'Presentation Apps Script URL not configured. Set VITE_PRESENTATION_APPS_SCRIPT_WEB_APP_URL.'
+    );
+  }
+
+  const response = await fetch(normalizeWebAppUrl(webAppUrl), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8',
+    },
+    body: JSON.stringify({
+      action: 'getPresentationBookableSlots',
+      email,
+      ...(apiToken ? { apiToken } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Presentation Apps Script request failed: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const result = await parseJsonResponse<{ slots: Array<{ slot: string; seatRemaining: number; evaluatorEmail: string }> }>(response);
+
+  if (!result.success || !result.data) {
+    throw new Error(result.message || result.error || 'Unknown error from Apps Script');
+  }
+
+  return result.data;
+}
+
 export type PresentationSlotsOverview = {
   instructorName: string;
   instructorNumber: string;
@@ -106,3 +180,36 @@ export type PresentationSlotsOverview = {
 };
 
 export { combineSlotsData } from '@/lib/slotsService';
+
+export async function callPresentationAppsScript<T>(payload: Record<string, any>): Promise<T> {
+  if (!webAppUrl) {
+    throw new Error(
+      'Presentation Apps Script URL not configured. Set VITE_PRESENTATION_APPS_SCRIPT_WEB_APP_URL.'
+    );
+  }
+
+  const response = await fetch(normalizeWebAppUrl(webAppUrl), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8',
+    },
+    body: JSON.stringify({
+      ...payload,
+      ...(apiToken ? { apiToken } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Presentation Apps Script request failed: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const result = await parseJsonResponse<T>(response);
+
+  if (!result.success) {
+    throw new Error(result.message || result.error || 'Unknown error from Apps Script');
+  }
+
+  return result.data as T;
+}

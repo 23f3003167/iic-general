@@ -32,6 +32,8 @@ function doPost(e) {
       data = bookBehavioralSlot_(payload);
     } else if (action === 'getLastBookingWindow') {
       data = getLastBookingWindow_();
+    } else if (action === 'setBookingWindow') {
+      data = setBookingWindow_(payload);
     } else {
       throw new Error('Unsupported action: ' + action);
     }
@@ -136,6 +138,14 @@ function releaseBehaviouralSlots_(payload) {
     startTime: bookingWindowStartTime,
     endTime: bookingWindowEndTime
   });
+
+  // Attempt to sync booking window to Firestore via REST API (optional)
+  try {
+    syncBookingWindowToFirestore_('behavioral', bookingWindowDate, bookingWindowStartTime, bookingWindowEndTime);
+  } catch (_err) {
+    // non-fatal
+    Logger.log('Failed to sync behavioral booking window: %s', _err && _err.message ? _err.message : String(_err));
+  }
 
   var slotsCreated = createSlots(
     date,
@@ -529,7 +539,7 @@ function verifyBehavioralStudent_(payload) {
 }
 
 function getBehavioralBookableSlots_(payload) {
-  assertBookingWindowOpen_();
+  // assertBookingWindowOpen_(); // Booking window check moved to frontend
 
   var email = normalizeEmail_(payload.email);
   if (!email) {
@@ -581,7 +591,7 @@ function getBehavioralBookableSlots_(payload) {
 }
 
 function bookBehavioralSlot_(payload) {
-  assertBookingWindowOpen_();
+  // assertBookingWindowOpen_(); // Booking window check moved to frontend
 
   var email = normalizeEmail_(payload.email);
   var name = String(payload.name || '').trim();
@@ -784,6 +794,29 @@ function getLastBookingWindow_() {
   return getBehavioralBookingWindow_();
 }
 
+function setBookingWindow_(payload) {
+  var date = String(payload.date || '').trim();
+  var startTime = String(payload.startTime || '').trim();
+  var endTime = String(payload.endTime || '').trim();
+  
+  if (!date || !startTime || !endTime) {
+    throw new Error('Date, startTime, and endTime are required');
+  }
+  
+  setBehavioralBookingWindow_({
+    date: date,
+    startTime: startTime,
+    endTime: endTime
+  });
+  
+  return {
+    success: true,
+    date: date,
+    startTime: startTime,
+    endTime: endTime
+  };
+}
+
 function assertBookingWindowOpen_() {
   var windowConfig = getBehavioralBookingWindow_();
   if (!windowConfig.date || !windowConfig.startTime || !windowConfig.endTime) {
@@ -887,6 +920,84 @@ function findExistingBookedSlotByBookingId_(bookingId) {
 
 function normalizeEmail_(value) {
   return String(value || '').trim().toLowerCase();
+}
+
+function syncBookingWindowToFirestore_(type, date, startTime, endTime) {
+  var projectId = PropertiesService.getScriptProperties().getProperty('FIREBASE_PROJECT_ID');
+  var apiKey = PropertiesService.getScriptProperties().getProperty('FIREBASE_API_KEY');
+  
+  Logger.log('syncBookingWindowToFirestore_ called with type=%s, date=%s, startTime=%s, endTime=%s', type, date, startTime, endTime);
+  Logger.log('Project ID: %s, API Key configured: %s', projectId || 'NOT SET', apiKey ? 'YES' : 'NO');
+  
+  if (!projectId || !apiKey) {
+    Logger.log('Firebase credentials not configured. Skipping Firestore sync.');
+    return;
+  }
+
+  var collection = 'bookingWindows';
+  var baseUrl = 'https://firestore.googleapis.com/v1/projects/' + projectId + '/databases/(default)/documents/' + collection;
+  
+  // Check if booking window already exists
+  var queryUrl = baseUrl + '?where=' + encodeURIComponent(JSON.stringify({
+    compositeFilter: {
+      op: 'AND',
+      filters: [
+        { fieldFilter: { field: { fieldPath: 'type' }, op: 'EQUAL', value: { stringValue: type } } },
+        { fieldFilter: { field: { fieldPath: 'availableDate' }, op: 'EQUAL', value: { stringValue: String(date || '').trim() } } },
+        { fieldFilter: { field: { fieldPath: 'availableStartTime' }, op: 'EQUAL', value: { stringValue: String(startTime || '').trim() } } },
+        { fieldFilter: { field: { fieldPath: 'availableEndTime' }, op: 'EQUAL', value: { stringValue: String(endTime || '').trim() } } }
+      ]
+    }
+  }));
+
+  try {
+    Logger.log('Querying Firestore: %s', queryUrl.substring(0, 200) + '...');
+    var queryResponse = UrlFetchApp.fetch(queryUrl + '&key=' + apiKey, {
+      method: 'get',
+      muteHttpExceptions: true
+    });
+
+    Logger.log('Firestore query response code: %s', queryResponse.getResponseCode());
+    Logger.log('Firestore query response content: %s', queryResponse.getContentText());
+
+    if (queryResponse.getResponseCode() === 200) {
+      var queryData = JSON.parse(queryResponse.getContentText());
+      if (queryData.documents && queryData.documents.length > 0) {
+        Logger.log('Booking window already exists in Firestore. Skipping creation.');
+        return;
+      }
+    }
+  } catch (err) {
+    Logger.log('Error checking existing booking window: %s', err && err.message ? err.message : String(err));
+    return;
+  }
+
+  // Create new booking window document
+  var documentData = {
+    fields: {
+      type: { stringValue: type },
+      availableDate: { stringValue: String(date || '').trim() },
+      availableStartTime: { stringValue: String(startTime || '').trim() },
+      availableEndTime: { stringValue: String(endTime || '').trim() },
+      createdBy: { stringValue: Session.getActiveUser().getEmail ? Session.getActiveUser().getEmail() : '' },
+      createdAt: { timestampValue: new Date().toISOString() }
+    }
+  };
+
+  try {
+    Logger.log('Creating document in Firestore with data: %s', JSON.stringify(documentData));
+    var createResponse = UrlFetchApp.fetch(baseUrl + '?key=' + apiKey, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(documentData),
+      muteHttpExceptions: true
+    });
+
+    Logger.log('Firestore booking window creation response code: %s', createResponse.getResponseCode());
+    Logger.log('Firestore booking window creation response content: %s', createResponse.getContentText());
+  } catch (err) {
+    Logger.log('syncBookingWindowToFirestore_ failed: %s', err && err.message ? err.message : String(err));
+  }
 }
 
 function jsonResponse_(success, data, message, error) {

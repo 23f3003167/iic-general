@@ -117,26 +117,96 @@ export async function getBookingWindowsFromFirestore(): Promise<BookingWindow[]>
 }
 
 export async function createBookingWindowIfNotExists(window: BookingWindow): Promise<{ id?: string; existed: boolean }> {
-  const q = query(
-    collection(db, BOOKING_WINDOWS_COLLECTION),
-    where('type', '==', window.type),
-    where('availableDate', '==', window.availableDate),
-    where('availableStartTime', '==', window.availableStartTime),
-    where('availableEndTime', '==', window.availableEndTime),
-  );
-  const snapshot = await getDocs(q);
-  if (snapshot.size > 0) {
-    return { existed: true };
+  console.log('createBookingWindowIfNotExists called with:', window);
+  console.log('Firestore db initialized:', db);
+  console.log('Collection name:', BOOKING_WINDOWS_COLLECTION);
+  
+  try {
+    const q = query(
+      collection(db, BOOKING_WINDOWS_COLLECTION),
+      where('type', '==', window.type),
+      where('availableDate', '==', window.availableDate),
+      where('availableStartTime', '==', window.availableStartTime),
+      where('availableEndTime', '==', window.availableEndTime),
+    );
+    console.log('Query created:', q);
+    const snapshot = await getDocs(q);
+    console.log('Query snapshot size:', snapshot.size);
+    
+    if (snapshot.size > 0) {
+      console.log('Booking window already exists, returning');
+      return { existed: true };
+    }
+    
+    console.log('Creating new document...');
+    const docRef = await addDoc(collection(db, BOOKING_WINDOWS_COLLECTION), {
+      type: window.type,
+      availableDate: window.availableDate,
+      availableStartTime: window.availableStartTime,
+      availableEndTime: window.availableEndTime,
+      createdBy: window.createdBy || '',
+      createdAt: window.createdAt || new Date(),
+    });
+    console.log('Document created with ID:', docRef.id);
+    return { id: docRef.id, existed: false };
+  } catch (error) {
+    console.error('Error in createBookingWindowIfNotExists:', error);
+    throw error;
   }
-  const docRef = await addDoc(collection(db, BOOKING_WINDOWS_COLLECTION), {
-    type: window.type,
-    availableDate: window.availableDate,
-    availableStartTime: window.availableStartTime,
-    availableEndTime: window.availableEndTime,
-    createdBy: window.createdBy || '',
-    createdAt: window.createdAt || new Date(),
-  });
-  return { id: docRef.id, existed: false };
+}
+
+export async function isBookingWindowOpen(type: 'behavioral' | 'presentation'): Promise<{ open: boolean; window?: BookingWindow }> {
+  try {
+    console.log('Checking booking window for type:', type);
+    const q = query(
+      collection(db, BOOKING_WINDOWS_COLLECTION),
+      where('type', '==', type),
+    );
+    const snapshot = await getDocs(q);
+    
+    console.log('Firestore query snapshot size:', snapshot.size);
+    
+    if (snapshot.size === 0) {
+      console.log('No booking windows found in Firestore for type:', type);
+      return { open: false };
+    }
+
+    const now = new Date();
+    console.log('Current time:', now);
+    
+    // Check each booking window to see if any are currently open
+    for (const doc of snapshot.docs) {
+      const window = doc.data() as BookingWindow;
+      console.log('Checking booking window:', window);
+      
+      const [day, month, year] = window.availableDate.split('/').map(Number);
+      const [startHour, startMin] = window.availableStartTime.split(':').map(Number);
+      const [endHour, endMin] = window.availableEndTime.split(':').map(Number);
+      
+      console.log('Parsed date:', { day, month, year });
+      console.log('Parsed time:', { startHour, startMin, endHour, endMin });
+      
+      const windowStart = new Date(year, month - 1, day, startHour, startMin, 0, 0);
+      const windowEnd = new Date(year, month - 1, day, endHour, endMin, 59, 999);
+      
+      console.log('Window start:', windowStart);
+      console.log('Window end:', windowEnd);
+      console.log('Now:', now);
+      console.log('Is now >= windowStart?', now >= windowStart);
+      console.log('Is now <= windowEnd?', now <= windowEnd);
+      
+      if (now >= windowStart && now <= windowEnd) {
+        console.log('Booking window is OPEN');
+        return { open: true, window: { id: doc.id, ...window } };
+      }
+    }
+    
+    console.log('No booking window is currently open');
+    return { open: false };
+  } catch (error) {
+    console.error('Error checking booking window:', error);
+    return { open: false };
+  }
 }
 
 // Forms CRUD

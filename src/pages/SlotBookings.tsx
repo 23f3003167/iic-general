@@ -16,8 +16,8 @@ import {
   type BehavioralStudentVerification,
   verifyBehavioralStudent
 } from '@/lib/behavioralService';
-import { checkStudentSlot as checkPresentationSlot } from '@/lib/presentationService';
-import { getBookingWindowsFromFirestore } from '@/lib/firestoreService';
+import { checkStudentSlot as checkPresentationSlot, bookPresentationSlot, getPresentationBookableSlots } from '@/lib/presentationService';
+import { getBookingWindowsFromFirestore, isBookingWindowOpen } from '@/lib/firestoreService';
 
 const SlotBookings = () => {
   const [email, setEmail] = useState('');
@@ -143,6 +143,13 @@ const SlotBookings = () => {
     setBehavioralBookingSuccess(null);
 
     try {
+      // First check if booking window is open from Firestore
+      const bookingWindowCheck = await isBookingWindowOpen('behavioral');
+      if (!bookingWindowCheck.open) {
+        setBehavioralVerifyError('Slot booking window is currently closed');
+        return;
+      }
+
       const verifyResult = await verifyBehavioralStudent(normalizedEmail);
       setBehavioralVerification(verifyResult);
 
@@ -188,19 +195,31 @@ const SlotBookings = () => {
     setPresentationBookingSuccess(null);
 
     try {
-      const verifyResult = await verifyBehavioralStudent(normalizedEmail);
-      setPresentationVerification(verifyResult);
+      // First check if booking window is open from Firestore
+      const bookingWindowCheck = await isBookingWindowOpen('presentation');
+      if (!bookingWindowCheck.open) {
+        setPresentationVerifyError('Slot booking window is currently closed');
+        return;
+      }
 
-      if (!verifyResult.verified) {
+      // Use presentation Apps Script to get bookable slots
+      const slotsResult = await getPresentationBookableSlots(normalizedEmail);
+      
+      if (!slotsResult.verified) {
         setPresentationVerifyError('This email is not authorized for presentation slot booking.');
         return;
       }
 
-      if (verifyResult.alreadyBooked && verifyResult.booking) {
+      if (slotsResult.slots && slotsResult.slots.length === 0) {
+        setPresentationVerification({
+          verified: true,
+          email: normalizedEmail,
+          alreadyBooked: true,
+          booking: null
+        });
         return;
       }
 
-      const slotsResult = await getBehavioralBookableSlots(normalizedEmail);
       setPresentationAvailableSlots(slotsResult.slots || []);
 
       if (!slotsResult.slots || slotsResult.slots.length === 0) {
@@ -272,7 +291,7 @@ const SlotBookings = () => {
     setPresentationVerifyError('');
 
     try {
-      const result = await bookBehavioralSlot({
+      const result = await bookPresentationSlot({
         bookingId: makeBookingId(),
         name: presentationBookingName.trim(),
         email: bookingEmail,
@@ -455,6 +474,15 @@ const SlotBookings = () => {
                 </Alert>
               ) : null}
 
+              {/* Show behavioral booking window timeline from Firestore if available */}
+              {behavioralBookingWindow ? (
+                <div className="rounded-md border p-3 bg-muted/10 text-sm">
+                  <div className="font-medium">Booking Window (Behavioral)</div>
+                  <div>{behavioralBookingWindow.availableDate || '—'}</div>
+                  <div>{behavioralBookingWindow.availableStartTime || '—'} to {behavioralBookingWindow.availableEndTime || '—'}</div>
+                </div>
+              ) : null}
+
               {behavioralVerification?.alreadyBooked && behavioralVerification.booking ? (
                 <Alert className="border-l-4 border-l-green-600 bg-green-50/50">
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -529,6 +557,15 @@ const SlotBookings = () => {
                     <p className="text-xs">Timestamp: {presentationVerification.booking.timestamp}</p>
                   </AlertDescription>
                 </Alert>
+              ) : null}
+
+              {/* Show presentation booking window timeline from Firestore if available */}
+              {presentationBookingWindow ? (
+                <div className="rounded-md border p-3 bg-muted/10 text-sm">
+                  <div className="font-medium">Booking Window (Presentation)</div>
+                  <div>{presentationBookingWindow.availableDate || '—'}</div>
+                  <div>{presentationBookingWindow.availableStartTime || '—'} to {presentationBookingWindow.availableEndTime || '—'}</div>
+                </div>
               ) : null}
             </CardContent>
           </Card>
