@@ -988,6 +988,14 @@ function bookPresentationSlot_(payload) {
   }
 }
 
+function getSlotSheet_() {
+  var sheet = SpreadsheetApp.getActive().getSheetByName('Slot');
+  if (!sheet) {
+    throw new Error('Slot sheet not found');
+  }
+  return sheet;
+}
+
 function assertPresentationBookingWindowOpen_() {
   var window = getPresentationBookingWindow_();
   var now = new Date();

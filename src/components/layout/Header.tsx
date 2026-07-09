@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { FileText, Megaphone, HelpCircle, BookOpen, LifeBuoy, Mail, Menu, MessageSquare, ClipboardList, BarChart3, CalendarClock } from 'lucide-react';
+import { FileText, Megaphone, HelpCircle, BookOpen, LifeBuoy, Mail, Menu, MessageSquare, ClipboardList, BarChart3, CalendarClock, Star } from 'lucide-react';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ const navItems = [
   { path: '/exam', label: 'Exam', icon: ClipboardList },
   { path: '/scores', label: 'Scores', icon: BarChart3 },
   { path: '/slot-bookings', label: 'Slot Bookings', icon: CalendarClock },
+  { path: '/activity-points', label: 'Activity Points', icon: Star },
   { path: '/chat', label: 'Chat', icon: MessageSquare },
 ];
 
