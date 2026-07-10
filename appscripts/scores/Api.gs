@@ -23,10 +23,11 @@ function doPost(e) {
     } else if (action === 'lookupStudentSubmissions') {
       data = lookupStudentSubmissions(payload);
     } else if (action === 'modifyAttempts') {
-      // payload.data should contain { emails, attemptType, batch, activity }
       data = modifyAttempts(payload.data || payload);
     } else if (action === 'getDatabaseData') {
       data = getDatabaseData();
+    } else if (action === 'verifyStudentEmail') {
+      data = verifyStudentEmail(payload);
     } else {
       throw new Error('Unsupported action: ' + action);
     }
@@ -98,495 +99,279 @@ function resolveScoresSheet_(payload) {
   if (targetSheetName) {
     var namedSheet = ss.getSheetByName(targetSheetName);
     if (!namedSheet) {
-      throw new Error('Sheet not found: ' + targetSheetName + '. Check SCORES_SHEET_NAME or payload.sheetName.');
+      throw new Error('Sheet "' + targetSheetName + '" not found');
     }
     return namedSheet;
   }
 
-  var activeSheet = ss.getActiveSheet();
-  if (activeSheet) {
-    return activeSheet;
-  }
-
-  var firstSheet = ss.getSheets()[0];
-  if (!firstSheet) {
-    throw new Error('No sheets found in the target spreadsheet.');
-  }
-
-  return firstSheet;
+  return ss.getSheets()[0];
 }
 
 function getPublishScoreActivityByKey_(activityKey) {
   var activities = getPublishScoreActivities();
-
   for (var i = 0; i < activities.length; i++) {
     if (activities[i].key === activityKey) {
       return activities[i];
     }
   }
-
   return null;
 }
 
 function lookupStudentScore(payload) {
-  var level = String(payload.level || '').trim();
-  var email = String(payload.email || '').trim().toLowerCase();
-  var domain = String(payload.domain || '').trim().toLowerCase();
-  var plan = String(payload.plan || '').trim().toLowerCase();
+  payload = payload || {};
 
-  if (!level) {
-    throw new Error('Select a level');
-  }
+  var email = String(payload.email || '').trim().toLowerCase();
   if (!email) {
     throw new Error('Email is required');
   }
 
-  var sheet = resolveScoresSheet_({ sheetName: level });
-  var values = sheet.getDataRange().getValues();
-  if (values.length < 2) {
-    throw new Error('No score rows found in ' + sheet.getName());
+  var props = PropertiesService.getScriptProperties();
+  var spreadsheetId = String(props.getProperty('SCORES_SPREADSHEET_ID') || '').trim();
+
+  if (!spreadsheetId) {
+    throw new Error('SCORES_SPREADSHEET_ID not configured in Script Properties');
   }
 
-  var headers = values[0];
-  var emailIndex = findHeaderIndex_(headers, ['email']);
-  var domainIndex = findHeaderIndex_(headers, ['domain']);
-  var planIndex = findHeaderIndex_(headers, ['plan']);
+  var ss = SpreadsheetApp.openById(spreadsheetId);
+  var sheet = ss.getSheets()[0];
+  var data = sheet.getDataRange().getValues();
 
-  if (emailIndex < 0) {
-    throw new Error('Email column not found in ' + sheet.getName());
-  }
+  var result = { email: email, scores: {} };
 
-  var matchedRow = null;
-  for (var i = 1; i < values.length; i++) {
-    var row = values[i];
-    var rowEmail = String(row[emailIndex] || '').trim().toLowerCase();
-    if (rowEmail !== email) {
-      continue;
-    }
-
-    if (domain && domainIndex >= 0) {
-      var rowDomain = String(row[domainIndex] || '').trim().toLowerCase();
-      if (rowDomain !== domain) {
-        continue;
+  for (var i = 0; i < data.length; i++) {
+    var rowEmail = String(data[i][0] || '').trim().toLowerCase();
+    if (rowEmail === email) {
+      var activities = getPublishScoreActivities();
+      for (var j = 0; j < activities.length; j++) {
+        var activity = activities[j];
+        var scoreCell = data[i][activity.startCol - 1];
+        if (scoreCell) {
+          result.scores[activity.key] = { label: activity.label, score: scoreCell };
+        }
       }
+      return result;
     }
-
-    if (plan && planIndex >= 0) {
-      var rowPlan = String(row[planIndex] || '').trim().toLowerCase();
-      if (rowPlan !== plan) {
-        continue;
-      }
-    }
-
-    matchedRow = row;
-    break;
   }
 
-  if (!matchedRow) {
-    throw new Error('No matching score row found for the entered details.');
-  }
-
-  return {
-    sheetName: sheet.getName(),
-    level: level,
-    headers: headers,
-    row: matchedRow,
-    matched: {
-      email: email,
-      domain: domain,
-      plan: plan
-    }
-  };
+  return { email: email, scores: {}, notFound: true };
 }
 
 function lookupStudentFeedback(payload) {
-  var category = String(payload.category || '').trim();
-  var email = String(payload.email || '').trim().toLowerCase();
+  payload = payload || {};
 
-  if (!category) {
-    throw new Error('Select a feedback category');
-  }
+  var email = String(payload.email || '').trim().toLowerCase();
+  var category = String(payload.category || '').trim();
+
   if (!email) {
     throw new Error('Email is required');
   }
 
   var sheet = resolveFeedbackSheet_(category);
-  var values = sheet.getDataRange().getValues();
-  if (values.length < 2) {
-    throw new Error('No feedback rows found in ' + sheet.getName());
+  if (!sheet) {
+    throw new Error('Could not resolve feedback sheet for category: ' + category);
   }
 
-  var headers = values[0];
-  var emailIndex = findHeaderIndex_(headers, ['email']);
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var emailIndex = findHeaderIndex_(headers, ['email', 'mail', 'e-mail']);
 
-  if (emailIndex < 0) {
-    throw new Error('Email column not found in ' + sheet.getName());
+  if (emailIndex === -1) {
+    throw new Error('Email column not found in feedback sheet');
   }
 
-  var matchedRows = [];
-  for (var i = 1; i < values.length; i++) {
-    var row = values[i];
-    if (String(row[emailIndex] || '').trim().toLowerCase() === email) {
-      matchedRows.push(row);
+  var data = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < data.length; i++) {
+    var rowEmail = String(data[i][emailIndex] || '').trim().toLowerCase();
+    if (rowEmail === email) {
+      return {
+        email: email,
+        category: category,
+        feedbacks: getFeedbackSheetCandidates_(category).map(function(candidate) {
+          return {
+            name: candidate.name,
+            score: data[i][candidate.colIndex] || ''
+          };
+        })
+      };
     }
   }
 
-  if (matchedRows.length === 0) {
-    throw new Error('No feedback found for the entered email.');
-  }
-
-  return {
-    sheetName: sheet.getName(),
-    category: category,
-    headers: headers,
-    row: matchedRows[0], // Backward compatibility for clients expecting a single row
-    rows: matchedRows,
-    count: matchedRows.length,
-    email: email
-  };
+  return { email: email, category: category, notFound: true };
 }
 
 function lookupStudentActivityPoints(payload) {
+  payload = payload || {};
+
   var email = String(payload.email || '').trim().toLowerCase();
-  var plan = String(payload.plan || '').trim().toLowerCase();
-  var domain = String(payload.domain || '').trim().toLowerCase();
 
   if (!email) {
     throw new Error('Email is required');
   }
 
   var sheet = resolveActivityPointsSheet_();
-  var values = sheet.getDataRange().getValues();
-  if (values.length < 2) {
-    throw new Error('No activity point rows found in ' + sheet.getName());
+  if (!sheet) {
+    throw new Error('Activity Points sheet not found');
   }
 
-  var headers = values[0];
-  var emailIndex = findHeaderIndex_(headers, ['email']);
-  var planIndex = findHeaderIndex_(headers, ['plan']);
-  var domainIndex = findHeaderIndex_(headers, ['domain']);
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var emailIndex = findHeaderIndex_(headers, ['email', 'mail', 'e-mail']);
 
-  if (emailIndex < 0) {
-    throw new Error('Email column not found in ' + sheet.getName());
+  if (emailIndex === -1) {
+    throw new Error('Email column not found in Activity Points sheet');
   }
 
-  var matchedRow = null;
-  for (var i = 1; i < values.length; i++) {
-    var row = values[i];
-    var rowEmail = String(row[emailIndex] || '').trim().toLowerCase();
-    if (rowEmail !== email) {
-      continue;
-    }
-
-    if (plan && planIndex >= 0) {
-      var rowPlan = String(row[planIndex] || '').trim().toLowerCase();
-      if (rowPlan !== plan) {
-        continue;
+  for (var i = 1; i < data.length; i++) {
+    var rowEmail = String(data[i][emailIndex] || '').trim().toLowerCase();
+    if (rowEmail === email) {
+      var activityPoints = [];
+      for (var j = 0; j < headers.length; j++) {
+        if (j !== emailIndex) {
+          activityPoints.push({
+            activity: headers[j],
+            points: data[i][j] || 0
+          });
+        }
       }
+      return {
+        email: email,
+        activityPoints: activityPoints,
+        total: activityPoints.reduce(function(sum, ap) { return sum + (Number(ap.points) || 0); }, 0)
+      };
     }
-
-    if (domain && domainIndex >= 0) {
-      var rowDomain = String(row[domainIndex] || '').trim().toLowerCase();
-      if (rowDomain !== domain) {
-        continue;
-      }
-    }
-
-    matchedRow = row;
-    break;
   }
 
-  if (!matchedRow) {
-    throw new Error('No matching activity points row found for the entered details.');
-  }
-
-  return {
-    sheetName: sheet.getName(),
-    headers: headers,
-    row: matchedRow,
-    matched: {
-      email: email,
-      domain: domain,
-      plan: plan
-    }
-  };
+  return { email: email, notFound: true };
 }
 
 function lookupStudentSubmissions(payload) {
   payload = payload || {};
 
-  var rawUserEmail = Session.getActiveUser().getEmail();
-  if (!rawUserEmail) {
-    throw new Error('Please open the portal using your IITM email login.');
+  var email = String(payload.email || '').trim().toLowerCase();
+
+  if (!email) {
+    throw new Error('Email is required');
   }
 
-  var userEmail = String(rawUserEmail).trim().toLowerCase();
-  var sheet = SpreadsheetApp.openById('1K6RPucCl6cqvO4SmC1Z66kKPpCVTaStf34pJ6V2E7pk').getSheetByName('Form Responses 2');
-
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Submissions');
   if (!sheet) {
-    throw new Error('Sheet not found.');
+    throw new Error('Submissions sheet not found');
   }
 
-  var values = sheet.getDataRange().getValues();
-  if (values.length < 2) {
-    return {
-      sheetName: sheet.getName(),
-      email: userEmail,
-      count: 0,
-      submissions: []
-    };
-  }
-
-  var headers = values[0];
-  var emailIndex = findSubmissionEmailIndex_(headers);
-
-  if (emailIndex < 0) {
-    throw new Error('Email column not found in sheet.');
-  }
-
-  var proofIndex = findHeaderIndex_(headers, ['paste', 'link', 'below']);
-  var activityIndex = 37;
-  if (activityIndex >= headers.length) {
-    activityIndex = findHeaderIndex_(headers, ['activity']);
-  }
-
+  var data = sheet.getDataRange().getValues();
   var submissions = [];
 
-  for (var i = 1; i < values.length; i++) {
-    var row = values[i];
-    var rowEmail = normalizeText_(row[emailIndex]);
+  var emailIndex = findSubmissionEmailIndex_(data[0]);
 
-    if (rowEmail !== userEmail) {
-      continue;
+  for (var i = 1; i < data.length; i++) {
+    var rowEmail = String(data[i][emailIndex] || '').trim().toLowerCase();
+    if (rowEmail === email) {
+      var submission = {};
+      for (var j = 0; j < data[0].length; j++) {
+        submission[normalizeText_(data[0][j])] = serializeDate_(data[i][j]);
+      }
+      submissions.push(submission);
     }
-
-    var activity = '';
-    if (activityIndex >= 0 && activityIndex < row.length) {
-      activity = String(row[activityIndex] || '').trim();
-    }
-
-    submissions.push({
-      date: serializeDate_(row[0]),
-      activity: activity,
-      proof: proofIndex >= 0 ? String(row[proofIndex] || '').trim() : ''
-    });
   }
 
   return {
-    sheetName: sheet.getName(),
-    email: userEmail,
-    count: submissions.length,
-    submissions: submissions
+    email: email,
+    submissions: submissions,
+    count: submissions.length
   };
 }
 
 function getDomainPlanOptions() {
-  var props = PropertiesService.getScriptProperties();
-  var examSpreadsheetId = String(props.getProperty('EXAMS_SPREADSHEET_ID') || '').trim();
-  var scoresSpreadsheetId = String(props.getProperty('SCORES_SPREADSHEET_ID') || '').trim();
-
-  var sheet = null;
-
-  if (examSpreadsheetId) {
-    try {
-      var ss = SpreadsheetApp.openById(examSpreadsheetId);
-      sheet = ss.getSheetByName('Students');
-    } catch (e) {
-      sheet = null;
-    }
-  }
-
-  if (!sheet && scoresSpreadsheetId) {
-    try {
-      var ss2 = SpreadsheetApp.openById(scoresSpreadsheetId);
-      sheet = ss2.getSheetByName('Students');
-    } catch (e) {
-      sheet = null;
-    }
-  }
-
-  if (!sheet) {
-    var active = SpreadsheetApp.getActiveSpreadsheet();
-    if (active) {
-      sheet = active.getSheetByName('Students');
-    }
-  }
-
-  if (!sheet) {
-    throw new Error('Students sheet not found in configured spreadsheets.');
-  }
-
-  var values = sheet.getDataRange().getValues();
-  if (!values || values.length < 1) {
-    return { domains: [], plans: [] };
-  }
-
-  var headers = values[0] || [];
-  var domainIndex = findHeaderIndex_(headers, ['domain']);
-  var planIndex = findHeaderIndex_(headers, ['plan']);
-
-  var domainSet = {};
-  var planSet = {};
-  var domains = [];
-  var plans = [];
-
-  for (var i = 1; i < values.length; i++) {
-    var row = values[i] || [];
-    if (domainIndex >= 0) {
-      var d = String(row[domainIndex] || '').trim();
-      if (d) {
-        var key = d.toLowerCase();
-        if (!domainSet[key]) { domainSet[key] = true; domains.push(d); }
-      }
-    }
-    if (planIndex >= 0) {
-      var p = String(row[planIndex] || '').trim();
-      if (p) {
-        var k2 = p.toLowerCase();
-        if (!planSet[k2]) { planSet[k2] = true; plans.push(p); }
-      }
-    }
-  }
-
-  domains.sort();
-  plans.sort();
-
-  return { domains: domains, plans: plans };
+  return [
+    { domain: 'IT', plans: ['Semester 1', 'Semester 2'] },
+    { domain: 'Non-IT', plans: ['Semester 1'] }
+  ];
 }
 
 function resolveFeedbackSheet_(category) {
-  var candidates = getFeedbackSheetCandidates_(category);
-  var props = PropertiesService.getScriptProperties();
-  var spreadsheetId = String(props.getProperty('SCORES_SPREADSHEET_ID') || '').trim();
-  var ss = spreadsheetId
-    ? SpreadsheetApp.openById(spreadsheetId)
-    : SpreadsheetApp.getActiveSpreadsheet();
-
-  if (!ss) {
-    throw new Error('Could not resolve feedback spreadsheet. Set SCORES_SPREADSHEET_ID in Script Properties.');
-  }
-
-  for (var i = 0; i < candidates.length; i++) {
-    var sheet = ss.getSheetByName(candidates[i]);
-    if (sheet) {
-      return sheet;
-    }
-  }
-
-  throw new Error('Feedback sheet not found for category: ' + category);
+  var sheetName = 'Feedback - ' + category;
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  return sheet || null;
 }
 
 function getFeedbackSheetCandidates_(category) {
-  var normalized = String(category || '').trim().toLowerCase();
+  var sheet = resolveFeedbackSheet_(category);
+  if (!sheet) return [];
 
-  if (normalized === 'csm') {
-    return ['CSM Feedback', 'CSM'];
-  }
-  if (normalized === 'behavioral' || normalized === 'behavioural' || normalized === 'ba') {
-    return ['BA Feedback', 'Behavioral Feedback', 'Behavioural Feedback', 'BA'];
-  }
-  if (normalized === 'presentation') {
-    return ['Presentation Feedback', 'Presentation'];
-  }
-  if (normalized === '1o1' || normalized === '1on1') {
-    return ['1on1', '1on1 Feedback', 'Feedback Sheet', 'Feedback_Sheet'];
-  }
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var candidates = [];
 
-  return [category];
-}
-
-function resolveActivityPointsSheet_() {
-  var props = PropertiesService.getScriptProperties();
-  var spreadsheetId = String(props.getProperty('SCORES_SPREADSHEET_ID') || '').trim();
-  var ss = spreadsheetId
-    ? SpreadsheetApp.openById(spreadsheetId)
-    : SpreadsheetApp.getActiveSpreadsheet();
-
-  if (!ss) {
-    throw new Error('Could not resolve activity points spreadsheet. Set SCORES_SPREADSHEET_ID in Script Properties.');
-  }
-
-  var candidates = ['Activity points', 'Activity Points', 'activity points'];
-  for (var i = 0; i < candidates.length; i++) {
-    var sheet = ss.getSheetByName(candidates[i]);
-    if (sheet) {
-      return sheet;
+  for (var i = 0; i < headers.length; i++) {
+    var header = String(headers[i] || '').trim();
+    if (header && !header.match(/email|mail/i)) {
+      candidates.push({ name: header, colIndex: i });
     }
   }
 
-  throw new Error('Activity points sheet not found.');
+  return candidates;
+}
+
+function resolveActivityPointsSheet_() {
+  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Activity Points');
 }
 
 function findHeaderIndex_(headers, keywords) {
   for (var i = 0; i < headers.length; i++) {
-    var header = String(headers[i] || '').trim().toLowerCase();
-    if (!header) continue;
-
-    var matched = true;
-    for (var k = 0; k < keywords.length; k++) {
-      if (header.indexOf(String(keywords[k]).toLowerCase()) === -1) {
-        matched = false;
-        break;
+    var header = normalizeText_(headers[i]);
+    for (var j = 0; j < keywords.length; j++) {
+      if (header.indexOf(keywords[j]) !== -1) {
+        return i;
       }
     }
-
-    if (matched) {
-      return i;
-    }
   }
-
   return -1;
 }
 
 function findSubmissionEmailIndex_(headers) {
+  var emailIndex = findHeaderIndex_(headers, ['email', 'mail']);
+  if (emailIndex !== -1) return emailIndex;
+  
   for (var i = 0; i < headers.length; i++) {
-    var header = normalizeText_(headers[i]);
-    if (!header) continue;
-
-    if (header.indexOf('student email id') !== -1 || header.indexOf('email') !== -1) {
+    if (String(headers[i]).match(/@/)) {
       return i;
     }
   }
-
-  return -1;
+  
+  throw new Error('Email column not found in submissions');
 }
 
 function normalizeText_(value) {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  return String(value).trim().toLowerCase();
+  return String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
 }
 
 function serializeDate_(value) {
-  if (!value) {
-    return '';
+  if (value instanceof Date) {
+    return value.toISOString();
   }
-
-  var d = new Date(value);
-  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'dd MMM yyyy, hh:mm a');
+  return value;
 }
 
 function parseScoreRows_(rowsText, expectedWidth) {
-  var lines = rowsText.split(/\r?\n/);
   var rows = [];
+  var lines = rowsText.split('\n');
 
   for (var i = 0; i < lines.length; i++) {
-    var line = String(lines[i] || '').trim();
-    if (!line) {
-      continue;
-    }
+    var line = String(lines[i]).trim();
+    if (!line) continue;
 
     var cells = line.split('\t');
-    for (var c = 0; c < cells.length; c++) {
-      cells[c] = String(cells[c] || '').trim();
+    if (cells.length < expectedWidth) {
+      throw new Error('Line ' + (i + 1) + ' has insufficient columns');
     }
 
-    if (cells.length !== expectedWidth) {
-      throw new Error('Line ' + (i + 1) + ' must contain exactly ' + expectedWidth + ' tab-separated values.');
+    if (cells.length > expectedWidth) {
+      cells = cells.slice(0, expectedWidth);
     }
 
-    if (!cells[0]) {
+    if (!cells[0] || !String(cells[0]).match(/@/)) {
       throw new Error('Line ' + (i + 1) + ' is missing an email id.');
     }
 
@@ -598,15 +383,14 @@ function parseScoreRows_(rowsText, expectedWidth) {
 }
 
 function parsePayload_(e) {
-  if (!e || !e.postData || !e.postData.contents) {
-    throw new Error('Empty request body');
+  if (e && e.parameter && e.parameter.payload) {
+    try {
+      return JSON.parse(e.parameter.payload);
+    } catch (_err) {
+      throw new Error('Invalid JSON in payload parameter');
+    }
   }
-
-  try {
-    return JSON.parse(e.postData.contents);
-  } catch (_err) {
-    throw new Error('Invalid JSON body');
-  }
+  throw new Error('Empty request body or missing payload parameter');
 }
 
 function validateApiToken_(payload) {
@@ -642,9 +426,9 @@ function getDatabaseData() {
   
   var ss = SpreadsheetApp.openById(spreadsheetId);
   
-  var level1 = getLevelData_(ss, 'Level 1', 18); // Column S (index 18)
-  var level2 = getLevelData_(ss, 'Level 2', 12); // Column M (index 12)
-  var level3 = getLevelData_(ss, 'Level 3', 11); // Column L (index 11)
+  var level1 = getLevelData_(ss, 'Level 1', 18);
+  var level2 = getLevelData_(ss, 'Level 2', 12);
+  var level3 = getLevelData_(ss, 'Level 3', 11);
   
   return {
     level1: level1,
@@ -662,15 +446,12 @@ function getLevelData_(ss, sheetName, statusColumnIndex) {
   var data = sheet.getDataRange().getValues();
   var categories = {};
   
-  // Skip header row (index 0)
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    var email = row[2]; // Column C
+    var email = row[2];
     var status = row[statusColumnIndex];
     
-    // Check if status indicates pending activities
     if (status && String(status).indexOf('Pending:') !== -1) {
-      // Extract the pending category
       var category = String(status).replace('Pending: ', '').trim();
       
       if (!categories[category]) {
@@ -686,4 +467,43 @@ function getLevelData_(ss, sheetName, statusColumnIndex) {
   };
 }
 
-// NOTE: `getDomainPlanOptions` removed — domain/plan are now static on the frontend.
+function verifyStudentEmail(payload) {
+  var email = String(payload.email || '').trim().toLowerCase();
+  
+  if (!email) {
+    throw new Error('Email is required');
+  }
+  
+  var props = PropertiesService.getScriptProperties();
+  var spreadsheetId = String(props.getProperty('DATABASE_SPREADSHEET_ID') || '').trim();
+  
+  if (!spreadsheetId) {
+    throw new Error('DATABASE_SPREADSHEET_ID not configured in Script Properties');
+  }
+  
+  var ss = SpreadsheetApp.openById(spreadsheetId);
+  var sheet = ss.getSheetByName('Level 1');
+  
+  if (!sheet) {
+    throw new Error('Level 1 sheet not found in training database');
+  }
+  
+  var data = sheet.getDataRange().getValues();
+  
+  for (var i = 1; i < data.length; i++) {
+    var rowEmail = String(data[i][2] || '').trim().toLowerCase();
+    if (rowEmail === email) {
+      return {
+        verified: true,
+        email: email,
+        message: 'Email verified successfully'
+      };
+    }
+  }
+  
+  return {
+    verified: false,
+    email: email,
+    message: 'Email not found in authorized student list'
+  };
+}

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { usePreventDevTools } from "@/hooks/use-prevent-devtools";
+import ProtectedStudentRoute from "@/components/ProtectedStudentRoute";
 
 // Lazy load all pages for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -42,15 +43,15 @@ const App = () => {
       <BrowserRouter>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/announcements" element={<Announcements />} />
-            <Route path="/faqs" element={<FAQs />} />
-            <Route path="/documents" element={<Documents />} />
-            <Route path="/chat" element={<ChatPage />} />
-            <Route path="/exam" element={<ExamPage />} />
-            <Route path="/scores" element={<ScoresPage />} />
-            <Route path="/slot-bookings" element={<SlotBookings />} />
-            <Route path="/activity-points" element={<ActivityPoints />} />
+            <Route path="/" element={<ProtectedStudentRoute><Index /></ProtectedStudentRoute>} />
+            <Route path="/announcements" element={<ProtectedStudentRoute><Announcements /></ProtectedStudentRoute>} />
+            <Route path="/faqs" element={<ProtectedStudentRoute><FAQs /></ProtectedStudentRoute>} />
+            <Route path="/documents" element={<ProtectedStudentRoute><Documents /></ProtectedStudentRoute>} />
+            <Route path="/chat" element={<ProtectedStudentRoute><ChatPage /></ProtectedStudentRoute>} />
+            <Route path="/exam" element={<ProtectedStudentRoute><ExamPage /></ProtectedStudentRoute>} />
+            <Route path="/scores" element={<ProtectedStudentRoute><ScoresPage /></ProtectedStudentRoute>} />
+            <Route path="/slot-bookings" element={<ProtectedStudentRoute><SlotBookings /></ProtectedStudentRoute>} />
+            <Route path="/activity-points" element={<ProtectedStudentRoute><ActivityPoints /></ProtectedStudentRoute>} />
             <Route path="/admin" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/forms" element={<AdminDashboard />} />
