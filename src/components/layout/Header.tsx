@@ -1,9 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { FileText, Megaphone, HelpCircle, BookOpen, LifeBuoy, Mail, Menu, MessageSquare, ClipboardList, BarChart3, CalendarClock, Star } from 'lucide-react';
+import { FileText, Megaphone, HelpCircle, BookOpen, LifeBuoy, Mail, Menu, MessageSquare, ClipboardList, BarChart3, CalendarClock, Star, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { auth } from '@/lib/firebase';
+import { signOut as firebaseSignOut } from 'firebase/auth';
+import { useToast } from '@/components/ui/use-toast';
 
 const navItems = [
   { path: '/', label: 'Forms', icon: FileText },
@@ -20,6 +23,25 @@ const navItems = [
 export function Header() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const { toast } = useToast();
+
+  const handleSignOut = async () => {
+    try {
+      await firebaseSignOut(auth);
+      toast({
+        title: 'Signed out',
+        description: 'Successfully signed out',
+      });
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Sign out error:', error);
+      toast({
+        title: 'Sign out failed',
+        description: error instanceof Error ? error.message : 'Failed to sign out',
+        variant: 'destructive',
+      });
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
@@ -121,6 +143,14 @@ export function Header() {
             <Mail className="h-4 w-4" />
             <span>Email</span>
           </a>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleSignOut}
+            title="Sign Out"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </header>

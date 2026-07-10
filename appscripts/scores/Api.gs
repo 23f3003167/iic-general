@@ -621,9 +621,17 @@ function verifyStudentEmail(payload) {
   }
   
   var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  
+  // Find email column dynamically
+  var emailIndex = findHeaderIndex_(headers, ['email', 'mail', 'e-mail']);
+  
+  if (emailIndex === -1) {
+    throw new Error('Email column not found in Level 1 sheet');
+  }
   
   for (var i = 1; i < data.length; i++) {
-    var rowEmail = String(data[i][2] || '').trim().toLowerCase();
+    var rowEmail = String(data[i][emailIndex] || '').trim().toLowerCase();
     if (rowEmail === email) {
       return {
         verified: true,
