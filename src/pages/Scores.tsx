@@ -111,6 +111,8 @@ const ScoreRow = ({ label, value }: { label: string; value: string }) => (
 );
 
 function tableValue(row: string[], headers: string[], keywords: string[]): string {
+  if (!headers || !Array.isArray(headers)) return '—';
+  
   const index = headers.findIndex((header) => {
     const normalized = String(header || '').trim().toLowerCase();
     return keywords.every((keyword) => normalized.includes(keyword.toLowerCase()));
@@ -170,7 +172,7 @@ function formatAttemptCode(value: string | undefined): string {
 }
 
 function buildActivityPointsSummary(result: StudentActivityPointsLookup | null): ActivityPointsSummary | null {
-  if (!result) return null;
+  if (!result || !result.headers || !Array.isArray(result.headers) || !result.row) return null;
 
   const headers = result.headers;
   const row = result.row;
@@ -240,7 +242,7 @@ export default function Scores() {
   const isLevel3 = selectedLevel.includes('level 3');
 
   const scoreSummary = useMemo<ScoreSummary | null>(() => {
-    if (!scoreResult) return null;
+    if (!scoreResult || !scoreResult.headers || !Array.isArray(scoreResult.headers) || !scoreResult.row) return null;
 
     const level = selectedLevel;
     const headers = scoreResult.headers;
@@ -327,7 +329,7 @@ export default function Scores() {
 
   const activityPointsSummary = useMemo(() => buildActivityPointsSummary(activityPointsResult), [activityPointsResult]);
   const feedbackSummary = useMemo(() => {
-    if (!feedbackResult) return [];
+    if (!feedbackResult || !feedbackResult.headers || !Array.isArray(feedbackResult.headers) || !feedbackResult.rows) return [];
 
     return feedbackResult.rows
       .map((row, rowIndex) => {

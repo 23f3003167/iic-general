@@ -227,15 +227,15 @@ async function callScoresAppsScript<T>(payload: Record<string, unknown>): Promis
     throw new Error('Missing scores Apps Script URL in environment.');
   }
 
+  const formData = new FormData();
+  formData.append('payload', JSON.stringify({
+    ...payload,
+    apiToken: scoresApiToken,
+  }));
+
   const response = await fetch(normalizeWebAppUrl(scoresWebAppUrl), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8',
-    },
-    body: JSON.stringify({
-      ...payload,
-      apiToken: scoresApiToken,
-    }),
+    body: formData,
   });
 
   if (!response.ok) {

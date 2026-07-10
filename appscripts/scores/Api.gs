@@ -121,6 +121,10 @@ function lookupStudentScore(payload) {
   payload = payload || {};
 
   var email = String(payload.email || '').trim().toLowerCase();
+  var level = String(payload.level || '').trim();
+  var domain = String(payload.domain || '').trim();
+  var plan = String(payload.plan || '').trim();
+
   if (!email) {
     throw new Error('Email is required');
   }
@@ -133,27 +137,68 @@ function lookupStudentScore(payload) {
   }
 
   var ss = SpreadsheetApp.openById(spreadsheetId);
-  var sheet = ss.getSheets()[0];
+  
+  // Find the appropriate sheet based on level
+  var targetSheetName = level;
+  if (level.indexOf('level 1') !== -1 || level.indexOf('1') === 0) {
+    targetSheetName = 'Level 1';
+  } else if (level.indexOf('level 2') !== -1 || level.indexOf('2') === 0) {
+    targetSheetName = 'Level 2';
+  } else if (level.indexOf('level 3') !== -1 || level.indexOf('3') === 0) {
+    targetSheetName = 'Level 3';
+  }
+  
+  var sheet = ss.getSheetByName(targetSheetName);
+  if (!sheet) {
+    sheet = ss.getSheets()[0];
+  }
+  
   var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var emailIndex = findHeaderIndex_(headers, ['email', 'mail', 'e-mail']);
+  var domainIndex = findHeaderIndex_(headers, ['domain']);
+  var planIndex = findHeaderIndex_(headers, ['plan']);
 
-  var result = { email: email, scores: {} };
+  if (emailIndex === -1) {
+    throw new Error('Email column not found in scores sheet');
+  }
 
-  for (var i = 0; i < data.length; i++) {
-    var rowEmail = String(data[i][0] || '').trim().toLowerCase();
+  for (var i = 1; i < data.length; i++) {
+    var rowEmail = String(data[i][emailIndex] || '').trim().toLowerCase();
     if (rowEmail === email) {
-      var activities = getPublishScoreActivities();
-      for (var j = 0; j < activities.length; j++) {
-        var activity = activities[j];
-        var scoreCell = data[i][activity.startCol - 1];
-        if (scoreCell) {
-          result.scores[activity.key] = { label: activity.label, score: scoreCell };
+      // Check domain if provided
+      if (domain && domainIndex !== -1) {
+        var rowDomain = String(data[i][domainIndex] || '').trim().toLowerCase();
+        var domainLower = domain.toLowerCase();
+        if (rowDomain !== domainLower && rowDomain.indexOf(domainLower) === -1 && domainLower.indexOf(rowDomain) === -1) {
+          continue;
         }
       }
-      return result;
+      
+      // Check plan if provided
+      if (plan && planIndex !== -1) {
+        var rowPlan = String(data[i][planIndex] || '').trim().toLowerCase();
+        var planLower = plan.toLowerCase();
+        if (rowPlan !== planLower && rowPlan.indexOf(planLower) === -1 && planLower.indexOf(rowPlan) === -1) {
+          continue;
+        }
+      }
+      
+      return {
+        sheetName: sheet.getName(),
+        level: level,
+        headers: headers,
+        row: data[i],
+        matched: {
+          email: email,
+          domain: domain,
+          plan: plan
+        }
+      };
     }
   }
 
-  return { email: email, scores: {}, notFound: true };
+  return { email: email, notFound: true };
 }
 
 function lookupStudentFeedback(payload) {
@@ -179,30 +224,35 @@ function lookupStudentFeedback(payload) {
   }
 
   var data = sheet.getDataRange().getValues();
+  var matchedRows = [];
 
   for (var i = 1; i < data.length; i++) {
     var rowEmail = String(data[i][emailIndex] || '').trim().toLowerCase();
     if (rowEmail === email) {
-      return {
-        email: email,
-        category: category,
-        feedbacks: getFeedbackSheetCandidates_(category).map(function(candidate) {
-          return {
-            name: candidate.name,
-            score: data[i][candidate.colIndex] || ''
-          };
-        })
-      };
+      matchedRows.push(data[i]);
     }
   }
 
-  return { email: email, category: category, notFound: true };
+  if (matchedRows.length === 0) {
+    return { email: email, category: category, notFound: true };
+  }
+
+  return {
+    sheetName: sheet.getName(),
+    category: category,
+    headers: headers,
+    rows: matchedRows,
+    email: email,
+    count: matchedRows.length
+  };
 }
 
 function lookupStudentActivityPoints(payload) {
   payload = payload || {};
 
   var email = String(payload.email || '').trim().toLowerCase();
+  var domain = String(payload.domain || '').trim();
+  var plan = String(payload.plan || '').trim();
 
   if (!email) {
     throw new Error('Email is required');
@@ -216,6 +266,8 @@ function lookupStudentActivityPoints(payload) {
   var data = sheet.getDataRange().getValues();
   var headers = data[0];
   var emailIndex = findHeaderIndex_(headers, ['email', 'mail', 'e-mail']);
+  var domainIndex = findHeaderIndex_(headers, ['domain']);
+  var planIndex = findHeaderIndex_(headers, ['plan']);
 
   if (emailIndex === -1) {
     throw new Error('Email column not found in Activity Points sheet');
@@ -224,19 +276,34 @@ function lookupStudentActivityPoints(payload) {
   for (var i = 1; i < data.length; i++) {
     var rowEmail = String(data[i][emailIndex] || '').trim().toLowerCase();
     if (rowEmail === email) {
-      var activityPoints = [];
-      for (var j = 0; j < headers.length; j++) {
-        if (j !== emailIndex) {
-          activityPoints.push({
-            activity: headers[j],
-            points: data[i][j] || 0
-          });
+      // Check domain if provided
+      if (domain && domainIndex !== -1) {
+        var rowDomain = String(data[i][domainIndex] || '').trim().toLowerCase();
+        var domainLower = domain.toLowerCase();
+        if (rowDomain !== domainLower && rowDomain.indexOf(domainLower) === -1 && domainLower.indexOf(rowDomain) === -1) {
+          continue;
         }
       }
+      
+      // Check plan if provided
+      if (plan && planIndex !== -1) {
+        var rowPlan = String(data[i][planIndex] || '').trim().toLowerCase();
+        var planLower = plan.toLowerCase();
+        if (rowPlan !== planLower && rowPlan.indexOf(planLower) === -1 && planLower.indexOf(rowPlan) === -1) {
+          continue;
+        }
+      }
+      
       return {
+        sheetName: sheet.getName(),
+        headers: headers,
+        row: data[i],
         email: email,
-        activityPoints: activityPoints,
-        total: activityPoints.reduce(function(sum, ap) { return sum + (Number(ap.points) || 0); }, 0)
+        matched: {
+          email: email,
+          domain: domain,
+          plan: plan
+        }
       };
     }
   }
@@ -289,9 +356,74 @@ function getDomainPlanOptions() {
 }
 
 function resolveFeedbackSheet_(category) {
-  var sheetName = 'Feedback - ' + category;
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-  return sheet || null;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheets = ss.getSheets();
+  
+  // Map category names to actual sheet names
+  var categoryToSheetName = {
+    'behavioral': 'BA Feedback',
+    'behavioural': 'BA Feedback',
+    'presentation': 'Presentation Feedback',
+    'csm': 'CSM Feedback',
+    '1o1': '1o1 Feedback',
+    '1-on-1': '1o1 Feedback'
+  };
+  
+  var categoryLower = String(category).toLowerCase().trim();
+  var mappedName = categoryToSheetName[categoryLower];
+  
+  if (mappedName) {
+    var sheet = ss.getSheetByName(mappedName);
+    if (sheet) return sheet;
+  }
+  
+  // Try exact match with "Feedback - " prefix
+  var exactName = 'Feedback - ' + category;
+  var sheet = ss.getSheetByName(exactName);
+  if (sheet) return sheet;
+  
+  // Try case-insensitive match
+  for (var i = 0; i < sheets.length; i++) {
+    var sheetName = sheets[i].getName();
+    var normalized = String(sheetName).toLowerCase().trim();
+    var target = 'feedback - ' + categoryLower;
+    if (normalized === target) {
+      return sheets[i];
+    }
+  }
+  
+  // Try partial match (contains category name)
+  for (var i = 0; i < sheets.length; i++) {
+    var sheetName = sheets[i].getName();
+    var normalized = String(sheetName).toLowerCase().trim();
+    if (normalized.indexOf('feedback') !== -1 && normalized.indexOf(categoryLower) !== -1) {
+      return sheets[i];
+    }
+  }
+  
+  // Try without "Feedback -" prefix (just category name)
+  for (var i = 0; i < sheets.length; i++) {
+    var sheetName = sheets[i].getName();
+    var normalized = String(sheetName).toLowerCase().trim();
+    if (normalized === categoryLower) {
+      return sheets[i];
+    }
+  }
+  
+  // List available feedback sheets for debugging
+  var availableFeedbackSheets = [];
+  for (var i = 0; i < sheets.length; i++) {
+    var sheetName = sheets[i].getName();
+    if (sheetName.toLowerCase().indexOf('feedback') !== -1) {
+      availableFeedbackSheets.push(sheetName);
+    }
+  }
+  
+  if (availableFeedbackSheets.length > 0) {
+    throw new Error('Could not resolve feedback sheet for category: ' + category + '. Available feedback sheets: ' + availableFeedbackSheets.join(', '));
+  }
+  
+  return null;
 }
 
 function getFeedbackSheetCandidates_(category) {
