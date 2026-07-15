@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { auth } from '@/lib/firebase';
-import { listSlotsAvailability, createSlotAvailability, deleteSlotAvailability, getSlotsConfig, setSlotsConfig, createBookingWindowIfNotExists, type SlotAvailability, type SlotsAvailabilityWindow } from '@/lib/firestoreService';
+import { listSlotsAvailability, createSlotAvailability, deleteSlotAvailability, getSlotsConfig, setSlotsConfig, type SlotAvailability, type SlotsAvailabilityWindow } from '@/lib/firestoreService';
 import { getBehavioralInstructors, getPresentationInstructors, type InstructorOption } from '@/lib/toolsService';
 import PresentationSlotsOverview from './PresentationSlotsOverview';
 import BehavioralSlotsOverview from './BehavioralSlotsOverview';
@@ -136,21 +136,6 @@ const SlotsAvailabilityPage = () => {
       };
       await setSlotsConfig(nextConfig);
       setConfig(nextConfig);
-
-      if (nextEnabled) {
-        // store booking windows for both behavioral and presentation separately, avoid duplicates
-        const payload = {
-          availableDate: nextConfig.availableDate,
-          availableStartTime: nextConfig.availableStartTime,
-          availableEndTime: nextConfig.availableEndTime,
-          createdBy: nextConfig.updatedBy,
-          createdAt: nextConfig.updatedAt,
-        } as any;
-        await Promise.all([
-          createBookingWindowIfNotExists({ type: 'behavioral', ...payload }),
-          createBookingWindowIfNotExists({ type: 'presentation', ...payload }),
-        ]);
-      }
     } catch (err) {
       console.error(err);
       toast({

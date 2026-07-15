@@ -422,7 +422,6 @@ const SlotBookings = () => {
                         <div className="space-y-2">
                           <p className="font-semibold">Your Scheduled Slot:</p>
                           <p className="text-lg font-bold">{slotInfo.slot}</p>
-                          <p className="text-sm">Instructor: {slotInfo.instructor}</p>
                           <p className="text-sm">Name: {slotInfo.name}</p>
                         </div>
                       </AlertDescription>

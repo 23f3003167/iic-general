@@ -28,6 +28,8 @@ function doPost(e) {
       data = getDatabaseData();
     } else if (action === 'verifyStudentEmail') {
       data = verifyStudentEmail(payload);
+    } else if (action === 'getReportsData') {
+      data = getReportsData();
     } else {
       throw new Error('Unsupported action: ' + action);
     }
@@ -645,5 +647,206 @@ function verifyStudentEmail(payload) {
     verified: false,
     email: email,
     message: 'Email not found in authorized student list'
+  };
+}
+
+function getReportsData() {
+  var props = PropertiesService.getScriptProperties();
+  var spreadsheetId = String(props.getProperty('DATABASE_SPREADSHEET_ID') || '').trim();
+  
+  if (!spreadsheetId) {
+    throw new Error('DATABASE_SPREADSHEET_ID not configured in Script Properties');
+  }
+  
+  var ss = SpreadsheetApp.openById(spreadsheetId);
+  
+  // Get registration data (from Level 1 sheet - Domain and Plan columns)
+  var registration = getRegistrationReport_(ss);
+  
+  // Get Level 1 status counts
+  var level1 = getLevelStatusReport_(ss, 'Level 1', 18);
+  
+  // Get Level 2 status counts
+  var level2 = getLevelStatusReport_(ss, 'Level 2', 12);
+  
+  // Get Level 3 status counts
+  var level3 = getLevelStatusReport_(ss, 'Level 3', 11);
+  
+  // Get termination data
+  var termination = getTerminationReport_();
+  
+  return {
+    registration: registration,
+    level1: level1,
+    level2: level2,
+    level3: level3,
+    termination: termination
+  };
+}
+
+function getRegistrationReport_(ss) {
+  var sheet = ss.getSheetByName('Level 1');
+  if (!sheet) {
+    return { error: 'Level 1 sheet not found' };
+  }
+  
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  
+  // Find Domain and Plan column indices
+  var domainIndex = findHeaderIndex_(headers, ['domain']);
+  var planIndex = findHeaderIndex_(headers, ['plan']);
+  
+  if (domainIndex === -1 || planIndex === -1) {
+    return { error: 'Domain or Plan column not found' };
+  }
+  
+  // Build pivot table: Domain x Plan
+  var pivot = {};
+  var domains = {};
+  var plans = {};
+  
+  for (var i = 1; i < data.length; i++) {
+    var domain = String(data[i][domainIndex] || 'Not Found').trim();
+    var plan = String(data[i][planIndex] || 'Not Found').trim();
+    
+    if (!domains[domain]) domains[domain] = true;
+    if (!plans[plan]) plans[plan] = true;
+    
+    if (!pivot[domain]) {
+      pivot[domain] = {};
+    }
+    if (!pivot[domain][plan]) {
+      pivot[domain][plan] = 0;
+    }
+    pivot[domain][plan]++;
+  }
+  
+  // Convert to array format for easier display
+  var domainList = Object.keys(domains).sort();
+  var planList = Object.keys(plans).sort();
+  
+  var table = [];
+  for (var d = 0; d < domainList.length; d++) {
+    var domain = domainList[d];
+    var row = { domain: domain };
+    var domainTotal = 0;
+    
+    for (var p = 0; p < planList.length; p++) {
+      var plan = planList[p];
+      var count = pivot[domain] && pivot[domain][plan] ? pivot[domain][plan] : 0;
+      row[plan] = count;
+      domainTotal += count;
+    }
+    row['grandTotal'] = domainTotal;
+    table.push(row);
+  }
+  
+  // Add grand totals row
+  var grandTotals = { domain: 'Grand Total' };
+  var overallTotal = 0;
+  for (var p = 0; p < planList.length; p++) {
+    var plan = planList[p];
+    var planTotal = 0;
+    for (var d = 0; d < domainList.length; d++) {
+      planTotal += (pivot[domainList[d]] && pivot[domainList[d]][plan]) ? pivot[domainList[d]][plan] : 0;
+    }
+    grandTotals[plan] = planTotal;
+    overallTotal += planTotal;
+  }
+  grandTotals['grandTotal'] = overallTotal;
+  table.push(grandTotals);
+  
+  return {
+    domains: domainList,
+    plans: planList,
+    table: table
+  };
+}
+
+function getLevelStatusReport_(ss, sheetName, statusColumnIndex) {
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    return { error: sheetName + ' sheet not found' };
+  }
+  
+  var data = sheet.getDataRange().getValues();
+  var statusCounts = {};
+  var total = 0;
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var status = row[statusColumnIndex];
+    
+    if (status) {
+      var statusStr = String(status).trim();
+      if (!statusCounts[statusStr]) {
+        statusCounts[statusStr] = 0;
+      }
+      statusCounts[statusStr]++;
+      total++;
+    }
+  }
+  
+  // Convert to array format
+  var table = [];
+  for (var status in statusCounts) {
+    table.push({
+      status: status,
+      count: statusCounts[status]
+    });
+  }
+  
+  // Sort by count descending
+  table.sort(function(a, b) {
+    return b.count - a.count;
+  });
+  
+  return {
+    level: sheetName,
+    table: table,
+    total: total
+  };
+}
+
+function getTerminationReport_() {
+  var props = PropertiesService.getScriptProperties();
+  var spreadsheetId = String(props.getProperty('DATABASE_SPREADSHEET_ID') || '').trim();
+  
+  if (!spreadsheetId) {
+    throw new Error('DATABASE_SPREADSHEET_ID not configured in Script Properties');
+  }
+  
+  var ss = SpreadsheetApp.openById(spreadsheetId);
+  var sheet = ss.getSheetByName('Termination');
+  
+  if (!sheet) {
+    return { domainNotFilled: 0, level1Termination: 0, total: 0 };
+  }
+  
+  var data = sheet.getDataRange().getValues();
+  
+  // Skip header row
+  var domainNotFilledCount = 0;
+  var level1TerminationCount = 0;
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    
+    // Count emails in first column (Domain Not Filled)
+    if (row[0] && String(row[0]).trim() && String(row[0]).indexOf('@') !== -1) {
+      domainNotFilledCount++;
+    }
+    
+    // Count emails in second column (Level 1 Termination)
+    if (row[1] && String(row[1]).trim() && String(row[1]).indexOf('@') !== -1) {
+      level1TerminationCount++;
+    }
+  }
+  
+  return {
+    domainNotFilled: domainNotFilledCount,
+    level1Termination: level1TerminationCount,
+    total: domainNotFilledCount + level1TerminationCount
   };
 }

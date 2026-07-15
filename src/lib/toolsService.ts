@@ -520,6 +520,12 @@ export async function getDatabaseData(): Promise<DatabaseDataResponse> {
   });
 }
 
+export async function getReportsData(): Promise<ReportsDataResponse> {
+  return callScoresAppsScript<ReportsDataResponse>({
+    action: 'getReportsData',
+  });
+}
+
 export type DatabaseDataResponse = {
   level1: {
     level: string;
@@ -532,6 +538,34 @@ export type DatabaseDataResponse = {
   level3: {
     level: string;
     categories: Record<string, string[]>;
+  };
+};
+
+export type ReportsDataResponse = {
+  registration: {
+    domains: string[];
+    plans: string[];
+    table: Array<Record<string, number | string>>;
+  };
+  level1: {
+    level: string;
+    table: Array<{ status: string; count: number }>;
+    total: number;
+  };
+  level2: {
+    level: string;
+    table: Array<{ status: string; count: number }>;
+    total: number;
+  };
+  level3: {
+    level: string;
+    table: Array<{ status: string; count: number }>;
+    total: number;
+  };
+  termination: {
+    domainNotFilled: number;
+    level1Termination: number;
+    total: number;
   };
 };
 // Domain/Plan options are handled statically in the frontend now.
