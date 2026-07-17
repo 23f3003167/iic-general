@@ -43,7 +43,7 @@ const App = () => {
       <BrowserRouter>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
-            <Route path="/" element={<ProtectedStudentRoute><Index /></ProtectedStudentRoute>} />
+            <Route path="/" element={<ProtectedStudentRoute><Announcements /></ProtectedStudentRoute>} />
             <Route path="/announcements" element={<ProtectedStudentRoute><Announcements /></ProtectedStudentRoute>} />
             <Route path="/faqs" element={<ProtectedStudentRoute><FAQs /></ProtectedStudentRoute>} />
             <Route path="/documents" element={<ProtectedStudentRoute><Documents /></ProtectedStudentRoute>} />
@@ -54,15 +54,12 @@ const App = () => {
             <Route path="/activity-points" element={<ProtectedStudentRoute><ActivityPoints /></ProtectedStudentRoute>} />
             <Route path="/admin" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/forms" element={<AdminDashboard />} />
             <Route path="/admin/announcements" element={<AdminDashboard />} />
-            <Route path="/admin/tickets" element={<AdminDashboard />} />
             <Route path="/admin/tools" element={<AdminDashboard />} />
             <Route path="/admin/faqs" element={<AdminDashboard />} />
             <Route path="/admin/documents" element={<AdminDashboard />} />
             <Route path="/admin/exams" element={<AdminDashboard />} />
             <Route path="/admin/slots-availability" element={<AdminDashboard />} />
-            <Route path="/admin/attempts" element={<AdminDashboard />} />
             <Route path="/admin/evaluators" element={<AdminDashboard />} />
             <Route path="/admin/database" element={<AdminDashboard />} />
             <Route path="/admin/reports" element={<AdminDashboard />} />

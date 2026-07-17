@@ -9,7 +9,6 @@ import { signOut as firebaseSignOut } from 'firebase/auth';
 import { useToast } from '@/components/ui/use-toast';
 
 const navItems = [
-  { path: '/', label: 'Forms', icon: FileText },
   { path: '/announcements', label: 'Announcements', icon: Megaphone },
   { path: '/faqs', label: 'FAQs', icon: HelpCircle },
   { path: '/documents', label: 'Documents', icon: BookOpen },

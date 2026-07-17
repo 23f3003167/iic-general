@@ -1,35 +1,8 @@
-import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
-import { FormCard } from '@/components/forms/FormCard';
-import { FormSection } from '@/components/forms/FormSection';
-import { QueryDifferentiator } from '@/components/forms/QueryDifferentiator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { getForms } from '@/lib/firestoreService';
 import { AlertCircle } from 'lucide-react';
 
 const Index = () => {
-  const [forms, setForms] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadForms();
-  }, []);
-
-  const loadForms = async () => {
-    try {
-      const data = await getForms();
-      setForms(data);
-    } catch (error) {
-      console.error('Error loading forms:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const openForms = forms.filter((f) => f.status === 'Open');
-  const upcomingForms = forms.filter((f) => f.status === 'Upcoming');
-  const closedForms = forms.filter((f) => f.status === 'Closed');
-
   return (
     <>
       <Layout>
@@ -41,7 +14,7 @@ const Index = () => {
               <div className="space-y-1">
                 <p className="font-semibold text-base">Student Eligibility Notice</p>
                 <p className="text-blue-800">
-                  Only IIC Jan 2026 training students are authorized to fill the forms. 
+                  Only IIC Jan 2026 training students are authorized to access the portal. 
                   Announcements and documents are exclusively available for registered students.
                 </p>
               </div>
@@ -51,74 +24,37 @@ const Index = () => {
           {/* Hero Section */}
           <div className="text-center space-y-2 pb-4 border-b">
             <h1 className="text-2xl font-bold sm:text-3xl">
-              Placement Training Forms
+              Placement Training Portal
             </h1>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Access Google Forms for training issues, marks discrepancy resolution, 
-              slot booking, and other administrative processes.
+              Access announcements, FAQs, documents, and other training resources.
             </p>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-2 space-y-6">
-              {loading ? (
-                <p className="text-center text-muted-foreground py-8">Loading forms...</p>
-              ) : (
-                <>
-                  {/* Open Forms - Primary */}
-                  <FormSection
-                    title="Open Forms"
-                    count={openForms.length}
-                    variant="primary"
-                    defaultOpen={true}
-                  >
-                    {openForms.length > 0 ? (
-                      openForms.map((form) => <FormCard key={form.id} form={form} />)
-                    ) : (
-                      <p className="text-muted-foreground col-span-full text-center py-8">
-                        No forms are currently open.
-                      </p>
-                    )}
-                  </FormSection>
-
-                  {/* Upcoming Forms */}
-                  <FormSection
-                    title="Upcoming Forms"
-                    count={upcomingForms.length}
-                    variant="secondary"
-                    defaultOpen={true}
-                  >
-                    {upcomingForms.length > 0 ? (
-                      upcomingForms.map((form) => <FormCard key={form.id} form={form} />)
-                    ) : (
-                      <p className="text-muted-foreground col-span-full text-center py-8">
-                        No upcoming forms scheduled.
-                      </p>
-                    )}
-                  </FormSection>
-
-                  {/* Closed Forms - Collapsed by default */}
-                  <FormSection
-                    title="Closed Forms"
-                    count={closedForms.length}
-                    variant="muted"
-                    defaultOpen={false}
-                  >
-                    {closedForms.length > 0 ? (
-                      closedForms.map((form) => <FormCard key={form.id} form={form} />)
-                    ) : (
-                      <p className="text-muted-foreground col-span-full text-center py-8">
-                        No closed forms.
-                      </p>
-                    )}
-                  </FormSection>
-                </>
-              )}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="rounded-lg border bg-card p-6 text-center hover:bg-accent/50 transition-colors">
+              <h3 className="text-lg font-semibold mb-2">Announcements</h3>
+              <p className="text-sm text-muted-foreground mb-4">Stay updated with latest news and updates</p>
+              <a href="/announcements" className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+                View Announcements
+              </a>
             </div>
-            {/* Sidebar */}
-            <aside className="lg:col-span-1 lg:sticky lg:top-20 space-y-4">
-              <QueryDifferentiator />
-            </aside>
+
+            <div className="rounded-lg border bg-card p-6 text-center hover:bg-accent/50 transition-colors">
+              <h3 className="text-lg font-semibold mb-2">FAQs</h3>
+              <p className="text-sm text-muted-foreground mb-4">Find answers to frequently asked questions</p>
+              <a href="/faqs" className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+                View FAQs
+              </a>
+            </div>
+
+            <div className="rounded-lg border bg-card p-6 text-center hover:bg-accent/50 transition-colors">
+              <h3 className="text-lg font-semibold mb-2">Documents</h3>
+              <p className="text-sm text-muted-foreground mb-4">Access training materials and resources</p>
+              <a href="/documents" className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+                View Documents
+              </a>
+            </div>
           </div>
         </div>
       </Layout>

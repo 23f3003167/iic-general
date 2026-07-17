@@ -135,16 +135,6 @@ type ReleaseHistoryEntry = {
   result?: ReleaseBehaviouralSlotsResponse;
 };
 
-function extractEmails(text: string): string[] {
-  const matches = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
-  const unique = new Set(matches.map((email) => email.trim().toLowerCase()));
-  return Array.from(unique).sort();
-}
-
-function toMultiline(items: string[]): string {
-  return items.join('\n');
-}
-
 function toDdMmYyyy(isoDate: string): string {
   const [year, month, day] = isoDate.split('-');
   return `${day}/${month}/${year}`;
@@ -195,17 +185,12 @@ function formatAvailabilityLabel(availability?: {
 const ToolsManagement = () => {
   const { toast } = useToast();
 
-  const [openOperationalLauncher, setOpenOperationalLauncher] = useState(false);
-  const [openEmailTool, setOpenEmailTool] = useState(false);
   const [openSlotLauncher, setOpenSlotLauncher] = useState(false);
   const [openBehavioralTool, setOpenBehavioralTool] = useState(false);
   const [openPresentationTool, setOpenPresentationTool] = useState(false);
   const [openOneOnOneTool, setOpenOneOnOneTool] = useState(false);
   const [openAiEvaluationTool, setOpenAiEvaluationTool] = useState(false);
   const [openPublishScoresTool, setOpenPublishScoresTool] = useState(false);
-
-  const [setAInput, setSetAInput] = useState('');
-  const [setBInput, setSetBInput] = useState('');
 
   const [slotDate, setSlotDate] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -380,36 +365,11 @@ const ToolsManagement = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openPublishScoresTool]);
 
-  const result = useMemo(() => {
-    const setAEmails = extractEmails(setAInput);
-    const setBEmails = extractEmails(setBInput);
-
-    const setA = new Set(setAEmails);
-    const setB = new Set(setBEmails);
-
-    const onlyA = setAEmails.filter((email) => !setB.has(email));
-    const onlyB = setBEmails.filter((email) => !setA.has(email));
-    const common = setAEmails.filter((email) => setB.has(email));
-
-    return {
-      setAEmails,
-      setBEmails,
-      onlyA,
-      onlyB,
-      common,
-    };
-  }, [setAInput, setBInput]);
-
   const timeOptions = useMemo(() => buildThirtyMinuteOptions(), []);
   const selectedAiOption = useMemo(
     () => aiMenuOptions.find((option) => option.key === selectedAiOptionKey) || null,
     [aiMenuOptions, selectedAiOptionKey],
   );
-
-  const clearOperationalTool = () => {
-    setSetAInput('');
-    setSetBInput('');
-  };
 
   const clearSlotBooking = () => {
     setSlotDate('');
@@ -459,22 +419,6 @@ const ToolsManagement = () => {
     setPublishScoresText('');
   };
 
-  const copyList = async (label: string, items: string[]) => {
-    try {
-      await navigator.clipboard.writeText(toMultiline(items));
-      toast({
-        title: 'Copied',
-        description: `${label} copied to clipboard (${items.length} emails).`,
-      });
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: 'Copy failed',
-        description: 'Could not copy to clipboard. Please copy manually.',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const addHistory = (entry: Omit<ReleaseHistoryEntry, 'id' | 'time'>) => {
     setReleaseHistory((prev) => [
@@ -1053,16 +997,6 @@ const ToolsManagement = () => {
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle>Operational Tools</CardTitle>
-            <CardDescription>Utility tools for daily admin operations.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => setOpenOperationalLauncher(true)}>Open Operational Tools</Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
             <CardTitle>Slot Booking Tool</CardTitle>
             <CardDescription>Release slots for different assessments from the website.</CardDescription>
           </CardHeader>
@@ -1140,26 +1074,6 @@ const ToolsManagement = () => {
           )}
         </CardContent>
       </Card>
-
-      <Dialog open={openOperationalLauncher} onOpenChange={setOpenOperationalLauncher}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Operational Tools</DialogTitle>
-            <DialogDescription>Select a tool to open.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Button
-              className="w-full justify-start"
-              onClick={() => {
-                setOpenOperationalLauncher(false);
-                setOpenEmailTool(true);
-              }}
-            >
-              Emails Comparison Tool
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={openSlotLauncher} onOpenChange={setOpenSlotLauncher}>
         <DialogContent>
@@ -1668,102 +1582,6 @@ const ToolsManagement = () => {
               {isReleasingPresentationSlots ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               Release Presentation Slots
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={openEmailTool} onOpenChange={setOpenEmailTool}>
-        <DialogContent className="max-w-5xl">
-          <DialogHeader>
-            <DialogTitle>Emails Comparison Tool</DialogTitle>
-            <DialogDescription>Find A-only, B-only, and common emails.</DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Set A Emails</p>
-              <Textarea
-                value={setAInput}
-                onChange={(e) => setSetAInput(e.target.value)}
-                rows={10}
-                placeholder="Paste emails from first source."
-              />
-              <p className="text-xs text-muted-foreground">Parsed unique emails: {result.setAEmails.length}</p>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Set B Emails</p>
-              <Textarea
-                value={setBInput}
-                onChange={(e) => setSetBInput(e.target.value)}
-                rows={10}
-                placeholder="Paste emails from second source."
-              />
-              <p className="text-xs text-muted-foreground">Parsed unique emails: {result.setBEmails.length}</p>
-            </div>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-base">A but not in B</CardTitle>
-                <Badge variant="secondary">{result.onlyA.length}</Badge>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => copyList('A but not in B', result.onlyA)}
-                  disabled={result.onlyA.length === 0}
-                >
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy
-                </Button>
-                <Textarea value={toMultiline(result.onlyA)} readOnly rows={8} />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-base">B but not in A</CardTitle>
-                <Badge variant="secondary">{result.onlyB.length}</Badge>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => copyList('B but not in A', result.onlyB)}
-                  disabled={result.onlyB.length === 0}
-                >
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy
-                </Button>
-                <Textarea value={toMultiline(result.onlyB)} readOnly rows={8} />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-base">Common in both</CardTitle>
-                <Badge>{result.common.length}</Badge>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => copyList('Common in both', result.common)}
-                  disabled={result.common.length === 0}
-                >
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy
-                </Button>
-                <Textarea value={toMultiline(result.common)} readOnly rows={8} />
-              </CardContent>
-            </Card>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={clearOperationalTool}>Clear</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

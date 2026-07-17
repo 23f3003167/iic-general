@@ -3,7 +3,6 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  FileText,
   Bell,
   HelpCircle,
   BookOpen,
@@ -41,25 +40,20 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { verifyAdminAccess } from '@/lib/adminAuth';
 import { useToast } from '@/components/ui/use-toast';
 import {
-  getForms,
   getAnnouncements,
   getFAQs,
   getDocuments,
-  createForm,
   createAnnouncement,
   createFAQ,
   createDocument,
 } from '@/lib/firestoreService';
-import FormsManagement from './FormsManagement';
 import AnnouncementsManagement from './AnnouncementsManagement';
 import FAQsManagement from './FAQsManagement';
 import DocumentsManagement from './DocumentsManagement';
-import TicketsManagement from './TicketsManagement';
 import ToolsManagement from './ToolsManagement';
 import EvaluatorsManagement from './EvaluatorsManagement';
 import ExamsManagement from './ExamsManagement';
 import SlotsAvailabilityPage from './SlotsAvailability';
-import AttemptsManagement from './AttemptsManagement';
 import DatabaseManagement from './DatabaseManagement';
 import { RecruitersManagement } from './RecruitersManagement';
 import { CompanyOutreachManagement } from './CompanyOutreachManagement';
@@ -67,18 +61,15 @@ import ReportsManagement from './ReportsManagement';
 
 const adminNavItems = [
   { path: '/admin/dashboard', label: 'Overview', icon: Home },
-  { path: '/admin/forms', label: 'Forms', icon: FileText },
   { path: '/admin/announcements', label: 'Announcements', icon: Bell },
-  { path: '/admin/tickets', label: 'Tickets', icon: MailCheck },
   { path: '/admin/tools', label: 'Tools', icon: Wrench },
   { path: '/admin/faqs', label: 'FAQs', icon: HelpCircle },
   { path: '/admin/documents', label: 'Documents', icon: BookOpen },
   { path: '/admin/exams', label: 'Exams', icon: ClipboardList },
   { path: '/admin/slots-availability', label: 'Slots Availability', icon: Calendar },
   { path: '/admin/evaluators', label: 'Evaluators', icon: CheckCircle2 },
-  { path: '/admin/attempts', label: 'Attempts', icon: Plus },
   { path: '/admin/recruiters', label: 'Recruiters', icon: MailCheck },
-  { path: '/admin/company-outreach', label: 'Company Outreach', icon: FileText },
+  { path: '/admin/company-outreach', label: 'Company Outreach', icon: Bell },
   { path: '/admin/database', label: 'Database', icon: Database },
   { path: '/admin/reports', label: 'Reports', icon: BarChart3 },
 ];
@@ -90,7 +81,6 @@ const AdminDashboard = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [checking, setChecking] = useState(true);
   const [stats, setStats] = useState({
-    forms: 0,
     announcements: 0,
     faqs: 0,
     documents: 0,
@@ -132,14 +122,12 @@ const AdminDashboard = () => {
 
   const loadStats = async (showToast?: boolean) => {
     try {
-      const [forms, announcements, faqs, documents] = await Promise.all([
-        getForms(),
+      const [announcements, faqs, documents] = await Promise.all([
         getAnnouncements(),
         getFAQs(),
         getDocuments(),
       ]);
       setStats({
-        forms: forms.length,
         announcements: announcements.length,
         faqs: faqs.length,
         documents: documents.length,
@@ -152,25 +140,6 @@ const AdminDashboard = () => {
   const handleLogout = async () => {
     await signOut(auth);
     navigate('/admin');
-  };
-
-  const handleAddForm = async (formData: any) => {
-    try {
-      await createForm(formData);
-      toast({
-        title: 'Form created',
-        description: 'The form has been created successfully.',
-      });
-      setOpenAddDialog(null);
-      loadStats();
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: 'Error',
-        description: 'Could not create the form. Please try again.',
-        variant: 'destructive',
-      });
-    }
   };
 
     const handleAddAnnouncement = async (announcementData: any) => {
@@ -244,12 +213,6 @@ const AdminDashboard = () => {
   const currentPage = location.pathname;
   const statsData = [
     {
-      label: 'Total Forms',
-      count: stats.forms,
-      icon: FileText,
-      color: 'text-primary',
-    },
-    {
       label: 'Announcements',
       count: stats.announcements,
       icon: Bell,
@@ -271,12 +234,8 @@ const AdminDashboard = () => {
 
   const renderContent = () => {
     switch (currentPage) {
-      case '/admin/forms':
-        return <FormsManagement />;
       case '/admin/announcements':
         return <AnnouncementsManagement />;
-      case '/admin/tickets':
-        return <TicketsManagement />;
       case '/admin/tools':
         return <ToolsManagement />;
       case '/admin/faqs':
@@ -287,8 +246,6 @@ const AdminDashboard = () => {
         return <ExamsManagement />;
       case '/admin/slots-availability':
         return <SlotsAvailabilityPage />;
-      case '/admin/attempts':
-        return <AttemptsManagement />;
       case '/admin/evaluators':
         return <EvaluatorsManagement />;
       case '/admin/recruiters':
@@ -305,11 +262,11 @@ const AdminDashboard = () => {
             <div>
               <h1 className="text-2xl font-bold">Dashboard Overview</h1>
               <p className="text-muted-foreground">
-                Manage forms, announcements, FAQs, documents, and exams.
+                Manage announcements, FAQs, documents, and exams.
               </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {statsData.map((stat) => {
                 const Icon = stat.icon;
                 return (
@@ -337,14 +294,7 @@ const AdminDashboard = () => {
                 <CardTitle className="text-lg">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Button
-                    onClick={() => setOpenAddDialog('form')}
-                    className="w-full justify-start"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Form
-                  </Button>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <Button
                     onClick={() => setOpenAddDialog('announcement')}
                     className="w-full justify-start"
@@ -436,11 +386,6 @@ const AdminDashboard = () => {
       </div>
     </div>
     {/* Add Dialogs */}
-    <AddFormDialog
-      open={openAddDialog === 'form'}
-      onOpenChange={(open) => setOpenAddDialog(open ? 'form' : null)}
-      onSubmit={handleAddForm}
-    />
     <AddAnnouncementDialog
       open={openAddDialog === 'announcement'}
       onOpenChange={(open) => setOpenAddDialog(open ? 'announcement' : null)}
@@ -466,164 +411,6 @@ interface DialogProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: any) => void;
 }
-
-const AddFormDialog = ({ open, onOpenChange, onSubmit }: DialogProps) => {
-  const [formData, setFormData] = useState({
-    title: '',
-    category: 'Other',
-    description: '',
-    startDate: '',
-    startTime: '',
-    endDate: '',
-    endTime: '',
-    status: 'Upcoming',
-    formUrl: '',
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(formData);
-    setFormData({
-      title: '',
-      category: 'Other',
-      description: '',
-      startDate: '',
-      startTime: '',
-      endDate: '',
-      endTime: '',
-      status: 'Upcoming',
-      formUrl: '',
-    });
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Add New Form</DialogTitle>
-          <DialogDescription>
-            Create a new form for students to fill out.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
-            <Input
-              id="title"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              required
-            />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="category">Category *</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value) => setFormData({ ...formData, category: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Marks">Marks</SelectItem>
-                  <SelectItem value="Training">Training</SelectItem>
-                  <SelectItem value="Slot">Slot</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="status">Status *</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Open">Open</SelectItem>
-                  <SelectItem value="Upcoming">Upcoming</SelectItem>
-                  <SelectItem value="Closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Description *</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={3}
-              required
-            />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="startDate">Start Date *</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={formData.startDate}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="startTime">Start Time</Label>
-              <Input
-                id="startTime"
-                type="time"
-                value={formData.startTime}
-                onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-              />
-            </div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="endDate">End Date *</Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={formData.endDate}
-                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="endTime">End Time</Label>
-              <Input
-                id="endTime"
-                type="time"
-                value={formData.endTime}
-                onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="formUrl">Form URL *</Label>
-            <Input
-              id="formUrl"
-              type="url"
-              value={formData.formUrl}
-              onChange={(e) => setFormData({ ...formData, formUrl: e.target.value })}
-              placeholder="https://forms.google.com/..."
-              required
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit">Create Form</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-};
 
 const AddAnnouncementDialog = ({ open, onOpenChange, onSubmit }: DialogProps) => {
   const [formData, setFormData] = useState({

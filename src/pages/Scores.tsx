@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,15 +8,15 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Search, ShieldCheck, Sparkles } from 'lucide-react';
+import { Loader2, Search, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { lookupStudentActivityPoints, lookupStudentFeedback, lookupStudentScore, type StudentActivityPointsLookup, type StudentFeedbackLookup, type StudentScoreLookup } from '@/lib/toolsService';
-
-const SUBMISSIONS_PORTAL_URL = (import.meta.env.VITE_SCORES_SUBMISSIONS_PORTAL_URL as string) || 'https://script.google.com/macros/s/AKfycbxxXwcNWMq4NfG7b1TCqVNikLFYObiNeCPO84MAaQVzKsPhFPmfqTmR1iWplmf5BsYD_A/exec';
+import { lookupStudentFeedback, lookupStudentScore, type StudentFeedbackLookup, type StudentScoreLookup } from '@/lib/toolsService';
+import { getStoredVerifiedEmail } from '@/lib/emailVerificationService';
 
 const levelOptions = ['Level 1', 'Level 2', 'Level 3'] as const;
 const feedbackOptions = ['CSM', 'Behavioral', 'Presentation', '1o1'] as const;
-const activityPointsOptions = ['Internship', 'Employment'] as const;
+const domainOptions = ['Data Science', 'Programming', 'Electronics'];
+const planOptions = ['Internship', 'Employment'];
 
 type FeedbackFormState = {
   category: string;
@@ -69,38 +69,6 @@ type ScoreSummary = {
   level3PassFail?: string;
   activityPoints?: string;
   cma?: string;
-};
-
-type ActivityPointsSummary = {
-  email?: string;
-  name?: string;
-  rollNumber?: string;
-  plan?: string;
-  domain?: string;
-  nppeScores?: string;
-  dbms?: string;
-  pdsa?: string;
-  sc?: string;
-  cloudDevops?: string;
-  java?: string;
-  se?: string;
-  mad?: string;
-  pgws?: string;
-  mlt?: string;
-  dsws1?: string;
-  mlp?: string;
-  mlBasics?: string;
-  dsws2?: string;
-  dvd?: string;
-  dl?: string;
-  aws?: string;
-  total?: string;
-  cma?: string;
-  status?: string;
-  amIp?: string;
-  amId?: string;
-  amEp?: string;
-  amEd?: string;
 };
 
 const ScoreRow = ({ label, value }: { label: string; value: string }) => (
@@ -171,82 +139,32 @@ function formatAttemptCode(value: string | undefined): string {
   }
 }
 
-function buildActivityPointsSummary(result: StudentActivityPointsLookup | null): ActivityPointsSummary | null {
-  if (!result || !result.headers || !Array.isArray(result.headers) || !result.row) return null;
-
-  const headers = result.headers;
-  const row = result.row;
-
-  return {
-    email: tableValue(row, headers, ['email']),
-    name: tableValue(row, headers, ['name']),
-    rollNumber: tableValue(row, headers, ['roll', 'number']),
-    plan: tableValue(row, headers, ['plan']),
-    domain: tableValue(row, headers, ['domain']),
-    nppeScores: tableValue(row, headers, ['nppe']),
-    dbms: tableValue(row, headers, ['dbms']),
-    pdsa: tableValue(row, headers, ['pdsa']),
-    sc: tableValue(row, headers, ['sc']),
-    cloudDevops: tableValue(row, headers, ['cloud', 'devops']),
-    java: tableValue(row, headers, ['java']),
-    se: tableValue(row, headers, ['se']),
-    mad: tableValue(row, headers, ['mad']),
-    pgws: tableValue(row, headers, ['pgws']),
-    mlt: tableValue(row, headers, ['mlt']),
-    dsws1: tableValue(row, headers, ['dsws1']),
-    mlp: tableValue(row, headers, ['mlp']),
-    mlBasics: tableValue(row, headers, ['ml', 'basics']),
-    dsws2: tableValue(row, headers, ['dsws2']),
-    dvd: tableValue(row, headers, ['dvd']),
-    dl: tableValue(row, headers, ['dl']),
-    aws: tableValue(row, headers, ['aws']),
-    total: tableValue(row, headers, ['total']),
-    cma: tableValue(row, headers, ['cma']),
-    status: tableValue(row, headers, ['status']),
-    amIp: tableValue(row, headers, ['am', 'ip']),
-    amId: tableValue(row, headers, ['am', 'id']),
-    amEp: tableValue(row, headers, ['am', 'ep']),
-    amEd: tableValue(row, headers, ['am', 'ed']),
-  };
-}
-
 export default function Scores() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'scores' | 'feedback' | 'activity' | 'submissions'>('scores');
-  const [scoreForm, setScoreForm] = useState<ScoreFormState>({
-    level: 'Level 2',
-    email: '',
-    domain: 'Data Science',
-    plan: 'Internship',
-  });
-  const [domainOptions] = useState<string[]>(['Data Science', 'Programming', 'Electronics']);
-  const [planOptions] = useState<string[]>(['Internship', 'Employment']);
+  const [activeTab, setActiveTab] = useState<'scores' | 'feedback'>('scores');
   const [feedbackForm, setFeedbackForm] = useState<FeedbackFormState>({
     category: 'Behavioral',
     email: '',
   });
-  const [activityPointsForm, setActivityPointsForm] = useState<ActivityPointsFormState>({
-    email: '',
-    domain: 'Data Science',
-    plan: 'Internship',
-  });
   const [loadingScore, setLoadingScore] = useState(false);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
-  const [loadingActivityPoints, setLoadingActivityPoints] = useState(false);
-  const [scoreResult, setScoreResult] = useState<StudentScoreLookup | null>(null);
-  const [feedbackResult, setFeedbackResult] = useState<StudentFeedbackLookup | null>(null);
-  const [activityPointsResult, setActivityPointsResult] = useState<StudentActivityPointsLookup | null>(null);
-  const selectedLevel = (scoreForm.level || '').toLowerCase();
-  const isLevel1 = selectedLevel.includes('level 1');
-  const isLevel2 = selectedLevel.includes('level 2');
-  const isLevel3 = selectedLevel.includes('level 3');
+  const [scoreResults, setScoreResults] = useState<Record<string, StudentScoreLookup>>({});
+  const [feedbackResults, setFeedbackResults] = useState<Record<string, StudentFeedbackLookup>>({});
+  const [studentEmail, setStudentEmail] = useState<string | null>(null);
+  const [studentDomain, setStudentDomain] = useState<string>('Data Science');
+  const [studentPlan, setStudentPlan] = useState<string>('Internship');
 
-  const scoreSummary = useMemo<ScoreSummary | null>(() => {
-    if (!scoreResult || !scoreResult.headers || !Array.isArray(scoreResult.headers) || !scoreResult.row) return null;
+  const scoreSummary = useMemo<Record<string, ScoreSummary | null>>(() => {
+    const summaries: Record<string, ScoreSummary | null> = {};
+    
+    for (const [level, result] of Object.entries(scoreResults)) {
+      if (!result || !result.headers || !Array.isArray(result.headers) || !result.row) {
+        summaries[level] = null;
+        continue;
+      }
 
-    const level = selectedLevel;
-    const headers = scoreResult.headers;
-    const row = scoreResult.row;
+      const headers = result.headers;
+      const row = result.row;
 
     const base = {
       name: tableValue(row, headers, ['name']),
@@ -263,202 +181,247 @@ export default function Scores() {
       level2: '—',
     };
 
-    if (level.indexOf('level 1') !== -1 || level.indexOf('1') === 0) {
-      return {
-        ...base,
-          ppm: tableValue(row, headers, ['ppm']),
-          ppmStatus: tableValue(row, headers, ['ppm', 'pass', 'fail']),
-          ppmAttempt: tableValue(row, headers, ['ppm', 'attempt']),
-          selfIntro: tableValue(row, headers, ['self', 'intro']),
-          selfIntroStatus: tableValue(row, headers, ['si', 'status', 'si status']),
-          listenSpeak: tableValue(row, headers, ['listen', 'speak']),
-          listenSpeakStatus: tableValue(row, headers, ['ls', 'status']),
-          listenWrite: tableValue(row, headers, ['listen', 'write']),
-          listenWriteStatus: tableValue(row, headers, ['lw', 'status']),
-          emailWriting: tableValue(row, headers, ['email', 'writing']),
-          emailWritingStatus: tableValue(row, headers, ['ew', 'status']),
-          csmPassFail: tableValue(row, headers, ['csm', 'pass', 'fail']),
-          csmAttempt: tableValue(row, headers, ['csm', 'attempt']),
-          overallPassFail: tableValue(row, headers, ['overall', 'pass', 'fail']),
-        total: tableValue(row, headers, ['total']),
-      };
-    }
-
-    if (level.indexOf('level 3') !== -1 || level.indexOf('3') === 0) {
-      let oneOnOneSession = tableValue(row, headers, ['1on1', 'session']);
-      if (isMissingValue(oneOnOneSession)) {
-        oneOnOneSession = tableValue(row, headers, ['1-on-1', 'session']);
-      }
-
-      let oneOnOnePassFail = tableValue(row, headers, ['1on1', 'pass', 'fail']);
-      if (isMissingValue(oneOnOnePassFail)) {
-        oneOnOnePassFail = tableValue(row, headers, ['1-on-1', 'pass', 'fail']);
-      }
-
-      return {
-        ...base,
-        techMcq: tableValue(row, headers, ['tech', 'mcq']),
-        mcqPassFail: tableValue(row, headers, ['mcq', 'pass', 'fail']),
-        aiMock: tableValue(row, headers, ['ai', 'mock']),
-        aiMockPassFail: tableValue(row, headers, ['ai', 'mock', 'pass', 'fail']),
-        tmcqAttempt: tableValue(row, headers, ['tmcq', 'attempt']),
-        aiAttempt: tableValue(row, headers, ['ai', 'attempt']),
-        oneOnOneAttempt: tableValue(row, headers, ['1on1', 'attempt']) || tableValue(row, headers, ['1-on-1', 'attempt']),
-        oneOnOneSession: oneOnOneSession,
-        oneOnOnePassFail: oneOnOnePassFail,
-        level3PassFail: tableValue(row, headers, ['level', '3', 'pass', 'fail']),
-        activityPoints: tableValue(row, headers, ['activity', 'points']),
-        cma: tableValue(row, headers, ['cma']),
-      };
-    }
-
-    return {
-      ...base,
-      selfAptitude: tableValue(row, headers, ['self', 'aptitude']),
-      aptitudeStatus: tableValue(row, headers, ['aptitude', 'pass', 'fail']),
-      behavioural: tableValue(row, headers, ['behavioural']),
-      behaviouralStatus: tableValue(row, headers, ['behavioural', 'pass', 'fail']),
-      presentation: tableValue(row, headers, ['presentation']),
-      presentationStatus: tableValue(row, headers, ['presentation', 'pass', 'fail']),
-      level2: tableValue(row, headers, ['level 2']),
-      saAttempt: tableValue(row, headers, ['sa', 'attempt']),
-      baAttempt: tableValue(row, headers, ['ba', 'attempt']),
-      prAttempt: tableValue(row, headers, ['pr', 'attempt']),
-    };
-  }, [scoreResult, selectedLevel]);
-
-  const activityPointsSummary = useMemo(() => buildActivityPointsSummary(activityPointsResult), [activityPointsResult]);
-  const feedbackSummary = useMemo(() => {
-    if (!feedbackResult || !feedbackResult.headers || !Array.isArray(feedbackResult.headers) || !feedbackResult.rows) return [];
-
-    return feedbackResult.rows
-      .map((row, rowIndex) => {
-        const items = feedbackResult.headers
-          .map((header, index) => ({
-            header: String(header || '').trim(),
-            value: String(row[index] || '').trim(),
-          }))
-          .filter((item) => item.header && item.value);
-
-        return {
-          rowIndex,
-          items,
+      if (level.indexOf('level 1') !== -1 || level.indexOf('1') === 0) {
+        summaries[level] = {
+          ...base,
+            ppm: tableValue(row, headers, ['ppm']),
+            ppmStatus: tableValue(row, headers, ['ppm', 'pass', 'fail']),
+            ppmAttempt: tableValue(row, headers, ['ppm', 'attempt']),
+            selfIntro: tableValue(row, headers, ['self', 'intro']),
+            selfIntroStatus: tableValue(row, headers, ['si', 'status', 'si status']),
+            listenSpeak: tableValue(row, headers, ['listen', 'speak']),
+            listenSpeakStatus: tableValue(row, headers, ['ls', 'status']),
+            listenWrite: tableValue(row, headers, ['listen', 'write']),
+            listenWriteStatus: tableValue(row, headers, ['lw', 'status']),
+            emailWriting: tableValue(row, headers, ['email', 'writing']),
+            emailWritingStatus: tableValue(row, headers, ['ew', 'status']),
+            csmPassFail: tableValue(row, headers, ['csm', 'pass', 'fail']),
+            csmAttempt: tableValue(row, headers, ['csm', 'attempt']),
+            overallPassFail: tableValue(row, headers, ['overall', 'pass', 'fail']),
+          total: tableValue(row, headers, ['total']),
         };
-      })
-      .filter((entry) => entry.items.length > 0);
-  }, [feedbackResult]);
+      }
 
-  const submitScoreLookup = async () => {
-    if (!scoreForm.level || !scoreForm.email.trim()) {
-      toast({ title: 'Missing details', description: 'Enter your roll number.', variant: 'destructive' });
-      return;
+      if (level.indexOf('level 2') !== -1 || level.indexOf('2') === 0) {
+        summaries[level] = {
+          ...base,
+          selfAptitude: tableValue(row, headers, ['self', 'aptitude']),
+          aptitudeStatus: tableValue(row, headers, ['aptitude', 'pass', 'fail']),
+          behavioural: tableValue(row, headers, ['behavioural']),
+          behaviouralStatus: tableValue(row, headers, ['behavioural', 'pass', 'fail']),
+          presentation: tableValue(row, headers, ['presentation']),
+          presentationStatus: tableValue(row, headers, ['presentation', 'pass', 'fail']),
+          level2: tableValue(row, headers, ['level 2']),
+          saAttempt: tableValue(row, headers, ['sa', 'attempt']),
+          baAttempt: tableValue(row, headers, ['ba', 'attempt']),
+          prAttempt: tableValue(row, headers, ['pr', 'attempt']),
+        };
+      } else if (level.indexOf('level 3') !== -1 || level.indexOf('3') === 0) {
+        let oneOnOneSession = tableValue(row, headers, ['1on1', 'session']);
+        if (isMissingValue(oneOnOneSession)) {
+          oneOnOneSession = tableValue(row, headers, ['1-on-1', 'session']);
+        }
+
+        let oneOnOnePassFail = tableValue(row, headers, ['1on1', 'pass', 'fail']);
+        if (isMissingValue(oneOnOnePassFail)) {
+          oneOnOnePassFail = tableValue(row, headers, ['1-on-1', 'pass', 'fail']);
+        }
+
+        summaries[level] = {
+          ...base,
+          techMcq: tableValue(row, headers, ['tech', 'mcq']),
+          mcqPassFail: tableValue(row, headers, ['mcq', 'pass', 'fail']),
+          aiMock: tableValue(row, headers, ['ai', 'mock']),
+          aiMockPassFail: tableValue(row, headers, ['ai', 'mock', 'pass', 'fail']),
+          tmcqAttempt: tableValue(row, headers, ['tmcq', 'attempt']),
+          aiAttempt: tableValue(row, headers, ['ai', 'attempt']),
+          oneOnOneAttempt: tableValue(row, headers, ['1on1', 'attempt']) || tableValue(row, headers, ['1-on-1', 'attempt']),
+          oneOnOneSession: oneOnOneSession,
+          oneOnOnePassFail: oneOnOnePassFail,
+          level3PassFail: tableValue(row, headers, ['level', '3', 'pass', 'fail']),
+          activityPoints: tableValue(row, headers, ['activity', 'points']),
+          cma: tableValue(row, headers, ['cma']),
+        };
+      }
     }
+    
+    return summaries;
+  }, [scoreResults]);
 
-    const studentEmail = resolveStudentEmail(scoreForm.email);
-    const localPart = studentEmail.split('@')[0];
-    if (localPart.length < 10) {
-      toast({ title: 'Invalid roll number', description: 'Enter a valid roll number (10 or 11 characters).', variant: 'destructive' });
-      return;
+  const feedbackSummary = useMemo<Record<string, Array<{ rowIndex: number; items: Array<{ header: string; value: string }> }>>>(() => {
+    const summaries: Record<string, Array<{ rowIndex: number; items: Array<{ header: string; value: string }> }>> = {};
+    
+    for (const [category, result] of Object.entries(feedbackResults)) {
+      if (!result || !result.headers || !Array.isArray(result.headers) || !result.rows) {
+        summaries[category] = [];
+        continue;
+      }
+
+      summaries[category] = result.rows
+        .map((row, rowIndex) => {
+          const items = result.headers
+            .map((header, index) => ({
+              header: String(header || '').trim(),
+              value: String(row[index] || '').trim(),
+            }))
+            .filter((item) => item.header && item.value);
+
+          return {
+            rowIndex,
+            items,
+          };
+        })
+        .filter((entry) => entry.items.length > 0);
     }
+    
+    return summaries;
+  }, [feedbackResults]);
 
-    setLoadingScore(true);
-    setScoreResult(null);
-    try {
-      const result = await lookupStudentScore({
-        level: scoreForm.level,
-        email: studentEmail,
-        domain: scoreForm.domain,
-        plan: scoreForm.plan,
-      });
-      setScoreResult(result);
-      setActiveTab('scores');
-    } catch (error) {
-      toast({
-        title: 'Score lookup failed',
-        description: error instanceof Error ? error.message : 'Try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoadingScore(false);
-    }
-  };
+  // Auto-fetch scores for all levels on component mount
+  useEffect(() => {
+    const fetchAllScores = async () => {
+      const email = getStoredVerifiedEmail();
+      if (!email) {
+        toast({ 
+          title: 'Not authenticated', 
+          description: 'Please sign in with Google to view your scores.', 
+          variant: 'destructive' 
+        });
+        return;
+      }
 
-  // Domain and Plan options are static lists as requested.
+      setStudentEmail(email);
+      setLoadingScore(true);
+      setScoreResults({});
 
-  const submitFeedbackLookup = async () => {
-    if (!feedbackForm.category || !feedbackForm.email.trim()) {
-      toast({ title: 'Missing details', description: 'Choose a category and enter your roll number.', variant: 'destructive' });
-      return;
-    }
+      try {
+        // Try to find the student's domain and plan by checking Level 1 first
+        let foundDomain = 'Data Science';
+        let foundPlan = 'Internship';
+        let foundInLevel1 = false;
 
-    const studentEmail = resolveStudentEmail(feedbackForm.email);
-    if (studentEmail.length < 12) {
-      toast({ title: 'Invalid roll number', description: 'Enter the first 10 characters of your email ID.', variant: 'destructive' });
-      return;
-    }
+        // Try all combinations for Level 1 to find the correct domain/plan
+        for (const domain of domainOptions) {
+          for (const plan of planOptions) {
+            try {
+              const result = await lookupStudentScore({
+                level: 'Level 1',
+                email: email,
+                domain,
+                plan,
+              });
+              foundDomain = result.matched.domain;
+              foundPlan = result.matched.plan;
+              foundInLevel1 = true;
+              setScoreResults(prev => ({ ...prev, 'Level 1': result }));
+              break;
+            } catch (error) {
+              // Continue trying other combinations
+            }
+          }
+          if (foundInLevel1) break;
+        }
 
-    setLoadingFeedback(true);
-    setFeedbackResult(null);
-    try {
-      const result = await lookupStudentFeedback({
-        category: feedbackForm.category,
-        email: studentEmail,
-      });
-      setFeedbackResult(result);
-      setActiveTab('feedback');
-    } catch (error) {
-      toast({
-        title: 'Feedback lookup failed',
-        description: error instanceof Error ? error.message : 'Try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoadingFeedback(false);
-    }
-  };
+        setStudentDomain(foundDomain);
+        setStudentPlan(foundPlan);
 
-  const submitActivityPointsLookup = async () => {
-    if (!activityPointsForm.email.trim()) {
-      toast({ title: 'Missing details', description: 'Enter your roll number.', variant: 'destructive' });
-      return;
-    }
+        // Fetch Level 2 and Level 3 with the found domain/plan
+        const level2Promise = lookupStudentScore({
+          level: 'Level 2',
+          email,
+          domain: foundDomain,
+          plan: foundPlan,
+        }).catch(() => null);
 
-    const studentEmail = resolveStudentEmail(activityPointsForm.email);
-    if (studentEmail.length < 12) {
-      toast({ title: 'Invalid roll number', description: 'Enter the first 10 characters of your email ID.', variant: 'destructive' });
-      return;
-    }
+        const level3Promise = lookupStudentScore({
+          level: 'Level 3',
+          email,
+          domain: foundDomain,
+          plan: foundPlan,
+        }).catch(() => null);
 
-    setLoadingActivityPoints(true);
-    setActivityPointsResult(null);
-    try {
-      const result = await lookupStudentActivityPoints({
-        email: studentEmail,
-        domain: activityPointsForm.domain,
-        plan: activityPointsForm.plan,
-      });
-      setActivityPointsResult(result);
-      setActiveTab('activity');
-    } catch (error) {
-      toast({
-        title: 'Activity points lookup failed',
-        description: error instanceof Error ? error.message : 'Try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoadingActivityPoints(false);
-    }
-  };
+        const [level2Result, level3Result] = await Promise.all([level2Promise, level3Promise]);
+
+        if (level2Result) {
+          setScoreResults(prev => ({ ...prev, 'Level 2': level2Result }));
+        }
+        if (level3Result) {
+          setScoreResults(prev => ({ ...prev, 'Level 3': level3Result }));
+        }
+
+        if (!foundInLevel1 && !level2Result && !level3Result) {
+          toast({
+            title: 'No scores found',
+            description: 'Your scores are not available in the database yet.',
+            variant: 'destructive',
+          });
+        }
+      } catch (error) {
+        toast({
+          title: 'Score lookup failed',
+          description: error instanceof Error ? error.message : 'Try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoadingScore(false);
+      }
+    };
+
+    fetchAllScores();
+  }, [toast]);
+
+  // Auto-fetch feedback for all categories on component mount
+  useEffect(() => {
+    const fetchAllFeedback = async () => {
+      const email = getStoredVerifiedEmail();
+      if (!email) {
+        return;
+      }
+
+      setLoadingFeedback(true);
+      setFeedbackResults({});
+
+      try {
+        // Fetch all feedback categories in parallel
+        const feedbackPromises = feedbackOptions.map(async (category) => {
+          try {
+            const result = await lookupStudentFeedback({
+              category,
+              email,
+            });
+            return { category, result };
+          } catch (error) {
+            return { category, result: null };
+          }
+        });
+
+        const results = await Promise.all(feedbackPromises);
+        
+        const feedbackData: Record<string, StudentFeedbackLookup> = {};
+        results.forEach(({ category, result }) => {
+          if (result) {
+            feedbackData[category] = result;
+          }
+        });
+
+        setFeedbackResults(feedbackData);
+      } catch (error) {
+        toast({
+          title: 'Feedback lookup failed',
+          description: error instanceof Error ? error.message : 'Try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoadingFeedback(false);
+      }
+    };
+
+    fetchAllFeedback();
+  }, [toast]);
 
   return (
     <Layout>
       <div className="container py-8 space-y-6">
-        <Alert className="border-l-4 border-l-emerald-600 bg-emerald-50/70 shadow-sm">
-          <ShieldCheck className="h-5 w-5 text-emerald-600" />
-          <AlertDescription className="text-emerald-900 text-sm leading-relaxed">
-            Student score and feedback lookup is now available inside the portal. Use your email and the correct level/category to view results.
-          </AlertDescription>
-        </Alert>
 
         <div className="text-center space-y-2 pb-4 border-b">
           <h1 className="text-2xl font-bold sm:text-3xl">Scores & Feedback</h1>
@@ -467,320 +430,191 @@ export default function Scores() {
           </p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'scores' | 'feedback' | 'activity' | 'submissions')} className="space-y-6">
-          <TabsList className="grid w-full max-w-2xl grid-cols-2 sm:grid-cols-4">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'scores' | 'feedback')} className="space-y-6">
+          <TabsList className="grid w-full max-w-2xl grid-cols-2">
             <TabsTrigger value="scores">Scores</TabsTrigger>
             <TabsTrigger value="feedback">Feedback</TabsTrigger>
-            <TabsTrigger value="activity">Activity Points</TabsTrigger>
-            <TabsTrigger value="submissions">Submissions</TabsTrigger>
           </TabsList>
 
           <TabsContent value="scores" className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">Find Your Scores</CardTitle>
-                  <CardDescription>Select your level, then enter the email, domain, and plan used in the sheet.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Level</Label>
-                    <Select value={scoreForm.level} onValueChange={(value) => setScoreForm({ ...scoreForm, level: value })}>
-                      <SelectTrigger><SelectValue placeholder="Select level" /></SelectTrigger>
-                      <SelectContent>
-                        {levelOptions.map((level) => <SelectItem key={level} value={level}>{level}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Roll Number</Label>
-                    <Input value={scoreForm.email} onChange={(e) => setScoreForm({ ...scoreForm, email: e.target.value })} placeholder="First 10 chars of email ID (roll number)" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Domain</Label>
-                    {domainOptions.length > 0 ? (
-                      <Select value={scoreForm.domain} onValueChange={(value) => setScoreForm({ ...scoreForm, domain: value })}>
-                        <SelectTrigger><SelectValue placeholder="Select domain" /></SelectTrigger>
-                        <SelectContent>
-                          {domainOptions.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input value={scoreForm.domain} onChange={(e) => setScoreForm({ ...scoreForm, domain: e.target.value })} placeholder="Data Science / Programming / Electronics" />
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Plan</Label>
-                    {planOptions.length > 0 ? (
-                      <Select value={scoreForm.plan} onValueChange={(value) => setScoreForm({ ...scoreForm, plan: value })}>
-                        <SelectTrigger><SelectValue placeholder="Select plan" /></SelectTrigger>
-                        <SelectContent>
-                          {planOptions.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input value={scoreForm.plan} onChange={(e) => setScoreForm({ ...scoreForm, plan: e.target.value })} placeholder="Internship / Employment" />
-                    )}
-                  </div>
-                  <Button onClick={submitScoreLookup} disabled={loadingScore} className="w-full">
-                    {loadingScore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                    View Scores
-                  </Button>
-                </CardContent>
-              </Card>
+            {loadingScore ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : !studentEmail ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Please sign in with Google to view your scores.</p>
+              </div>
+            ) : Object.keys(scoreResults).length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">No scores found for your email in the database.</p>
+              </div>
+            ) : (
+              <div className="grid gap-6 lg:grid-cols-3">
+                {levelOptions.map((level) => {
+                  const result = scoreResults[level];
+                  const summary = scoreSummary[level];
+                  const isLevel1 = level === 'Level 1';
+                  const isLevel2 = level === 'Level 2';
+                  const isLevel3 = level === 'Level 3';
+                  
+                  if (!result || !summary) {
+                    return (
+                      <Card key={level} className="opacity-50">
+                        <CardHeader>
+                          <CardTitle>{level}</CardTitle>
+                          <CardDescription>No data available</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground">Scores not found for this level.</p>
+                        </CardContent>
+                      </Card>
+                    );
+                  }
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Score Result</CardTitle>
-                  <CardDescription>Matched against the selected level sheet.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {!scoreResult ? (
-                    <p className="text-sm text-muted-foreground">No scores loaded yet. Search to view your row.</p>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant="secondary">{scoreResult.sheetName}</Badge>
-                        <Badge>{scoreSummary?.email}</Badge>
-                      </div>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {isLevel1 ? (
-                          <>
-                            <ScoreRow label="Name" value={scoreSummary?.name || '—'} />
-                            <div className="rounded-lg border bg-emerald-50 p-3 text-right">
-                              <p className="text-xs uppercase tracking-wide text-emerald-700">Overall Pass/Fail</p>
-                              <p className="mt-1 text-xl font-semibold text-emerald-900">{scoreSummary?.overallPassFail || '—'}</p>
-                            </div>
-                            <ScoreRow label="PPM / Status" value={`${scoreSummary?.ppm || '—'} / ${scoreSummary?.ppmStatus || '—'}`} />
-                            <ScoreRow label="PPM Attempt" value={formatAttemptCode(scoreSummary?.ppmAttempt)} />
-                            <ScoreRow label="Self Intro / SI Status" value={`${scoreSummary?.selfIntro || '—'} / ${scoreSummary?.selfIntroStatus || '—'}`} />
-                            <ScoreRow label="Listen & Speak / LS Status" value={`${scoreSummary?.listenSpeak || '—'} / ${scoreSummary?.listenSpeakStatus || '—'}`} />
-                            <ScoreRow label="Listen & Write / LW Status" value={`${scoreSummary?.listenWrite || '—'} / ${scoreSummary?.listenWriteStatus || '—'}`} />
-                            <ScoreRow label="Email Writing / EW Status" value={`${scoreSummary?.emailWriting || '—'} / ${scoreSummary?.emailWritingStatus || '—'}`} />
-                            <ScoreRow label="CSM Pass/Fail" value={scoreSummary?.csmPassFail || '—'} />
-                            <ScoreRow label="CSM Attempt" value={formatAttemptCode(scoreSummary?.csmAttempt)} />
-                          </>
-                        ) : isLevel2 ? (
-                          <>
-                            <ScoreRow label="Name" value={scoreSummary?.name || '—'} />
-                            <div className="rounded-lg border bg-sky-50 p-3 text-right">
-                              <p className="text-xs uppercase tracking-wide text-sky-700">Level 2 (Pass/Fail)</p>
-                              <p className="mt-1 text-xl font-semibold text-sky-900">{scoreSummary?.level2 || '—'}</p>
-                            </div>
-                            <ScoreRow label="Aptitude" value={`${scoreSummary?.selfAptitude || '—'} / ${scoreSummary?.aptitudeStatus || '—'}`} />
-                            <ScoreRow label="Aptitude Attempt" value={formatAttemptCode(scoreSummary?.saAttempt)} />
-                            <ScoreRow label="Behavioural" value={`${scoreSummary?.behavioural || '—'} / ${scoreSummary?.behaviouralStatus || '—'}`} />
-                            <ScoreRow label="Behavioural Attempt" value={formatAttemptCode(scoreSummary?.baAttempt)} />
-                            <ScoreRow label="Presentation" value={`${scoreSummary?.presentation || '—'} / ${scoreSummary?.presentationStatus || '—'}`} />
-                            <ScoreRow label="Presentation Attempt" value={formatAttemptCode(scoreSummary?.prAttempt)} />
-                          </>
-                        ) : isLevel3 ? (
-                          <>
-                            <ScoreRow label="Name" value={scoreSummary?.name || '—'} />
-                            <div className="rounded-lg border bg-amber-50 p-3 text-right">
-                              <p className="text-xs uppercase tracking-wide text-amber-700">Level 3 (Pass/Fail)</p>
-                              <p className="mt-1 text-xl font-semibold text-amber-900">{scoreSummary?.level3PassFail || '—'}</p>
-                            </div>
-                            <ScoreRow label="TECH MCQ" value={scoreSummary?.techMcq || '—'} />
-                            <ScoreRow label="MCQ Pass/Fail" value={scoreSummary?.mcqPassFail || '—'} />
-                            <ScoreRow label="TMCQ Attempt" value={formatAttemptCode(scoreSummary?.tmcqAttempt)} />
-                            <ScoreRow label="AI MOCK" value={scoreSummary?.aiMock || '—'} />
-                            <ScoreRow label="AI Mock Pass/Fail" value={scoreSummary?.aiMockPassFail || '—'} />
-                            <ScoreRow label="AI Attempt" value={formatAttemptCode(scoreSummary?.aiAttempt)} />
-                            <ScoreRow label="1on1 Session" value={scoreSummary?.oneOnOneSession || '—'} />
-                            <ScoreRow label="1on1 Pass/Fail" value={scoreSummary?.oneOnOnePassFail || '—'} />
-                            <ScoreRow label="1on1 Attempt" value={formatAttemptCode(scoreSummary?.oneOnOneAttempt)} />
-                            <ScoreRow label="Activity Points" value={scoreSummary?.activityPoints || '—'} />
-                            <ScoreRow label="CMA" value={scoreSummary?.cma || '—'} />
-                          </>
-                        ) : (
-                          <>
-                            <ScoreRow label="Name" value={scoreSummary?.name || '—'} />
-                            <ScoreRow label="Aptitude" value={`${scoreSummary?.selfAptitude || '—'} / ${scoreSummary?.aptitudeStatus || '—'}`} />
-                            <ScoreRow label="Behavioural" value={`${scoreSummary?.behavioural || '—'} / ${scoreSummary?.behaviouralStatus || '—'}`} />
-                            <ScoreRow label="Presentation" value={`${scoreSummary?.presentation || '—'} / ${scoreSummary?.presentationStatus || '—'}`} />
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                  return (
+                    <Card key={level}>
+                      <CardHeader>
+                        <CardTitle>{level}</CardTitle>
+                        <CardDescription>
+                          <Badge variant="secondary">{result.sheetName}</Badge>
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap gap-2">
+                            <Badge>{summary.email}</Badge>
+                          </div>
+                          <div className="grid gap-3">
+                            {isLevel1 ? (
+                              <>
+                                <ScoreRow label="Name" value={summary.name || '—'} />
+                                <div className="rounded-lg border bg-emerald-50 p-3 text-right">
+                                  <p className="text-xs uppercase tracking-wide text-emerald-700">Overall Pass/Fail</p>
+                                  <p className="mt-1 text-xl font-semibold text-emerald-900">{summary.overallPassFail || '—'}</p>
+                                </div>
+                                <ScoreRow label="PPM / Status" value={`${summary.ppm || '—'} / ${summary.ppmStatus || '—'}`} />
+                                <ScoreRow label="PPM Attempt" value={formatAttemptCode(summary.ppmAttempt)} />
+                                <ScoreRow label="Self Intro / SI Status" value={`${summary.selfIntro || '—'} / ${summary.selfIntroStatus || '—'}`} />
+                                <ScoreRow label="Listen & Speak / LS Status" value={`${summary.listenSpeak || '—'} / ${summary.listenSpeakStatus || '—'}`} />
+                                <ScoreRow label="Listen & Write / LW Status" value={`${summary.listenWrite || '—'} / ${summary.listenWriteStatus || '—'}`} />
+                                <ScoreRow label="Email Writing / EW Status" value={`${summary.emailWriting || '—'} / ${summary.emailWritingStatus || '—'}`} />
+                                <ScoreRow label="CSM Pass/Fail" value={summary.csmPassFail || '—'} />
+                                <ScoreRow label="CSM Attempt" value={formatAttemptCode(summary.csmAttempt)} />
+                              </>
+                            ) : isLevel2 ? (
+                              <>
+                                <ScoreRow label="Name" value={summary.name || '—'} />
+                                <div className="rounded-lg border bg-sky-50 p-3 text-right">
+                                  <p className="text-xs uppercase tracking-wide text-sky-700">Level 2 (Pass/Fail)</p>
+                                  <p className="mt-1 text-xl font-semibold text-sky-900">{summary.level2 || '—'}</p>
+                                </div>
+                                <ScoreRow label="Aptitude" value={`${summary.selfAptitude || '—'} / ${summary.aptitudeStatus || '—'}`} />
+                                <ScoreRow label="Aptitude Attempt" value={formatAttemptCode(summary.saAttempt)} />
+                                <ScoreRow label="Behavioural" value={`${summary.behavioural || '—'} / ${summary.behaviouralStatus || '—'}`} />
+                                <ScoreRow label="Behavioural Attempt" value={formatAttemptCode(summary.baAttempt)} />
+                                <ScoreRow label="Presentation" value={`${summary.presentation || '—'} / ${summary.presentationStatus || '—'}`} />
+                                <ScoreRow label="Presentation Attempt" value={formatAttemptCode(summary.prAttempt)} />
+                              </>
+                            ) : isLevel3 ? (
+                              <>
+                                <ScoreRow label="Name" value={summary.name || '—'} />
+                                <div className="rounded-lg border bg-amber-50 p-3 text-right">
+                                  <p className="text-xs uppercase tracking-wide text-amber-700">Level 3 (Pass/Fail)</p>
+                                  <p className="mt-1 text-xl font-semibold text-amber-900">{summary.level3PassFail || '—'}</p>
+                                </div>
+                                <ScoreRow label="TECH MCQ" value={summary.techMcq || '—'} />
+                                <ScoreRow label="MCQ Pass/Fail" value={summary.mcqPassFail || '—'} />
+                                <ScoreRow label="TMCQ Attempt" value={formatAttemptCode(summary.tmcqAttempt)} />
+                                <ScoreRow label="AI MOCK" value={summary.aiMock || '—'} />
+                                <ScoreRow label="AI Mock Pass/Fail" value={summary.aiMockPassFail || '—'} />
+                                <ScoreRow label="AI Attempt" value={formatAttemptCode(summary.aiAttempt)} />
+                                <ScoreRow label="1on1 Session" value={summary.oneOnOneSession || '—'} />
+                                <ScoreRow label="1on1 Pass/Fail" value={summary.oneOnOnePassFail || '—'} />
+                                <ScoreRow label="1on1 Attempt" value={formatAttemptCode(summary.oneOnOneAttempt)} />
+                                <ScoreRow label="Activity Points" value={summary.activityPoints || '—'} />
+                                <ScoreRow label="CMA" value={summary.cma || '—'} />
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="feedback" className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Find Feedback</CardTitle>
-                  <CardDescription>Choose the category and enter the same email used during evaluation.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Category</Label>
-                    <Select value={feedbackForm.category} onValueChange={(value) => setFeedbackForm({ ...feedbackForm, category: value })}>
-                      <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                      <SelectContent>
-                        {feedbackOptions.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Roll Number</Label>
-                    <Input value={feedbackForm.email} onChange={(e) => setFeedbackForm({ ...feedbackForm, email: e.target.value })} placeholder="Roll number or full IITM email ID" />
-                  </div>
-                  <Button onClick={submitFeedbackLookup} disabled={loadingFeedback} className="w-full">
-                    {loadingFeedback ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                    View Feedback
-                  </Button>
-                </CardContent>
-              </Card>
+            {loadingFeedback ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : !studentEmail ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Please sign in with Google to view your feedback.</p>
+              </div>
+            ) : Object.keys(feedbackResults).length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">No Feedback is found</p>
+              </div>
+            ) : (
+              <div className="grid gap-6 grid-cols-1">
+                {feedbackOptions.map((category) => {
+                  const result = feedbackResults[category];
+                  const summary = feedbackSummary[category] || [];
+                  
+                  if (!result || summary.length === 0) {
+                    return (
+                      <Card key={category} className="opacity-50">
+                        <CardHeader>
+                          <CardTitle>{category}</CardTitle>
+                          <CardDescription>No feedback available</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground">No feedback found for this category.</p>
+                        </CardContent>
+                      </Card>
+                    );
+                  }
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Feedback Result</CardTitle>
-                  <CardDescription>Category-specific feedback for your email address.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {!feedbackResult ? (
-                    <p className="text-sm text-muted-foreground">No feedback loaded yet. Search to view your remarks.</p>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant="secondary">{feedbackResult.sheetName}</Badge>
-                        <Badge>{feedbackResult.email}</Badge>
-                        <Badge variant="outline">{feedbackResult.count ?? feedbackResult.rows.length} matches</Badge>
-                      </div>
-                      <div className="space-y-3">
-                        {feedbackSummary.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">No filled feedback fields found for the matched rows.</p>
-                        ) : feedbackSummary.map((entry) => (
-                          <div key={entry.rowIndex} className="rounded-lg border bg-muted/10 p-3 space-y-3">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                              Entry {entry.rowIndex + 1}
-                            </p>
-                            {entry.items.map((item, itemIndex) => (
-                              <div key={`${entry.rowIndex}-${item.header}-${itemIndex}`} className="rounded-lg border bg-muted/20 p-3">
-                                <p className="text-xs uppercase tracking-wide text-muted-foreground">{item.header}</p>
-                                <p className="mt-1 text-sm whitespace-pre-wrap break-words">{item.value}</p>
+                  return (
+                    <Card key={category}>
+                      <CardHeader>
+                        <CardTitle>{category}</CardTitle>
+                        <CardDescription>
+                          <Badge variant="secondary">{result.sheetName}</Badge>
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap gap-2">
+                            <Badge>{result.email}</Badge>
+                            <Badge variant="outline">{result.count ?? result.rows.length} matches</Badge>
+                          </div>
+                          <div className="space-y-3 max-h-96 overflow-y-auto">
+                            {summary.map((entry) => (
+                              <div key={entry.rowIndex} className="rounded-lg border bg-muted/10 p-3 space-y-3">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                  Entry {entry.rowIndex + 1}
+                                </p>
+                                {entry.items.map((item, itemIndex) => (
+                                  <div key={`${entry.rowIndex}-${item.header}-${itemIndex}`} className="rounded-lg border bg-muted/20 p-3">
+                                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{item.header}</p>
+                                    <p className="mt-1 text-sm whitespace-pre-wrap break-words">{item.value}</p>
+                                  </div>
+                                ))}
                               </div>
                             ))}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="activity" className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Find Activity Points</CardTitle>
-                  <CardDescription>Search the Activity points sheet using email, plan, and domain.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Roll Number</Label>
-                    <Input value={activityPointsForm.email} onChange={(e) => setActivityPointsForm({ ...activityPointsForm, email: e.target.value })} placeholder="First 10 chars of email ID (roll number)" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Domain</Label>
-                    <Select value={activityPointsForm.domain} onValueChange={(value) => setActivityPointsForm({ ...activityPointsForm, domain: value })}>
-                      <SelectTrigger><SelectValue placeholder="Select domain" /></SelectTrigger>
-                      <SelectContent>
-                        {domainOptions.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Plan</Label>
-                    <Select value={activityPointsForm.plan} onValueChange={(value) => setActivityPointsForm({ ...activityPointsForm, plan: value })}>
-                      <SelectTrigger><SelectValue placeholder="Select plan" /></SelectTrigger>
-                      <SelectContent>
-                        {activityPointsOptions.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button onClick={submitActivityPointsLookup} disabled={loadingActivityPoints} className="w-full">
-                    {loadingActivityPoints ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                    View Activity Points
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Activity Points Result</CardTitle>
-                  <CardDescription>Matched against the Activity points sheet.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {!activityPointsResult ? (
-                    <p className="text-sm text-muted-foreground">No activity points loaded yet. Search to view your row.</p>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant="secondary">{activityPointsResult.sheetName}</Badge>
-                        <Badge>{activityPointsSummary?.email}</Badge>
-                        <Badge>{activityPointsSummary?.status || '—'}</Badge>
-                      </div>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        <ScoreRow label="Name" value={activityPointsSummary?.name || '—'} />
-                        <ScoreRow label="Roll Number" value={activityPointsSummary?.rollNumber || '—'} />
-                        <ScoreRow label="Plan" value={activityPointsSummary?.plan || '—'} />
-                        <ScoreRow label="Domain" value={activityPointsSummary?.domain || '—'} />
-                        <ScoreRow label="NPPE Scores" value={activityPointsSummary?.nppeScores || '—'} />
-                        <ScoreRow label="DBMS" value={activityPointsSummary?.dbms || '—'} />
-                        <ScoreRow label="PDSA" value={activityPointsSummary?.pdsa || '—'} />
-                        <ScoreRow label="SC" value={activityPointsSummary?.sc || '—'} />
-                        <ScoreRow label="Cloud & DevOps" value={activityPointsSummary?.cloudDevops || '—'} />
-                        <ScoreRow label="JAVA" value={activityPointsSummary?.java || '—'} />
-                        <ScoreRow label="SE" value={activityPointsSummary?.se || '—'} />
-                        <ScoreRow label="MAD" value={activityPointsSummary?.mad || '—'} />
-                        <ScoreRow label="PGWS" value={activityPointsSummary?.pgws || '—'} />
-                        <ScoreRow label="MLT" value={activityPointsSummary?.mlt || '—'} />
-                        <ScoreRow label="DSWS1" value={activityPointsSummary?.dsws1 || '—'} />
-                        <ScoreRow label="MLP" value={activityPointsSummary?.mlp || '—'} />
-                        <ScoreRow label="ML Basics" value={activityPointsSummary?.mlBasics || '—'} />
-                        <ScoreRow label="DSWS2" value={activityPointsSummary?.dsws2 || '—'} />
-                        <ScoreRow label="DVD" value={activityPointsSummary?.dvd || '—'} />
-                        <ScoreRow label="DL" value={activityPointsSummary?.dl || '—'} />
-                        <ScoreRow label="AWS" value={activityPointsSummary?.aws || '—'} />
-                        <ScoreRow label="Total" value={activityPointsSummary?.total || '—'} />
-                        <ScoreRow label="CMA" value={activityPointsSummary?.cma || '—'} />
-                        <ScoreRow label="AM_IP" value={activityPointsSummary?.amIp || '—'} />
-                        <ScoreRow label="AM_ID" value={activityPointsSummary?.amId || '—'} />
-                        <ScoreRow label="AM_EP" value={activityPointsSummary?.amEp || '—'} />
-                        <ScoreRow label="AM_ED" value={activityPointsSummary?.amEd || '—'} />
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="submissions" className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-1">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Activity Submissions</CardTitle>
-                  <CardDescription>Open the submissions portal to view and manage your activity submissions.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Button asChild className="w-full">
-                    <a href={SUBMISSIONS_PORTAL_URL} target="_blank" rel="noreferrer noopener">
-                      Open Submissions Portal
-                    </a>
-                  </Button>
-                  <p className="text-sm text-muted-foreground">The portal opens in a new tab and uses your Google sign-in to show your submissions.</p>
-                </CardContent>
-              </Card>
-            </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
