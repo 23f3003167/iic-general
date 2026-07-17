@@ -78,25 +78,26 @@ export type PublishScoresResponse = {
 };
 
 export type StudentScoreLookup = {
-  sheetName: string;
-  level: string;
-  headers: string[];
-  row: string[];
-  matched: {
+  sheetName?: string;
+  level?: string;
+  headers?: string[];
+  row?: string[];
+  matched?: {
     email: string;
-    domain: string;
-    plan: string;
   };
+  email?: string;
+  notFound?: boolean;
 };
 
 export type StudentFeedbackLookup = {
-  sheetName: string;
-  category: string;
-  headers: string[];
+  sheetName?: string;
+  category?: string;
+  headers?: string[];
   row?: string[];
-  rows: string[][];
+  rows?: string[][];
   count?: number;
-  email: string;
+  email?: string;
+  notFound?: boolean;
 };
 
 export type StudentActivityPointsLookup = {
@@ -468,8 +469,6 @@ export async function publishScoresToSheet(request: {
 export async function lookupStudentScore(request: {
   level: string;
   email: string;
-  domain: string;
-  plan: string;
 }): Promise<StudentScoreLookup> {
   return callScoresAppsScript<StudentScoreLookup>({
     action: 'lookupStudentScore',
@@ -499,8 +498,6 @@ export async function lookupStudentFeedback(request: {
 
 export async function lookupStudentActivityPoints(request: {
   email: string;
-  domain: string;
-  plan: string;
 }): Promise<StudentActivityPointsLookup> {
   return callScoresAppsScript<StudentActivityPointsLookup>({
     action: 'lookupStudentActivityPoints',

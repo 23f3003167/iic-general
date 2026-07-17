@@ -151,8 +151,6 @@ export default function Scores() {
   const [scoreResults, setScoreResults] = useState<Record<string, StudentScoreLookup>>({});
   const [feedbackResults, setFeedbackResults] = useState<Record<string, StudentFeedbackLookup>>({});
   const [studentEmail, setStudentEmail] = useState<string | null>(null);
-  const [studentDomain, setStudentDomain] = useState<string>('Data Science');
-  const [studentPlan, setStudentPlan] = useState<string>('Internship');
 
   const scoreSummary = useMemo<Record<string, ScoreSummary | null>>(() => {
     const summaries: Record<string, ScoreSummary | null> = {};
@@ -165,6 +163,7 @@ export default function Scores() {
 
       const headers = result.headers;
       const row = result.row;
+      const levelLower = level.toLowerCase();
 
     const base = {
       name: tableValue(row, headers, ['name']),
@@ -181,28 +180,28 @@ export default function Scores() {
       level2: '—',
     };
 
-      if (level.indexOf('level 1') !== -1 || level.indexOf('1') === 0) {
+      if (levelLower.indexOf('level 1') !== -1 || levelLower.indexOf('1') === 0) {
         summaries[level] = {
           ...base,
             ppm: tableValue(row, headers, ['ppm']),
-            ppmStatus: tableValue(row, headers, ['ppm', 'pass', 'fail']),
+            ppmStatus: tableValue(row, headers, ['ppm', '-', 'pass', 'fail']),
             ppmAttempt: tableValue(row, headers, ['ppm', 'attempt']),
             selfIntro: tableValue(row, headers, ['self', 'intro']),
-            selfIntroStatus: tableValue(row, headers, ['si', 'status', 'si status']),
-            listenSpeak: tableValue(row, headers, ['listen', 'speak']),
+            selfIntroStatus: tableValue(row, headers, ['si', 'status']),
+            listenSpeak: tableValue(row, headers, ['listen', '&', 'speak']),
             listenSpeakStatus: tableValue(row, headers, ['ls', 'status']),
-            listenWrite: tableValue(row, headers, ['listen', 'write']),
+            listenWrite: tableValue(row, headers, ['listen', '&', 'write']),
             listenWriteStatus: tableValue(row, headers, ['lw', 'status']),
             emailWriting: tableValue(row, headers, ['email', 'writing']),
             emailWritingStatus: tableValue(row, headers, ['ew', 'status']),
-            csmPassFail: tableValue(row, headers, ['csm', 'pass', 'fail']),
+            csmPassFail: tableValue(row, headers, ['csm', '-', 'pass', 'fail']),
             csmAttempt: tableValue(row, headers, ['csm', 'attempt']),
-            overallPassFail: tableValue(row, headers, ['overall', 'pass', 'fail']),
+            overallPassFail: tableValue(row, headers, ['level', '1', 'pass', 'fail']),
           total: tableValue(row, headers, ['total']),
         };
       }
 
-      if (level.indexOf('level 2') !== -1 || level.indexOf('2') === 0) {
+      if (levelLower.indexOf('level 2') !== -1 || levelLower.indexOf('2') === 0) {
         summaries[level] = {
           ...base,
           selfAptitude: tableValue(row, headers, ['self', 'aptitude']),
@@ -216,7 +215,7 @@ export default function Scores() {
           baAttempt: tableValue(row, headers, ['ba', 'attempt']),
           prAttempt: tableValue(row, headers, ['pr', 'attempt']),
         };
-      } else if (level.indexOf('level 3') !== -1 || level.indexOf('3') === 0) {
+      } else if (levelLower.indexOf('level 3') !== -1 || levelLower.indexOf('3') === 0) {
         let oneOnOneSession = tableValue(row, headers, ['1on1', 'session']);
         if (isMissingValue(oneOnOneSession)) {
           oneOnOneSession = tableValue(row, headers, ['1-on-1', 'session']);
@@ -295,61 +294,47 @@ export default function Scores() {
       setScoreResults({});
 
       try {
-        // Try to find the student's domain and plan by checking Level 1 first
-        let foundDomain = 'Data Science';
-        let foundPlan = 'Internship';
-        let foundInLevel1 = false;
+        // Fetch all three levels in parallel using only email
+        const level1Promise = lookupStudentScore({
+          level: 'Level 1',
+          email,
+        }).catch(() => null);
 
-        // Try all combinations for Level 1 to find the correct domain/plan
-        for (const domain of domainOptions) {
-          for (const plan of planOptions) {
-            try {
-              const result = await lookupStudentScore({
-                level: 'Level 1',
-                email: email,
-                domain,
-                plan,
-              });
-              foundDomain = result.matched.domain;
-              foundPlan = result.matched.plan;
-              foundInLevel1 = true;
-              setScoreResults(prev => ({ ...prev, 'Level 1': result }));
-              break;
-            } catch (error) {
-              // Continue trying other combinations
-            }
-          }
-          if (foundInLevel1) break;
-        }
-
-        setStudentDomain(foundDomain);
-        setStudentPlan(foundPlan);
-
-        // Fetch Level 2 and Level 3 with the found domain/plan
         const level2Promise = lookupStudentScore({
           level: 'Level 2',
           email,
-          domain: foundDomain,
-          plan: foundPlan,
         }).catch(() => null);
 
         const level3Promise = lookupStudentScore({
           level: 'Level 3',
           email,
-          domain: foundDomain,
-          plan: foundPlan,
         }).catch(() => null);
 
-        const [level2Result, level3Result] = await Promise.all([level2Promise, level3Promise]);
+        const [level1Result, level2Result, level3Result] = await Promise.all([level1Promise, level2Promise, level3Promise]);
 
-        if (level2Result) {
+        console.log('Score results:', { level1Result, level2Result, level3Result });
+
+        // Only add results that are not marked as notFound
+        if (level1Result && !level1Result.notFound) {
+          setScoreResults(prev => ({ ...prev, 'Level 1': level1Result }));
+          console.log('Setting Level 1 result:', level1Result);
+        }
+        if (level2Result && !level2Result.notFound) {
           setScoreResults(prev => ({ ...prev, 'Level 2': level2Result }));
+          console.log('Setting Level 2 result:', level2Result);
         }
-        if (level3Result) {
+        if (level3Result && !level3Result.notFound) {
           setScoreResults(prev => ({ ...prev, 'Level 3': level3Result }));
+          console.log('Setting Level 3 result:', level3Result);
         }
 
-        if (!foundInLevel1 && !level2Result && !level3Result) {
+        const hasAnyResult = (level1Result && !level1Result.notFound) || 
+                            (level2Result && !level2Result.notFound) || 
+                            (level3Result && !level3Result.notFound);
+
+        console.log('Has any result:', hasAnyResult);
+
+        if (!hasAnyResult) {
           toast({
             title: 'No scores found',
             description: 'Your scores are not available in the database yet.',
@@ -399,7 +384,7 @@ export default function Scores() {
         
         const feedbackData: Record<string, StudentFeedbackLookup> = {};
         results.forEach(({ category, result }) => {
-          if (result) {
+          if (result && !result.notFound) {
             feedbackData[category] = result;
           }
         });
@@ -476,9 +461,10 @@ export default function Scores() {
                     <Card key={level}>
                       <CardHeader>
                         <CardTitle>{level}</CardTitle>
-                        <CardDescription>
+                        <div className="flex items-center gap-2">
+                          <CardDescription>Sheet:</CardDescription>
                           <Badge variant="secondary">{result.sheetName}</Badge>
-                        </CardDescription>
+                        </div>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-3">
@@ -583,9 +569,10 @@ export default function Scores() {
                     <Card key={category}>
                       <CardHeader>
                         <CardTitle>{category}</CardTitle>
-                        <CardDescription>
+                        <div className="flex items-center gap-2">
+                          <CardDescription>Sheet:</CardDescription>
                           <Badge variant="secondary">{result.sheetName}</Badge>
-                        </CardDescription>
+                        </div>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-3">

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Search } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { lookupStudentActivityPoints, type StudentActivityPointsLookup } from '@/lib/toolsService';
+import { getStoredVerifiedEmail } from '@/lib/emailVerificationService';
 
 interface Submission {
   date: string;
@@ -150,17 +151,56 @@ const ActivityPoints = () => {
   const apiUrl = import.meta.env.VITE_ACTIVITY_POINTS_API_URL || '';
   
   // Activity Points Lookup state
-  const [activityPointsForm, setActivityPointsForm] = useState<ActivityPointsFormState>({
-    email: '',
-    domain: 'Data Science',
-    plan: 'Internship',
-  });
-  const [domainOptions] = useState<string[]>(['Data Science', 'Programming', 'Electronics']);
-  const [planOptions] = useState<string[]>(['Internship', 'Employment']);
   const [loadingActivityPoints, setLoadingActivityPoints] = useState(false);
   const [activityPointsResult, setActivityPointsResult] = useState<StudentActivityPointsLookup | null>(null);
+  const [studentEmail, setStudentEmail] = useState<string | null>(null);
 
   const activityPointsSummary = useMemo(() => buildActivityPointsSummary(activityPointsResult), [activityPointsResult]);
+
+  // Auto-fetch activity points on component mount
+  useEffect(() => {
+    const fetchActivityPoints = async () => {
+      const email = getStoredVerifiedEmail();
+      if (!email) {
+        toast({ 
+          title: 'Not authenticated', 
+          description: 'Please sign in with Google to view your activity points.', 
+          variant: 'destructive' 
+        });
+        return;
+      }
+
+      setStudentEmail(email);
+      setLoadingActivityPoints(true);
+      setActivityPointsResult(null);
+
+      try {
+        const result = await lookupStudentActivityPoints({
+          email,
+        }).catch(() => null);
+
+        if (result && !result.notFound) {
+          setActivityPointsResult(result);
+        } else {
+          toast({
+            title: 'No activity points found',
+            description: 'Your activity points are not available in the database yet.',
+            variant: 'destructive',
+          });
+        }
+      } catch (error) {
+        toast({
+          title: 'Activity points lookup failed',
+          description: error instanceof Error ? error.message : 'Try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoadingActivityPoints(false);
+      }
+    };
+
+    fetchActivityPoints();
+  }, [toast]);
 
   const handleCheckSubmissions = async () => {
     if (!email.trim()) {
@@ -201,38 +241,6 @@ const ActivityPoints = () => {
     }
   };
 
-  const submitActivityPointsLookup = async () => {
-    if (!activityPointsForm.email.trim()) {
-      toast({ title: 'Missing details', description: 'Enter your roll number.', variant: 'destructive' });
-      return;
-    }
-
-    const studentEmail = resolveStudentEmail(activityPointsForm.email);
-    if (studentEmail.length < 12) {
-      toast({ title: 'Invalid roll number', description: 'Enter the first 10 characters of your email ID.', variant: 'destructive' });
-      return;
-    }
-
-    setLoadingActivityPoints(true);
-    setActivityPointsResult(null);
-    try {
-      const result = await lookupStudentActivityPoints({
-        email: studentEmail,
-        domain: activityPointsForm.domain,
-        plan: activityPointsForm.plan,
-      });
-      setActivityPointsResult(result);
-      setActiveTab('lookup');
-    } catch (error) {
-      toast({
-        title: 'Activity points lookup failed',
-        description: error instanceof Error ? error.message : 'Try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoadingActivityPoints(false);
-    }
-  };
 
   return (
     <Layout>
@@ -252,7 +260,7 @@ const ActivityPoints = () => {
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'submit' | 'lookup' | 'submissions')} className="w-full">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="submit">Submit Activity</TabsTrigger>
-              <TabsTrigger value="lookup">Activity Points Lookup</TabsTrigger>
+              <TabsTrigger value="lookup">Activity Points</TabsTrigger>
               <TabsTrigger value="submissions">My Submissions</TabsTrigger>
             </TabsList>
 
@@ -274,91 +282,62 @@ const ActivityPoints = () => {
             </TabsContent>
 
             <TabsContent value="lookup" className="space-y-6">
-              <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
+              {loadingActivityPoints ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : !studentEmail ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">Please sign in with Google to view your activity points.</p>
+                </div>
+              ) : !activityPointsResult ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">No activity points found for your account.</p>
+                </div>
+              ) : (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Find Activity Points</CardTitle>
-                    <CardDescription>Search the Activity points sheet using email, plan, and domain.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Roll Number</Label>
-                      <Input value={activityPointsForm.email} onChange={(e) => setActivityPointsForm({ ...activityPointsForm, email: e.target.value })} placeholder="First 10 chars of email ID (roll number)" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Domain</Label>
-                      <Select value={activityPointsForm.domain} onValueChange={(value) => setActivityPointsForm({ ...activityPointsForm, domain: value })}>
-                        <SelectTrigger><SelectValue placeholder="Select domain" /></SelectTrigger>
-                        <SelectContent>
-                          {domainOptions.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Plan</Label>
-                      <Select value={activityPointsForm.plan} onValueChange={(value) => setActivityPointsForm({ ...activityPointsForm, plan: value })}>
-                        <SelectTrigger><SelectValue placeholder="Select plan" /></SelectTrigger>
-                        <SelectContent>
-                          {planOptions.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button onClick={submitActivityPointsLookup} disabled={loadingActivityPoints} className="w-full">
-                      {loadingActivityPoints ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                      View Activity Points
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Activity Points Result</CardTitle>
-                    <CardDescription>Matched against the Activity points sheet.</CardDescription>
+                    <CardTitle>Your Activity Points</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {!activityPointsResult ? (
-                      <p className="text-sm text-muted-foreground">No activity points loaded yet. Search to view your row.</p>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="flex flex-wrap gap-2">
-                          <Badge variant="secondary">{activityPointsResult.sheetName}</Badge>
-                          <Badge>{activityPointsSummary?.email}</Badge>
-                          <Badge>{activityPointsSummary?.status || '—'}</Badge>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <ScoreRow label="Name" value={activityPointsSummary?.name || '—'} />
-                          <ScoreRow label="Roll Number" value={activityPointsSummary?.rollNumber || '—'} />
-                          <ScoreRow label="Plan" value={activityPointsSummary?.plan || '—'} />
-                          <ScoreRow label="Domain" value={activityPointsSummary?.domain || '—'} />
-                          <ScoreRow label="NPPE Scores" value={activityPointsSummary?.nppeScores || '—'} />
-                          <ScoreRow label="DBMS" value={activityPointsSummary?.dbms || '—'} />
-                          <ScoreRow label="PDSA" value={activityPointsSummary?.pdsa || '—'} />
-                          <ScoreRow label="SC" value={activityPointsSummary?.sc || '—'} />
-                          <ScoreRow label="Cloud & DevOps" value={activityPointsSummary?.cloudDevops || '—'} />
-                          <ScoreRow label="JAVA" value={activityPointsSummary?.java || '—'} />
-                          <ScoreRow label="SE" value={activityPointsSummary?.se || '—'} />
-                          <ScoreRow label="MAD" value={activityPointsSummary?.mad || '—'} />
-                          <ScoreRow label="PGWS" value={activityPointsSummary?.pgws || '—'} />
-                          <ScoreRow label="MLT" value={activityPointsSummary?.mlt || '—'} />
-                          <ScoreRow label="DSWS1" value={activityPointsSummary?.dsws1 || '—'} />
-                          <ScoreRow label="MLP" value={activityPointsSummary?.mlp || '—'} />
-                          <ScoreRow label="ML Basics" value={activityPointsSummary?.mlBasics || '—'} />
-                          <ScoreRow label="DSWS2" value={activityPointsSummary?.dsws2 || '—'} />
-                          <ScoreRow label="DVD" value={activityPointsSummary?.dvd || '—'} />
-                          <ScoreRow label="DL" value={activityPointsSummary?.dl || '—'} />
-                          <ScoreRow label="AWS" value={activityPointsSummary?.aws || '—'} />
-                          <ScoreRow label="Total" value={activityPointsSummary?.total || '—'} />
-                          <ScoreRow label="CMA" value={activityPointsSummary?.cma || '—'} />
-                          <ScoreRow label="AM_IP" value={activityPointsSummary?.amIp || '—'} />
-                          <ScoreRow label="AM_ID" value={activityPointsSummary?.amId || '—'} />
-                          <ScoreRow label="AM_EP" value={activityPointsSummary?.amEp || '—'} />
-                          <ScoreRow label="AM_ED" value={activityPointsSummary?.amEd || '—'} />
-                        </div>
+                    <div className="space-y-4">
+                      <div className="flex flex-wrap gap-2">
+                        <Badge>{activityPointsSummary?.email}</Badge>
+                        <Badge>{activityPointsSummary?.status || '—'}</Badge>
                       </div>
-                    )}
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <ScoreRow label="Name" value={activityPointsSummary?.name || '—'} />
+                        <ScoreRow label="Roll Number" value={activityPointsSummary?.rollNumber || '—'} />
+                        <ScoreRow label="Plan" value={activityPointsSummary?.plan || '—'} />
+                        <ScoreRow label="Domain" value={activityPointsSummary?.domain || '—'} />
+                        <ScoreRow label="NPPE Scores" value={activityPointsSummary?.nppeScores || '—'} />
+                        <ScoreRow label="DBMS" value={activityPointsSummary?.dbms || '—'} />
+                        <ScoreRow label="PDSA" value={activityPointsSummary?.pdsa || '—'} />
+                        <ScoreRow label="SC" value={activityPointsSummary?.sc || '—'} />
+                        <ScoreRow label="Cloud & DevOps" value={activityPointsSummary?.cloudDevops || '—'} />
+                        <ScoreRow label="JAVA" value={activityPointsSummary?.java || '—'} />
+                        <ScoreRow label="SE" value={activityPointsSummary?.se || '—'} />
+                        <ScoreRow label="MAD" value={activityPointsSummary?.mad || '—'} />
+                        <ScoreRow label="PGWS" value={activityPointsSummary?.pgws || '—'} />
+                        <ScoreRow label="MLT" value={activityPointsSummary?.mlt || '—'} />
+                        <ScoreRow label="DSWS1" value={activityPointsSummary?.dsws1 || '—'} />
+                        <ScoreRow label="MLP" value={activityPointsSummary?.mlp || '—'} />
+                        <ScoreRow label="ML Basics" value={activityPointsSummary?.mlBasics || '—'} />
+                        <ScoreRow label="DSWS2" value={activityPointsSummary?.dsws2 || '—'} />
+                        <ScoreRow label="DVD" value={activityPointsSummary?.dvd || '—'} />
+                        <ScoreRow label="DL" value={activityPointsSummary?.dl || '—'} />
+                        <ScoreRow label="AWS" value={activityPointsSummary?.aws || '—'} />
+                        <ScoreRow label="Total" value={activityPointsSummary?.total || '—'} />
+                        <ScoreRow label="CMA" value={activityPointsSummary?.cma || '—'} />
+                        <ScoreRow label="AM_IP" value={activityPointsSummary?.amIp || '—'} />
+                        <ScoreRow label="AM_ID" value={activityPointsSummary?.amId || '—'} />
+                        <ScoreRow label="AM_EP" value={activityPointsSummary?.amEp || '—'} />
+                        <ScoreRow label="AM_ED" value={activityPointsSummary?.amEd || '—'} />
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
-              </div>
+              )}
             </TabsContent>
 
             <TabsContent value="submissions" className="space-y-4">

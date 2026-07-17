@@ -124,8 +124,6 @@ function lookupStudentScore(payload) {
 
   var email = String(payload.email || '').trim().toLowerCase();
   var level = String(payload.level || '').trim();
-  var domain = String(payload.domain || '').trim();
-  var plan = String(payload.plan || '').trim();
 
   if (!email) {
     throw new Error('Email is required');
@@ -139,27 +137,36 @@ function lookupStudentScore(payload) {
   }
 
   var ss = SpreadsheetApp.openById(spreadsheetId);
-  
+
   // Find the appropriate sheet based on level
   var targetSheetName = level;
-  if (level.indexOf('level 1') !== -1 || level.indexOf('1') === 0) {
+  var levelLower = level.toLowerCase();
+  if (levelLower.indexOf('level 1') !== -1 || levelLower.indexOf('1') === 0) {
     targetSheetName = 'Level 1';
-  } else if (level.indexOf('level 2') !== -1 || level.indexOf('2') === 0) {
+  } else if (levelLower.indexOf('level 2') !== -1 || levelLower.indexOf('2') === 0) {
     targetSheetName = 'Level 2';
-  } else if (level.indexOf('level 3') !== -1 || level.indexOf('3') === 0) {
+  } else if (levelLower.indexOf('level 3') !== -1 || levelLower.indexOf('3') === 0) {
     targetSheetName = 'Level 3';
   }
-  
+
+  // Try to find the sheet. If not found, try to find case-insensitively, otherwise fallback to the first sheet.
   var sheet = ss.getSheetByName(targetSheetName);
+  if (!sheet) {
+    var sheets = ss.getSheets();
+    for (var i = 0; i < sheets.length; i++) {
+      if (sheets[i].getName().toLowerCase() === targetSheetName.toLowerCase()) {
+        sheet = sheets[i];
+        break;
+      }
+    }
+  }
   if (!sheet) {
     sheet = ss.getSheets()[0];
   }
-  
+
   var data = sheet.getDataRange().getValues();
   var headers = data[0];
   var emailIndex = findHeaderIndex_(headers, ['email', 'mail', 'e-mail']);
-  var domainIndex = findHeaderIndex_(headers, ['domain']);
-  var planIndex = findHeaderIndex_(headers, ['plan']);
 
   if (emailIndex === -1) {
     throw new Error('Email column not found in scores sheet');
@@ -168,33 +175,13 @@ function lookupStudentScore(payload) {
   for (var i = 1; i < data.length; i++) {
     var rowEmail = String(data[i][emailIndex] || '').trim().toLowerCase();
     if (rowEmail === email) {
-      // Check domain if provided
-      if (domain && domainIndex !== -1) {
-        var rowDomain = String(data[i][domainIndex] || '').trim().toLowerCase();
-        var domainLower = domain.toLowerCase();
-        if (rowDomain !== domainLower && rowDomain.indexOf(domainLower) === -1 && domainLower.indexOf(rowDomain) === -1) {
-          continue;
-        }
-      }
-      
-      // Check plan if provided
-      if (plan && planIndex !== -1) {
-        var rowPlan = String(data[i][planIndex] || '').trim().toLowerCase();
-        var planLower = plan.toLowerCase();
-        if (rowPlan !== planLower && rowPlan.indexOf(planLower) === -1 && planLower.indexOf(rowPlan) === -1) {
-          continue;
-        }
-      }
-      
       return {
         sheetName: sheet.getName(),
         level: level,
         headers: headers,
         row: data[i],
         matched: {
-          email: email,
-          domain: domain,
-          plan: plan
+          email: email
         }
       };
     }
@@ -253,8 +240,6 @@ function lookupStudentActivityPoints(payload) {
   payload = payload || {};
 
   var email = String(payload.email || '').trim().toLowerCase();
-  var domain = String(payload.domain || '').trim();
-  var plan = String(payload.plan || '').trim();
 
   if (!email) {
     throw new Error('Email is required');
@@ -268,8 +253,6 @@ function lookupStudentActivityPoints(payload) {
   var data = sheet.getDataRange().getValues();
   var headers = data[0];
   var emailIndex = findHeaderIndex_(headers, ['email', 'mail', 'e-mail']);
-  var domainIndex = findHeaderIndex_(headers, ['domain']);
-  var planIndex = findHeaderIndex_(headers, ['plan']);
 
   if (emailIndex === -1) {
     throw new Error('Email column not found in Activity Points sheet');
@@ -278,33 +261,13 @@ function lookupStudentActivityPoints(payload) {
   for (var i = 1; i < data.length; i++) {
     var rowEmail = String(data[i][emailIndex] || '').trim().toLowerCase();
     if (rowEmail === email) {
-      // Check domain if provided
-      if (domain && domainIndex !== -1) {
-        var rowDomain = String(data[i][domainIndex] || '').trim().toLowerCase();
-        var domainLower = domain.toLowerCase();
-        if (rowDomain !== domainLower && rowDomain.indexOf(domainLower) === -1 && domainLower.indexOf(rowDomain) === -1) {
-          continue;
-        }
-      }
-      
-      // Check plan if provided
-      if (plan && planIndex !== -1) {
-        var rowPlan = String(data[i][planIndex] || '').trim().toLowerCase();
-        var planLower = plan.toLowerCase();
-        if (rowPlan !== planLower && rowPlan.indexOf(planLower) === -1 && planLower.indexOf(rowPlan) === -1) {
-          continue;
-        }
-      }
-      
       return {
         sheetName: sheet.getName(),
         headers: headers,
         row: data[i],
         email: email,
         matched: {
-          email: email,
-          domain: domain,
-          plan: plan
+          email: email
         }
       };
     }
