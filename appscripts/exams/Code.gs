@@ -341,7 +341,10 @@ function rowToExam_(row) {
 
   var eligibleEmails = [];
   try {
-    eligibleEmails = getEligibleEmailsFromColumn_(String(row[8] || '').trim());
+    // Match exam by exam_id | title format in students sheet headers
+    var examId = String(row[0] || '').trim();
+    var title = String(row[1] || '').trim();
+    eligibleEmails = getEligibleEmailsForExam_(examId, title);
   } catch (_err2) {
     eligibleEmails = [];
   }
@@ -386,6 +389,52 @@ function deriveExamStatus_(configuredStatus, startAt, endAt) {
     return 'CLOSED';
   }
   return 'OPEN';
+}
+
+function getEligibleEmailsForExam_(examId, title) {
+  if (!examId) {
+    return [];
+  }
+
+  var sheet = getStudentsSheet_();
+  var lastColumn = sheet.getLastColumn();
+  if (lastColumn < 1) {
+    return [];
+  }
+
+  // Get header row to find matching column
+  var headerRow = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+  var targetColumn = -1;
+  
+  // Match by "exam_id | title" format
+  var expectedHeader = examId + ' | ' + title;
+  
+  for (var i = 0; i < headerRow.length; i++) {
+    var header = String(headerRow[i] || '').trim();
+    if (header === expectedHeader) {
+      targetColumn = i + 1;
+      break;
+    }
+  }
+  
+  if (targetColumn < 1) {
+    return [];
+  }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    return [];
+  }
+
+  var values = sheet.getRange(2, targetColumn, lastRow - 1, 1).getValues();
+  var emails = [];
+  for (var i = 0; i < values.length; i++) {
+    var email = String(values[i][0] || '').trim().toLowerCase();
+    if (email) {
+      emails.push(email);
+    }
+  }
+  return emails;
 }
 
 function getEligibleEmailsFromColumn_(columnRef) {

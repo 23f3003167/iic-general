@@ -110,13 +110,37 @@ async function callExamsAppsScript<T>(payload: Record<string, unknown>): Promise
   return result.data;
 }
 
-export async function getExams(): Promise<ExamConfig[]> {
-  const data = await callExamsAppsScript<GetExamsResponse>({ action: 'listExams' });
+export async function getExams(email?: string): Promise<ExamConfig[]> {
+  console.log('[getExams] Fetching exams with email:', email);
+  const payload: Record<string, unknown> = { action: 'listExams' };
+  if (email) {
+    payload.email = email.toLowerCase().trim();
+  }
+  const data = await callExamsAppsScript<GetExamsResponse>(payload);
+  console.log('[getExams] Received exams:', data.exams?.length, 'exams');
+  console.log('[getExams] Exam details:', data.exams?.map((e: any) => ({
+    examId: e.examId,
+    title: e.title,
+    status: e.status,
+    eligibleCount: e.eligibleCount,
+    eligibleEmailsSample: e.eligibleEmails?.slice(0, 3)
+  })));
   return data.exams || [];
 }
 
-export async function getActiveExam(): Promise<ExamConfig | null> {
-  const data = await callExamsAppsScript<GetActiveExamResponse>({ action: 'getActiveExam' });
+export async function getActiveExam(email?: string): Promise<ExamConfig | null> {
+  console.log('[getActiveExam] Fetching active exam with email:', email);
+  const payload: Record<string, unknown> = { action: 'getActiveExam' };
+  if (email) {
+    payload.email = email.toLowerCase().trim();
+  }
+  const data = await callExamsAppsScript<GetActiveExamResponse>(payload);
+  console.log('[getActiveExam] Active exam:', (data.exam as any) ? {
+    examId: data.exam.examId,
+    title: data.exam.title,
+    status: data.exam.status,
+    eligibleCount: (data.exam as any).eligibleCount
+  } : 'null');
   return data.exam || null;
 }
 

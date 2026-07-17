@@ -11,9 +11,11 @@ function doPost(e) {
     var data;
 
     if (action === 'listExams') {
-      data = { exams: listExams_() };
+      var email = String(payload.email || '').trim();
+      data = { exams: listExams_(email) };
     } else if (action === 'getActiveExam') {
-      data = { exam: getActiveExam_() };
+      var email = String(payload.email || '').trim();
+      data = { exam: getActiveExam_(email) };
     } else if (action === 'upsertExam') {
       data = { exam: upsertExam_(payload) };
     } else if (action === 'getLastSubmission') {
@@ -34,17 +36,30 @@ function doPost(e) {
   }
 }
 
-function listExams_() {
+function listExams_(email) {
   var sheet = getExamsSheet_();
   var values = sheet.getDataRange().getValues();
   if (values.length < 2) {
     return [];
   }
 
+  var normalizedEmail = email ? String(email || '').trim().toLowerCase() : '';
   var exams = [];
   for (var i = 1; i < values.length; i++) {
     var exam = rowToExam_(values[i]);
     if (!exam) continue;
+    
+    // Filter by eligibility if email is provided
+    if (normalizedEmail && exam.eligibleEmails.indexOf(normalizedEmail) < 0) {
+      continue;
+    }
+    
+    // Only include UPCOMING or OPEN exams (based on start_at and end_at)
+    var status = String(exam.status || '').toUpperCase();
+    if (status !== 'UPCOMING' && status !== 'OPEN') {
+      continue;
+    }
+    
     exams.push(exam);
   }
 
@@ -55,8 +70,8 @@ function listExams_() {
   return exams;
 }
 
-function getActiveExam_() {
-  var exams = listExams_();
+function getActiveExam_(email) {
+  var exams = listExams_(email);
 
   for (var i = 0; i < exams.length; i++) {
     var exam = exams[i];

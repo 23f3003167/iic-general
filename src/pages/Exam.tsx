@@ -11,6 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { getExams, getPreviousSubmissions, startExamAttempt, submitExamAttempt } from '@/lib/examsService';
+import { auth } from '@/lib/firebase';
 import type { ExamAttempt, ExamConfig, ExamQuestion } from '@/types';
 import { AlertCircle, Clock3, Loader2, ShieldAlert } from 'lucide-react';
 
@@ -89,8 +90,18 @@ export default function ExamPage() {
   }, [activeExam]);
 
   useEffect(() => {
-    loadExamData();
+    const user = auth.currentUser;
+    const userEmail = user?.email || undefined;
+    console.log('[ExamPage] Initial load with auth user email:', userEmail);
+    loadExamData(userEmail);
   }, []);
+
+  useEffect(() => {
+    if (email.trim()) {
+      console.log('[ExamPage] Email changed, reloading exams with email:', email.trim());
+      loadExamData(email.trim().toLowerCase());
+    }
+  }, [email]);
 
   useEffect(() => {
     if (screen !== 'running' || !isTimedAssessment) return;
@@ -133,10 +144,10 @@ export default function ExamPage() {
     };
   }, [screen, isTimedAssessment]);
 
-  const loadExamData = async () => {
+  const loadExamData = async (userEmail?: string) => {
     try {
       setLoading(true);
-      const examList = await getExams();
+      const examList = await getExams(userEmail);
       setExams(examList || []);
 
       const hasOpenExam = (examList || []).some((exam) => exam.status === 'OPEN');
