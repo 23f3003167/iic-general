@@ -153,11 +153,32 @@ export async function upsertExam(exam: UpsertExamRequest): Promise<ExamConfig> {
   return data.exam;
 }
 
+function generateAttemptId(): string {
+  // Generate a UUID-like ID locally to avoid lock contention
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 export async function startExamAttempt(request: StartAttemptRequest): Promise<StartAttemptResponse> {
-  return callExamsAppsScript<StartAttemptResponse>({
+  // Generate attemptId locally to avoid concurrent lock issues
+  const attemptId = generateAttemptId();
+  const response = await callExamsAppsScript<StartAttemptResponse>({
     action: 'startAttempt',
     ...request,
+    attemptId, // Pass locally-generated attemptId
   });
+  
+  // Ensure the returned attempt uses our generated ID
+  return {
+    ...response,
+    attempt: {
+      ...response.attempt,
+      attemptId: attemptId,
+    },
+  };
 }
 
 export async function getLastSubmission(examId: string, email: string): Promise<string> {

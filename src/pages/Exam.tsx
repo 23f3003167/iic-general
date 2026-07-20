@@ -96,12 +96,7 @@ export default function ExamPage() {
     loadExamData(userEmail);
   }, []);
 
-  useEffect(() => {
-    if (email.trim()) {
-      console.log('[ExamPage] Email changed, reloading exams with email:', email.trim());
-      loadExamData(email.trim().toLowerCase());
-    }
-  }, [email]);
+  // Removed email-based reload to prevent page refresh while typing in dialog
 
   useEffect(() => {
     if (screen !== 'running' || !isTimedAssessment) return;

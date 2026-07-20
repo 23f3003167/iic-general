@@ -182,66 +182,49 @@ function upsertExam_(payload) {
 function startAttempt_(payload) {
   var examId = String(payload.examId || '').trim();
   var email = String(payload.email || '').trim().toLowerCase();
+  var attemptId = String(payload.attemptId || '').trim();
 
   if (!examId || !email) {
     throw new Error('examId and email are required');
   }
 
-  var lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
-  try {
-    var exam = getExamById_(examId);
-    if (!exam) {
-      throw new Error('Exam not found: ' + examId);
-    }
-
-    var now = new Date();
-    var start = new Date(exam.startAt);
-    var end = new Date(exam.endAt);
-    if (String(exam.status || '').toUpperCase() !== 'OPEN' || now < start || now > end) {
-      throw new Error('Exam is not currently open');
-    }
-
-    var previousSubmissionAt = findLastSubmittedAttemptAt_(getAttemptedSheet_(), exam.examId, email);
-    var attemptId = Utilities.getUuid();
-    var eligible = exam.eligibleEmails.indexOf(email) >= 0;
-    var startedAt = now.toISOString();
-    var rowValues = [
-      attemptId,
-      exam.examId,
-      exam.title,
-      email,
-      eligible ? 'YES' : 'NO',
-      0,
-      0,
-      startedAt,
-      '',
-      '',
-      exam.durationMinutes,
-      String(exam.status || ''),
-      new Date().toISOString()
-    ];
-
-    getAttemptedSheet_().appendRow(rowValues);
-
-    return {
-      attempt: {
-        attemptId: attemptId,
-        examId: exam.examId,
-        email: email,
-        tabSwitchCount: 0,
-        score: 0,
-        startAt: startedAt,
-        endAt: '',
-        submittedAt: '',
-        eligible: eligible,
-        previousSubmissionAt: previousSubmissionAt
-      },
-      exam: exam
-    };
-  } finally {
-    lock.releaseLock();
+  // Generate attemptId if not provided (for backward compatibility)
+  if (!attemptId) {
+    attemptId = Utilities.getUuid();
   }
+
+  var exam = getExamById_(examId);
+  if (!exam) {
+    throw new Error('Exam not found: ' + examId);
+  }
+
+  var now = new Date();
+  var start = new Date(exam.startAt);
+  var end = new Date(exam.endAt);
+  if (String(exam.status || '').toUpperCase() !== 'OPEN' || now < start || now > end) {
+    throw new Error('Exam is not currently open');
+  }
+
+  var previousSubmissionAt = findLastSubmittedAttemptAt_(getAttemptedSheet_(), exam.examId, email);
+  var eligible = exam.eligibleEmails.indexOf(email) >= 0;
+  var startedAt = now.toISOString();
+
+  // Return attempt data without writing to sheet - will be written on submit
+  return {
+    attempt: {
+      attemptId: attemptId,
+      examId: exam.examId,
+      email: email,
+      tabSwitchCount: 0,
+      score: 0,
+      startAt: startedAt,
+      endAt: '',
+      submittedAt: '',
+      eligible: eligible,
+      previousSubmissionAt: previousSubmissionAt
+    },
+    exam: exam
+  };
 }
 
 function submitAttempt_(payload) {
@@ -263,10 +246,33 @@ function submitAttempt_(payload) {
   lock.waitLock(30000);
   try {
     var sheet = getAttemptedSheet_();
+    
+    // First try to find by attemptId (for resubmit of same attempt)
     var rowIndex = findAttemptRow_(sheet, attemptId);
+    
+    // If not found by attemptId, check for any existing attempt by email and examId
+    // This updates the most recent attempt even if previously submitted
+    if (rowIndex < 0) {
+      rowIndex = findLatestAttemptRow_(sheet, examId, email);
+      // If found existing row, update the attemptId to match current attempt
+      if (rowIndex > 0) {
+        sheet.getRange(rowIndex, 1, 1, 1).setValue(attemptId);
+      }
+    }
+    
     var submittedAt = new Date().toISOString();
     var exam = getExamById_(examId);
     var eligible = exam ? exam.eligibleEmails.indexOf(email) >= 0 : false;
+    
+    // If updating an existing row, keep the maximum score
+    var finalScore = score;
+    if (rowIndex > 0) {
+      var existingRow = sheet.getRange(rowIndex, 1, 1, ATTEMPT_HEADERS.length).getValues()[0];
+      var existingScore = Number(existingRow[6] || 0);
+      if (existingScore > score) {
+        finalScore = existingScore;
+      }
+    }
 
     var rowValues = [
       attemptId,
@@ -275,7 +281,7 @@ function submitAttempt_(payload) {
       email,
       eligible ? 'YES' : 'NO',
       tabSwitchCount,
-      score,
+      finalScore,
       startAt,
       endAt,
       submittedAt,
@@ -284,6 +290,7 @@ function submitAttempt_(payload) {
       submittedAt
     ];
 
+    // Update existing row or append new one
     if (rowIndex > 0) {
       sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
     } else {
@@ -300,7 +307,7 @@ function submitAttempt_(payload) {
         examId: examId,
         email: email,
         tabSwitchCount: tabSwitchCount,
-        score: score,
+        score: finalScore,
         startAt: startAt,
         endAt: endAt,
         submittedAt: submittedAt,

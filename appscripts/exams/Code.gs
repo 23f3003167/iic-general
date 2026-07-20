@@ -540,6 +540,43 @@ function findAttemptRow_(sheet, attemptId) {
   return -1;
 }
 
+function findLatestAttemptRow_(sheet, examId, email) {
+  if (!examId || !email) {
+    return -1;
+  }
+
+  var normalizedEmail = String(email || '').trim().toLowerCase();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    return -1;
+  }
+
+  var values = sheet.getRange(2, 1, lastRow - 1, ATTEMPT_HEADERS.length).getValues();
+  
+  // Find the most recent attempt (submitted or not) for this email and exam
+  var foundRowIndex = -1;
+  var latestStartAt = 0;
+
+  for (var i = 0; i < values.length; i++) {
+    if (String(values[i][1] || '').trim() !== examId) {
+      continue;
+    }
+
+    if (String(values[i][3] || '').trim().toLowerCase() !== normalizedEmail) {
+      continue;
+    }
+
+    var startAt = String(values[i][7] || '').trim();
+    var startTime = new Date(startAt).getTime();
+    if (!isNaN(startTime) && startTime > latestStartAt) {
+      latestStartAt = startTime;
+      foundRowIndex = i + 2;
+    }
+  }
+
+  return foundRowIndex;
+}
+
 function findLastSubmittedAttemptAt_(sheet, examId, email) {
   if (!examId || !email) {
     return '';
