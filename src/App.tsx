@@ -63,6 +63,7 @@ const App = () => {
             <Route path="/admin/evaluators" element={<AdminDashboard />} />
             <Route path="/admin/database" element={<AdminDashboard />} />
             <Route path="/admin/reports" element={<AdminDashboard />} />
+            <Route path="/admin/activity-points-form" element={<AdminDashboard />} />
             <Route path="/admin/recruiters" element={<RecruitersManagement />} />
             <Route path="/admin/company-outreach" element={<CompanyOutreachManagement />} />
             <Route path="*" element={<NotFound />} />

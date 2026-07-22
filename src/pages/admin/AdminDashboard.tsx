@@ -15,6 +15,7 @@ import {
   Calendar,
   Database,
   BarChart3,
+  FileEdit,
 } from 'lucide-react';
 import { CheckCircle2 } from 'lucide-react';
 import {
@@ -58,6 +59,7 @@ import DatabaseManagement from './DatabaseManagement';
 import { RecruitersManagement } from './RecruitersManagement';
 import { CompanyOutreachManagement } from './CompanyOutreachManagement';
 import ReportsManagement from './ReportsManagement';
+import ActivityPointsFormManagement from './ActivityPointsFormManagement';
 
 const adminNavItems = [
   { path: '/admin/dashboard', label: 'Overview', icon: Home },
@@ -72,6 +74,7 @@ const adminNavItems = [
   { path: '/admin/company-outreach', label: 'Company Outreach', icon: Bell },
   { path: '/admin/database', label: 'Database', icon: Database },
   { path: '/admin/reports', label: 'Reports', icon: BarChart3 },
+  { path: '/admin/activity-points-form', label: 'Activity Points Form', icon: FileEdit },
 ];
 
 const AdminDashboard = () => {
@@ -256,6 +259,8 @@ const AdminDashboard = () => {
         return <DatabaseManagement />;
       case '/admin/reports':
         return <ReportsManagement />;
+      case '/admin/activity-points-form':
+        return <ActivityPointsFormManagement />;
       default:
         return (
           <div className="space-y-6">

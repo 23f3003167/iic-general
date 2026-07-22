@@ -11,11 +11,14 @@ import { Loader2, Search } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { lookupStudentActivityPoints, type StudentActivityPointsLookup } from '@/lib/toolsService';
 import { getStoredVerifiedEmail } from '@/lib/emailVerificationService';
+import ActivityPointsForm from '@/components/ActivityPointsForm';
 
 interface Submission {
   date: string;
   course: string;
   proof: string;
+  status?: string;
+  reason?: string;
 }
 
 type ActivityPointsFormState = {
@@ -265,20 +268,8 @@ const ActivityPoints = () => {
             </TabsList>
 
             <TabsContent value="submit" className="space-y-4">
-              {/* Google Form Embed */}
-              <div className="flex justify-center">
-                <iframe
-                  src="https://docs.google.com/forms/d/e/1FAIpQLScKq2iceagaelvu46t0ABdZkXyTB0AVQ5aJM8cDQd6dwlvc6g/viewform?embedded=true"
-                  style={{ width: '1100px', height: '700px' }}
-                  frameBorder="0"
-                  marginHeight={0}
-                  marginWidth={0}
-                  className="w-full max-w-[1100px]"
-                  title="Activity Points Form"
-                >
-                  Loading…
-                </iframe>
-              </div>
+              {/* Custom Activity Points Form */}
+              <ActivityPointsForm />
             </TabsContent>
 
             <TabsContent value="lookup" className="space-y-6">
@@ -375,6 +366,8 @@ const ActivityPoints = () => {
                               <th className="text-left p-3 font-medium">Date</th>
                               <th className="text-left p-3 font-medium">Activity</th>
                               <th className="text-left p-3 font-medium">Proof</th>
+                              <th className="text-left p-3 font-medium">Status</th>
+                              <th className="text-left p-3 font-medium">Reason</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -396,6 +389,16 @@ const ActivityPoints = () => {
                                     '—'
                                   )}
                                 </td>
+                                <td className="p-3">
+                                  {sub.status ? (
+                                    <Badge variant={sub.status.toLowerCase() === 'approved' ? 'default' : 'secondary'}>
+                                      {sub.status}
+                                    </Badge>
+                                  ) : (
+                                    '—'
+                                  )}
+                                </td>
+                                <td className="p-3">{sub.reason || '—'}</td>
                               </tr>
                             ))}
                           </tbody>
