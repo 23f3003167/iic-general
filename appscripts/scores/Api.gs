@@ -781,35 +781,32 @@ function getTerminationReport_() {
   }
   
   var ss = SpreadsheetApp.openById(spreadsheetId);
-  var sheet = ss.getSheetByName('Termination');
+  var sheetName = String(props.getProperty('PLAN_TERMINATED_SHEET_NAME') || 'Plan Terminated - May 2026').trim();
+  var sheet = ss.getSheetByName(sheetName);
   
   if (!sheet) {
-    return { domainNotFilled: 0, level1Termination: 0, total: 0 };
+    return { sheetName: sheetName, table: [], total: 0 };
   }
   
   var data = sheet.getDataRange().getValues();
-  
-  // Skip header row
-  var domainNotFilledCount = 0;
-  var level1TerminationCount = 0;
-  
-  for (var i = 1; i < data.length; i++) {
-    var row = data[i];
-    
-    // Count emails in first column (Domain Not Filled)
-    if (row[0] && String(row[0]).trim() && String(row[0]).indexOf('@') !== -1) {
-      domainNotFilledCount++;
+  if (!data.length) return { sheetName: sheetName, table: [], total: 0 };
+
+  // Every non-empty header becomes a report row; its count is the number of
+  // email addresses below that header. This keeps the report in sync with the
+  // Plan Terminated sheet without hard-coded categories or columns.
+  var headers = data[0];
+  var table = [];
+  var total = 0;
+  for (var column = 0; column < headers.length; column++) {
+    var header = String(headers[column] || '').trim();
+    if (!header) continue;
+    var count = 0;
+    for (var row = 1; row < data.length; row++) {
+      var value = String(data[row][column] || '').trim();
+      if (value && value.indexOf('@') !== -1) count++;
     }
-    
-    // Count emails in second column (Level 1 Termination)
-    if (row[1] && String(row[1]).trim() && String(row[1]).indexOf('@') !== -1) {
-      level1TerminationCount++;
-    }
+    table.push({ category: header, count: count });
+    total += count;
   }
-  
-  return {
-    domainNotFilled: domainNotFilledCount,
-    level1Termination: level1TerminationCount,
-    total: domainNotFilledCount + level1TerminationCount
-  };
+  return { sheetName: sheetName, table: table, total: total };
 }

@@ -51,6 +51,8 @@ export async function verifyStudentEmail(email: string): Promise<VerifyEmailResp
 }
 
 const VERIFIED_EMAIL_STORAGE_KEY = 'iic_portal_verified_email';
+const STUDENT_DOMAIN_STORAGE_KEY = 'iic_portal_student_domain';
+const STUDENT_PLAN_STORAGE_KEY = 'iic_portal_student_plan';
 
 export function getStoredVerifiedEmail(): string | null {
   try {
@@ -74,4 +76,58 @@ export function clearVerifiedEmail(): void {
   } catch {
     console.warn('Failed to clear verified email from localStorage');
   }
+}
+
+export function getStoredStudentDomain(): string | null {
+  try {
+    return localStorage.getItem(STUDENT_DOMAIN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function storeStudentDomain(domain: string): void {
+  try {
+    localStorage.setItem(STUDENT_DOMAIN_STORAGE_KEY, domain.trim());
+  } catch {
+    console.warn('Failed to store student domain in localStorage');
+  }
+}
+
+export function clearStudentDomain(): void {
+  try {
+    localStorage.removeItem(STUDENT_DOMAIN_STORAGE_KEY);
+  } catch {
+    console.warn('Failed to clear student domain from localStorage');
+  }
+}
+
+export function getStoredStudentPlan(): string | null {
+  try {
+    return localStorage.getItem(STUDENT_PLAN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function storeStudentPlan(plan: string): void {
+  try {
+    localStorage.setItem(STUDENT_PLAN_STORAGE_KEY, plan.trim());
+  } catch {
+    console.warn('Failed to store student plan in localStorage');
+  }
+}
+
+export function clearStudentPlan(): void {
+  try {
+    localStorage.removeItem(STUDENT_PLAN_STORAGE_KEY);
+  } catch {
+    console.warn('Failed to clear student plan from localStorage');
+  }
+}
+
+export function clearStudentData(): void {
+  clearVerifiedEmail();
+  clearStudentDomain();
+  clearStudentPlan();
 }

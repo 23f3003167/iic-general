@@ -1,4 +1,4 @@
-import { combineSlotsData, SummaryStats } from '@/lib/slotsService';
+import { SummaryStats } from '@/lib/slotsService';
 
 type ApiEnvelope<T> = {
   success: boolean;
@@ -7,8 +7,8 @@ type ApiEnvelope<T> = {
   data?: T;
 };
 
-const webAppUrl = import.meta.env.VITE_BEHAVIORAL_APPS_SCRIPT_WEB_APP_URL;
-const apiToken = import.meta.env.VITE_BEHAVIORAL_APPS_SCRIPT_API_TOKEN;
+const webAppUrl = import.meta.env.VITE_ONE_ON_ONE_APPS_SCRIPT_WEB_APP_URL;
+const apiToken = import.meta.env.VITE_ONE_ON_ONE_APPS_SCRIPT_API_TOKEN;
 
 function normalizeWebAppUrl(url: string): string {
   return url.replace(/\/a\/macros\/[^/]+\/s\//, '/macros/s/');
@@ -23,10 +23,10 @@ async function parseJsonResponse<T>(response: Response): Promise<ApiEnvelope<T>>
   }
 }
 
-export async function fetchBehavioralSummaryStats(): Promise<SummaryStats[]> {
+export async function fetchOneOnOneSummaryStats(): Promise<SummaryStats[]> {
   if (!webAppUrl) {
     throw new Error(
-      'Behavioral Apps Script URL not configured. Set VITE_BEHAVIORAL_APPS_SCRIPT_WEB_APP_URL.'
+      '1on1 Apps Script URL not configured. Set VITE_ONE_ON_ONE_APPS_SCRIPT_WEB_APP_URL.'
     );
   }
 
@@ -36,14 +36,14 @@ export async function fetchBehavioralSummaryStats(): Promise<SummaryStats[]> {
       'Content-Type': 'text/plain;charset=utf-8',
     },
     body: JSON.stringify({
-      action: 'getBehavioralStats',
+      action: 'getOneOnOneStats',
       ...(apiToken ? { apiToken } : {}),
     }),
   });
 
   if (!response.ok) {
     throw new Error(
-      `Behavioral Apps Script request failed: ${response.status} ${response.statusText}`
+      `1on1 Apps Script request failed: ${response.status} ${response.statusText}`
     );
   }
 
@@ -59,7 +59,7 @@ export async function fetchBehavioralSummaryStats(): Promise<SummaryStats[]> {
 export async function checkStudentSlot(email: string, assessmentType: string): Promise<any> {
   if (!webAppUrl) {
     throw new Error(
-      'Behavioral Apps Script URL not configured. Set VITE_BEHAVIORAL_APPS_SCRIPT_WEB_APP_URL.'
+      '1on1 Apps Script URL not configured. Set VITE_ONE_ON_ONE_APPS_SCRIPT_WEB_APP_URL.'
     );
   }
 
@@ -69,7 +69,7 @@ export async function checkStudentSlot(email: string, assessmentType: string): P
       'Content-Type': 'text/plain;charset=utf-8',
     },
     body: JSON.stringify({
-      action: 'checkSlot',
+      action: 'checkOneOnOneSlot',
       email: email,
       assessmentType: assessmentType,
       ...(apiToken ? { apiToken } : {}),
@@ -78,7 +78,7 @@ export async function checkStudentSlot(email: string, assessmentType: string): P
 
   if (!response.ok) {
     throw new Error(
-      `Behavioral Apps Script request failed: ${response.status} ${response.statusText}`
+      `1on1 Apps Script request failed: ${response.status} ${response.statusText}`
     );
   }
 
@@ -91,42 +91,35 @@ export async function checkStudentSlot(email: string, assessmentType: string): P
   return result.data;
 }
 
-export type BehavioralStudentVerification = {
-  verified: boolean;
-  email: string;
-  alreadyBooked: boolean;
-  booking: {
-    timestamp: string;
-    name: string;
-    email: string;
-    contact: string;
-    slot: string;
-    status: string;
-  } | null;
-};
-
-export type BehavioralBookableSlot = {
+export type OneOnOneBookableSlot = {
   slot: string;
   seatRemaining: number;
   evaluatorEmail: string;
 };
 
-export type BehavioralBookableSlotsResponse = {
+export type OneOnOneBookableSlotsResponse = {
   email: string;
+  domain: string;
+  plan: string;
   verified: boolean;
-  message?: string;
-  slots: BehavioralBookableSlot[];
+  alreadyBooked?: boolean;
+  booking?: OneOnOneBookSlotResponse;
+  slots: OneOnOneBookableSlot[];
 };
 
-export type BehavioralBookSlotRequest = {
+export type OneOnOneBookSlotRequest = {
   bookingId: string;
   name: string;
   email: string;
   contact: string;
   slot: string;
+  domain: string;
+  plan: string;
+  resumeDriveLink?: string;
+  progressCardDriveLink?: string;
 };
 
-export type BehavioralBookSlotResponse = {
+export type OneOnOneBookSlotResponse = {
   success: boolean;
   alreadyProcessed: boolean;
   timestamp: string;
@@ -136,12 +129,14 @@ export type BehavioralBookSlotResponse = {
   slot: string;
   status: string;
   bookingId: string;
+  domain: string;
+  plan: string;
 };
 
-export async function verifyBehavioralStudent(email: string): Promise<BehavioralStudentVerification> {
+export async function getOneOnOneBookableSlots(email: string, domain: string, plan: string): Promise<OneOnOneBookableSlotsResponse> {
   if (!webAppUrl) {
     throw new Error(
-      'Behavioral Apps Script URL not configured. Set VITE_BEHAVIORAL_APPS_SCRIPT_WEB_APP_URL.'
+      '1on1 Apps Script URL not configured. Set VITE_ONE_ON_ONE_APPS_SCRIPT_WEB_APP_URL.'
     );
   }
 
@@ -151,19 +146,21 @@ export async function verifyBehavioralStudent(email: string): Promise<Behavioral
       'Content-Type': 'text/plain;charset=utf-8',
     },
     body: JSON.stringify({
-      action: 'verifyBehavioralStudent',
+      action: 'getOneOnOneBookableSlots',
       email,
+      domain,
+      plan,
       ...(apiToken ? { apiToken } : {}),
     }),
   });
 
   if (!response.ok) {
     throw new Error(
-      `Behavioral Apps Script request failed: ${response.status} ${response.statusText}`
+      `1on1 Apps Script request failed: ${response.status} ${response.statusText}`
     );
   }
 
-  const result = await parseJsonResponse<BehavioralStudentVerification>(response);
+  const result = await parseJsonResponse<OneOnOneBookableSlotsResponse>(response);
   if (!result.success || !result.data) {
     throw new Error(result.message || result.error || 'Unknown error from Apps Script');
   }
@@ -171,10 +168,10 @@ export async function verifyBehavioralStudent(email: string): Promise<Behavioral
   return result.data;
 }
 
-export async function getBehavioralBookableSlots(email: string): Promise<BehavioralBookableSlotsResponse> {
+export async function bookOneOnOneSlot(request: OneOnOneBookSlotRequest): Promise<OneOnOneBookSlotResponse> {
   if (!webAppUrl) {
     throw new Error(
-      'Behavioral Apps Script URL not configured. Set VITE_BEHAVIORAL_APPS_SCRIPT_WEB_APP_URL.'
+      '1on1 Apps Script URL not configured. Set VITE_ONE_ON_ONE_APPS_SCRIPT_WEB_APP_URL.'
     );
   }
 
@@ -184,40 +181,7 @@ export async function getBehavioralBookableSlots(email: string): Promise<Behavio
       'Content-Type': 'text/plain;charset=utf-8',
     },
     body: JSON.stringify({
-      action: 'getBehavioralBookableSlots',
-      email,
-      ...(apiToken ? { apiToken } : {}),
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `Behavioral Apps Script request failed: ${response.status} ${response.statusText}`
-    );
-  }
-
-  const result = await parseJsonResponse<BehavioralBookableSlotsResponse>(response);
-  if (!result.success || !result.data) {
-    throw new Error(result.message || result.error || 'Unknown error from Apps Script');
-  }
-
-  return result.data;
-}
-
-export async function bookBehavioralSlot(request: BehavioralBookSlotRequest): Promise<BehavioralBookSlotResponse> {
-  if (!webAppUrl) {
-    throw new Error(
-      'Behavioral Apps Script URL not configured. Set VITE_BEHAVIORAL_APPS_SCRIPT_WEB_APP_URL.'
-    );
-  }
-
-  const response = await fetch(normalizeWebAppUrl(webAppUrl), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8',
-    },
-    body: JSON.stringify({
-      action: 'bookBehavioralSlot',
+      action: 'bookOneOnOneSlot',
       ...request,
       ...(apiToken ? { apiToken } : {}),
     }),
@@ -225,11 +189,11 @@ export async function bookBehavioralSlot(request: BehavioralBookSlotRequest): Pr
 
   if (!response.ok) {
     throw new Error(
-      `Behavioral Apps Script request failed: ${response.status} ${response.statusText}`
+      `1on1 Apps Script request failed: ${response.status} ${response.statusText}`
     );
   }
 
-  const result = await parseJsonResponse<BehavioralBookSlotResponse>(response);
+  const result = await parseJsonResponse<OneOnOneBookSlotResponse>(response);
   if (!result.success || !result.data) {
     throw new Error(result.message || result.error || 'Unknown error from Apps Script');
   }
@@ -237,12 +201,20 @@ export async function bookBehavioralSlot(request: BehavioralBookSlotRequest): Pr
   return result.data;
 }
 
-export { combineSlotsData };
+export type OneOnOneSlotsOverview = {
+  instructorName: string;
+  instructorNumber: string;
+  slotsAllocated: number;
+  slotsWithFeedback: number;
+  absentees: number;
+};
 
-export async function callBehavioralAppsScript<T>(payload: Record<string, any>): Promise<T> {
+export { combineSlotsData } from '@/lib/slotsService';
+
+export async function callOneOnOneAppsScript<T>(payload: Record<string, any>): Promise<T> {
   if (!webAppUrl) {
     throw new Error(
-      'Behavioral Apps Script URL not configured. Set VITE_BEHAVIORAL_APPS_SCRIPT_WEB_APP_URL.'
+      '1on1 Apps Script URL not configured. Set VITE_ONE_ON_ONE_APPS_SCRIPT_WEB_APP_URL.'
     );
   }
 
@@ -259,7 +231,7 @@ export async function callBehavioralAppsScript<T>(payload: Record<string, any>):
 
   if (!response.ok) {
     throw new Error(
-      `Behavioral Apps Script request failed: ${response.status} ${response.statusText}`
+      `1on1 Apps Script request failed: ${response.status} ${response.statusText}`
     );
   }
 

@@ -607,13 +607,10 @@ const EvaluatorsManagement = () => {
                           </div>
                         </div>
 
-                        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-                          <p><span className="font-medium">Date:</span> {oneOnOneRow?.studentDate || ''}</p>
+                        <div className="grid gap-2 md:grid-cols-2">
                           <p><span className="font-medium">Slot:</span> {oneOnOneRow?.slotTime || oneOnOneRow?.slot || ''}</p>
-                          <p><span className="font-medium">CGPA:</span> {oneOnOneRow?.cgpa || 'N/A'}</p>
                           <p><span className="font-medium">Domain:</span> {oneOnOneRow?.domain || 'N/A'}</p>
                           <p><span className="font-medium">Plan:</span> {oneOnOneRow?.plan || 'N/A'}</p>
-                          <p><span className="font-medium">Placement Readiness:</span> {oneOnOneRow?.placementReadiness || ''}</p>
                         </div>
                       </div>
 

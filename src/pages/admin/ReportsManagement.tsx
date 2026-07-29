@@ -117,12 +117,12 @@ const ReportsManagement = () => {
   const renderTerminationTable = () => {
     if (!data?.termination) return null;
 
-    const { domainNotFilled, level1Termination, total } = data.termination;
+    const { sheetName, table, total } = data.termination;
 
     return (
       <Card className="h-full">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Termination Mails</CardTitle>
+          <CardTitle className="text-sm">{sheetName || 'Plan Terminated'} Mails</CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
           <Table>
@@ -133,14 +133,12 @@ const ReportsManagement = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow>
-                <TableCell className="font-medium text-xs">Domain Not Filled</TableCell>
-                <TableCell className="text-center text-xs">{domainNotFilled}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium text-xs">Level 1 Termination</TableCell>
-                <TableCell className="text-center text-xs">{level1Termination}</TableCell>
-              </TableRow>
+              {table.map((row) => (
+                <TableRow key={row.category}>
+                  <TableCell className="font-medium text-xs">{row.category}</TableCell>
+                  <TableCell className="text-center text-xs">{row.count}</TableCell>
+                </TableRow>
+              ))}
               <TableRow className="bg-muted/50">
                 <TableCell className="font-semibold text-xs">Total</TableCell>
                 <TableCell className="text-center font-semibold text-xs">{total}</TableCell>

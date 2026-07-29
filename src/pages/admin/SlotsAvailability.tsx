@@ -8,22 +8,26 @@ import { useToast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { auth } from '@/lib/firebase';
 import { listSlotsAvailability, createSlotAvailability, deleteSlotAvailability, getSlotsConfig, setSlotsConfig, type SlotAvailability, type SlotsAvailabilityWindow } from '@/lib/firestoreService';
-import { getBehavioralInstructors, getPresentationInstructors, type InstructorOption } from '@/lib/toolsService';
+import { getBehavioralInstructors, getPresentationInstructors, getOneOnOneInstructors, type InstructorOption } from '@/lib/toolsService';
 import PresentationSlotsOverview from './PresentationSlotsOverview';
 import BehavioralSlotsOverview from './BehavioralSlotsOverview';
+import OneOnOneSlotsOverview from './OneOnOneSlotsOverview';
 
 const SUPER_ADMINS = ['sanjay_k@study.iitm.ac.in', 'jeyalakshmi_a@study.iitm.ac.in'];
 
 const SlotsAvailabilityPage = () => {
   const { toast } = useToast();
   const [availabilities, setAvailabilities] = useState<SlotAvailability[]>([]);
-  const [section, setSection] = useState<'behavioral' | 'presentation'>('behavioral');
+  const [section, setSection] = useState<'behavioral' | 'presentation' | 'oneOnOne'>('behavioral');
   const [instructorNumber, setInstructorNumber] = useState('1');
   const [instructors, setInstructors] = useState<InstructorOption[]>([]);
   const [date, setDate] = useState('');
+  const [editingStartDate, setEditingStartDate] = useState('');
+  const [editingEndDate, setEditingEndDate] = useState('');
   const [startTime, setStartTime] = useState('10:00');
   const [endTime, setEndTime] = useState('10:10');
-  const [duration] = useState({ behavioral: 10, presentation: 15 });
+  const [duration, setDuration] = useState({ behavioral: 10, presentation: 15, oneOnOne: 30 });
+  const [domain, setDomain] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [config, setConfig] = useState<SlotsAvailabilityWindow>({
     editingEnabled: false,
@@ -31,7 +35,6 @@ const SlotsAvailabilityPage = () => {
     availableStartTime: '',
     availableEndTime: '',
   });
-  const [windowDate, setWindowDate] = useState('');
   const [windowStartTime, setWindowStartTime] = useState('09:00');
   const [windowEndTime, setWindowEndTime] = useState('17:00');
 
@@ -39,13 +42,16 @@ const SlotsAvailabilityPage = () => {
 
   const editingEnabled = useMemo(() => {
     if (!config.editingEnabled) return false;
-    if (!config.availableDate) return false;
+    const startDate = config.availableStartDate || config.availableDate;
+    const endDate = config.availableEndDate || config.availableDate;
+    if (!startDate || !endDate) return false;
     const now = new Date();
     const [startHours, startMinutes] = (config.availableStartTime || '00:00').split(':').map(Number);
     const [endHours, endMinutes] = (config.availableEndTime || '23:59').split(':').map(Number);
-    const [year, month, day] = config.availableDate.split('-').map(Number);
-    const start = new Date(year, month - 1, day, startHours || 0, startMinutes || 0, 0);
-    const end = new Date(year, month - 1, day, endHours || 23, endMinutes || 59, 59);
+    const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+    const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+    const start = new Date(startYear, startMonth - 1, startDay, startHours || 0, startMinutes || 0, 0);
+    const end = new Date(endYear, endMonth - 1, endDay, endHours || 23, endMinutes || 59, 59);
     return now >= start && now <= end;
   }, [config]);
 
@@ -57,12 +63,16 @@ const SlotsAvailabilityPage = () => {
       try {
         const cfg = await getSlotsConfig();
         setConfig(cfg);
-        setWindowDate(cfg.availableDate || '');
+        setEditingStartDate(cfg.availableStartDate || cfg.availableDate || '');
+        setEditingEndDate(cfg.availableEndDate || cfg.availableDate || '');
         setWindowStartTime(cfg.availableStartTime || '09:00');
         setWindowEndTime(cfg.availableEndTime || '17:00');
+        
         const [list, ins] = await Promise.all([
           listSlotsAvailability(section),
-          section === 'behavioral' ? getBehavioralInstructors() : getPresentationInstructors(),
+          section === 'behavioral' ? getBehavioralInstructors() : 
+          section === 'presentation' ? getPresentationInstructors() : 
+          getOneOnOneInstructors(),
         ]);
 
         setAvailabilities(list || []);
@@ -83,6 +93,16 @@ const SlotsAvailabilityPage = () => {
     try {
       const ins = instructors.find((i) => i.number === instructorNumber);
       if (!ins) throw new Error('Instructor not selected');
+      
+      if (section === 'oneOnOne' && !domain) {
+        throw new Error('Domain is required for 1on1 slots');
+      }
+      
+      if (!endTime) {
+        throw new Error('End time is required');
+      }
+
+      // Save to Firestore only for all sections (behavioral, presentation, oneOnOne)
       const payload: SlotAvailability = {
         section,
         instructorNumber,
@@ -91,14 +111,13 @@ const SlotsAvailabilityPage = () => {
         startTime,
         endTime,
         durationMinutes: duration[section],
+        domain: section === 'oneOnOne' ? domain : undefined,
         active: true,
         createdBy: auth.currentUser?.email || 'unknown',
       };
-      if (!endTime) {
-        throw new Error('End time is required');
-      }
       await createSlotAvailability(payload);
       toast({ title: 'Saved', description: 'Availability saved.' });
+      
       const list = await listSlotsAvailability(section);
       setAvailabilities(list || []);
     } catch (err) {
@@ -123,12 +142,14 @@ const SlotsAvailabilityPage = () => {
   const toggleEditing = async () => {
     try {
       const nextEnabled = !config.editingEnabled;
-      if (nextEnabled && (!windowDate || !windowStartTime || !windowEndTime)) {
-        throw new Error('Set the editing date and time window before enabling editing.');
+      if (nextEnabled && (!editingStartDate || !editingEndDate || !windowStartTime || !windowEndTime)) {
+        throw new Error('Set the editing start/end dates and times before enabling editing.');
       }
       const nextConfig: SlotsAvailabilityWindow = {
         editingEnabled: nextEnabled,
-        availableDate: nextEnabled ? windowDate : '',
+        availableDate: nextEnabled ? editingStartDate : '',
+        availableStartDate: nextEnabled ? editingStartDate : '',
+        availableEndDate: nextEnabled ? editingEndDate : '',
         availableStartTime: nextEnabled ? windowStartTime : '',
         availableEndTime: nextEnabled ? windowEndTime : '',
         updatedBy: auth.currentUser?.email || 'unknown',
@@ -157,6 +178,7 @@ const SlotsAvailabilityPage = () => {
           <TabsTrigger value="management">Slot Management</TabsTrigger>
           <TabsTrigger value="presentationOverview">Presentation Overview</TabsTrigger>
           <TabsTrigger value="behavioralOverview">Behavioral Overview</TabsTrigger>
+          <TabsTrigger value="oneOnOneOverview">1on1 Overview</TabsTrigger>
         </TabsList>
 
         <TabsContent value="management" className="space-y-4">
@@ -165,7 +187,7 @@ const SlotsAvailabilityPage = () => {
               <div className="flex items-center gap-3">
                 {config.editingEnabled ? (
                   <div className="text-xs text-muted-foreground text-right">
-                    <div>Open: {config.availableDate || '—'}</div>
+                    <div>Open: {config.availableStartDate || config.availableDate || '—'} to {config.availableEndDate || config.availableDate || '—'}</div>
                     <div>{config.availableStartTime || '—'} to {config.availableEndTime || '—'}</div>
                     <div>{editingEnabled ? 'Status: open now' : 'Status: closed now'}</div>
                   </div>
@@ -185,19 +207,21 @@ const SlotsAvailabilityPage = () => {
               ) : !canCreateAvailability ? (
                 <p className="text-sm text-muted-foreground">Adding availability is closed now. It is only open within the configured window. Saved availability is still shown below.</p>
               ) : (
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div>
-                    <label className="text-sm font-medium">Section</label>
-                    <Select value={section} onValueChange={(v) => setSection(v as any)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="behavioral">Behavioral</SelectItem>
-                        <SelectItem value="presentation">Presentation</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div>
+                      <label className="text-sm font-medium">Section</label>
+                      <Select value={section} onValueChange={(v) => setSection(v as any)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="behavioral">Behavioral</SelectItem>
+                          <SelectItem value="presentation">Presentation</SelectItem>
+                          <SelectItem value="oneOnOne">1on1</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
                   <div>
                     <label className="text-sm font-medium">Instructor</label>
@@ -228,22 +252,57 @@ const SlotsAvailabilityPage = () => {
                     <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
                   </div>
 
-                  <div>
-                    <label className="text-sm font-medium">Duration</label>
-                    <Input value={`${duration[section]} mins`} disabled />
-                  </div>
+                  {section === 'oneOnOne' && (
+                    <div>
+                      <label className="text-sm font-medium">Domain</label>
+                      <Select value={domain} onValueChange={setDomain}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select domain" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Data Science">Data Science</SelectItem>
+                          <SelectItem value="Programming">Programming</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {section === 'oneOnOne' ? (
+                    <div>
+                      <label className="text-sm font-medium">Duration</label>
+                      <Select value={String(duration.oneOnOne)} onValueChange={(v) => setDuration({ ...duration, oneOnOne: Number(v) })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="15">15 mins</SelectItem>
+                          <SelectItem value="30">30 mins</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="text-sm font-medium">Duration</label>
+                      <Input value={`${duration[section]} mins`} disabled />
+                    </div>
+                  )}
 
                   <div className="flex items-end">
                     <Button onClick={handleCreate}>Save Availability</Button>
                   </div>
                 </div>
+              </div>
               )}
 
               {isSuperAdmin ? (
                 <div className="mt-4 grid gap-4 md:grid-cols-3 rounded-md border bg-muted/20 p-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Editing Date</label>
-                    <Input type="date" value={windowDate} onChange={(e) => setWindowDate(e.target.value)} />
+                    <label className="text-sm font-medium">Editing Start Date</label>
+                    <Input type="date" value={editingStartDate} onChange={(e) => setEditingStartDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Editing End Date</label>
+                    <Input type="date" value={editingEndDate} onChange={(e) => setEditingEndDate(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Editing Start Time</label>
@@ -264,7 +323,7 @@ const SlotsAvailabilityPage = () => {
                       <div className="space-y-1">
                         <div className="font-medium">{a.instructorName || 'Unknown instructor'}</div>
                         <div className="text-sm text-muted-foreground">
-                          {a.section} | {a.date || '—'} | {a.startTime || '—'} - {a.endTime || '—'} | {a.durationMinutes || '—'} mins
+                          {a.section} | {a.date || a.startDate || '—'} {a.endDate ? `- ${a.endDate}` : ''} | {a.startTime || '—'} - {a.endTime || '—'} | {a.durationMinutes || '—'} mins {a.domain ? `| Domain: ${a.domain}` : ''}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           ID: {a.id}
@@ -286,6 +345,10 @@ const SlotsAvailabilityPage = () => {
 
         <TabsContent value="behavioralOverview">
           <BehavioralSlotsOverview />
+        </TabsContent>
+
+        <TabsContent value="oneOnOneOverview">
+          <OneOnOneSlotsOverview />
         </TabsContent>
       </Tabs>
     </div>

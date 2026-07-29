@@ -20,14 +20,13 @@ type ReleaseBehaviouralSlotsRequest = {
   studentAuthorizationColumn?: string;
 };
 
-type ReleaseOneOnOneSlotsRequest = {
+export type ReleaseOneOnOneSlotsRequest = {
   date: string;
   startTime: string;
   endTime: string;
   durationMinutes: number;
   instructorNumber: string;
   domain: string;
-  syncToForm?: boolean;
 };
 
 type ReleasePresentationSlotsRequest = {
@@ -560,8 +559,8 @@ export type ReportsDataResponse = {
     total: number;
   };
   termination: {
-    domainNotFilled: number;
-    level1Termination: number;
+    sheetName: string;
+    table: Array<{ category: string; count: number }>;
     total: number;
   };
 };

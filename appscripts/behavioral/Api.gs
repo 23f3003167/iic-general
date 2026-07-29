@@ -511,7 +511,7 @@ function checkSlot_(payload) {
 }
 
 function verifyBehavioralStudent_(payload) {
-  assertBookingWindowOpen_();
+  // assertBookingWindowOpen_(); // Booking window check moved to frontend
 
   var email = normalizeEmail_(payload.email);
   if (!email) {
@@ -586,6 +586,7 @@ function getBehavioralBookableSlots_(payload) {
   return {
     email: email,
     verified: true,
+    message: slots.length ? '' : 'No slots are available right now. Please try again later.',
     slots: slots
   };
 }
@@ -818,48 +819,10 @@ function setBookingWindow_(payload) {
 }
 
 function assertBookingWindowOpen_() {
-  var windowConfig = getBehavioralBookingWindow_();
-  if (!windowConfig.date || !windowConfig.startTime || !windowConfig.endTime) {
-    throw new Error('Slot booking window is currently closed.');
-  }
-
-  var parts = windowConfig.date.split('/');
-  if (parts.length !== 3) {
-    throw new Error('Slot booking window is currently closed.');
-  }
-
-  var day = Number(parts[0]);
-  var month = Number(parts[1]) - 1;
-  var year = Number(parts[2]);
-  var startParts = windowConfig.startTime.split(':');
-  var endParts = windowConfig.endTime.split(':');
-  if (startParts.length !== 2 || endParts.length !== 2) {
-    throw new Error('Slot booking window is currently closed.');
-  }
-
-  var startAt = new Date(
-    year,
-    month,
-    day,
-    Number(startParts[0]),
-    Number(startParts[1]),
-    0,
-    0
-  );
-  var endAt = new Date(
-    year,
-    month,
-    day,
-    Number(endParts[0]),
-    Number(endParts[1]),
-    59,
-    999
-  );
-  var now = new Date();
-
-  if (now < startAt || now > endAt) {
-    throw new Error('Slot booking window is currently closed.');
-  }
+  // Booking-window validation is intentionally performed by the frontend using
+  // the latest Firestore document. Script Properties are not synchronized with
+  // that document, so checking them here would reject an open window.
+  return true;
 }
 
 function findExistingBookedSlotByEmail_(email) {

@@ -17,21 +17,26 @@ import { computeFormsStatus } from './statusCompute';
 
 export type SlotAvailability = {
   id?: string;
-  section: 'behavioral' | 'presentation';
+  section: 'behavioral' | 'presentation' | 'oneOnOne';
   instructorNumber: string;
   instructorName: string;
   date: string;
+  startDate?: string;
+  endDate?: string;
   startTime: string;
   endTime: string;
   durationMinutes: number;
   active?: boolean;
   createdBy?: string;
   createdAt?: unknown;
+  domain?: string;
 };
 
 export type SlotsAvailabilityWindow = {
   editingEnabled: boolean;
-  availableDate: string;
+  availableDate: string; // legacy single-day value
+  availableStartDate?: string;
+  availableEndDate?: string;
   availableStartTime: string;
   availableEndTime: string;
   updatedBy?: string;
@@ -41,7 +46,7 @@ export type SlotsAvailabilityWindow = {
 const SLOT_AVAILABILITY_COLLECTION = 'slotsAvailability';
 const SLOT_AVAILABILITY_CONFIG_DOC = 'slotsAvailabilityConfig/config';
 
-export async function listSlotsAvailability(section: 'behavioral' | 'presentation'): Promise<SlotAvailability[]> {
+export async function listSlotsAvailability(section: 'behavioral' | 'presentation' | 'oneOnOne'): Promise<SlotAvailability[]> {
   const snapshot = await getDocs(collection(db, SLOT_AVAILABILITY_COLLECTION));
   return snapshot.docs
     .map((snapshotDoc) => ({ id: snapshotDoc.id, ...(snapshotDoc.data() as SlotAvailability) }))
@@ -80,6 +85,8 @@ export async function getSlotsConfig(): Promise<SlotsAvailabilityWindow> {
   return {
     editingEnabled: Boolean(data.editingEnabled),
     availableDate: String(data.availableDate || ''),
+    availableStartDate: String(data.availableStartDate || data.availableDate || ''),
+    availableEndDate: String(data.availableEndDate || data.availableDate || ''),
     availableStartTime: String(data.availableStartTime || ''),
     availableEndTime: String(data.availableEndTime || ''),
     updatedBy: data.updatedBy,
@@ -92,6 +99,8 @@ export async function setSlotsConfig(config: SlotsAvailabilityWindow): Promise<v
   await setDoc(docRef, {
     editingEnabled: config.editingEnabled,
     availableDate: config.availableDate,
+    availableStartDate: config.availableStartDate || config.availableDate,
+    availableEndDate: config.availableEndDate || config.availableDate,
     availableStartTime: config.availableStartTime,
     availableEndTime: config.availableEndTime,
     updatedBy: config.updatedBy || '',
@@ -103,7 +112,7 @@ const BOOKING_WINDOWS_COLLECTION = 'bookingWindows';
 
 export type BookingWindow = {
   id?: string;
-  type: 'behavioral' | 'presentation';
+  type: 'behavioral' | 'presentation' | 'oneOnOne';
   availableDate: string;
   availableStartTime: string;
   availableEndTime: string;
@@ -112,8 +121,18 @@ export type BookingWindow = {
 };
 
 export async function getBookingWindowsFromFirestore(): Promise<BookingWindow[]> {
-  const snapshot = await getDocs(collection(db, BOOKING_WINDOWS_COLLECTION));
-  return snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as BookingWindow) }));
+  const snapshot = await getDocs(query(collection(db, BOOKING_WINDOWS_COLLECTION), orderBy('createdAt', 'desc')));
+  const allWindows = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as BookingWindow) }));
+  
+  // Return only the latest booking window for each type
+  const latestByType = new Map<string, BookingWindow>();
+  for (const window of allWindows) {
+    if (!latestByType.has(window.type)) {
+      latestByType.set(window.type, window);
+    }
+  }
+  
+  return Array.from(latestByType.values());
 }
 
 export async function createBookingWindowIfNotExists(window: BookingWindow): Promise<{ id?: string; existed: boolean }> {
@@ -155,7 +174,7 @@ export async function createBookingWindowIfNotExists(window: BookingWindow): Pro
   }
 }
 
-export async function isBookingWindowOpen(type: 'behavioral' | 'presentation'): Promise<{ open: boolean; window?: BookingWindow }> {
+export async function isBookingWindowOpen(type: 'behavioral' | 'presentation' | 'oneOnOne'): Promise<{ open: boolean; window?: BookingWindow }> {
   try {
     console.log('Checking booking window for type:', type);
     const q = query(
@@ -171,34 +190,70 @@ export async function isBookingWindowOpen(type: 'behavioral' | 'presentation'): 
       return { open: false };
     }
 
-    const now = new Date();
-    console.log('Current time:', now);
-    
-    // Check each booking window to see if any are currently open
-    for (const doc of snapshot.docs) {
-      const window = doc.data() as BookingWindow;
-      console.log('Checking booking window:', window);
+    // Sort by createdAt descending to get the latest window
+    const sortedDocs = snapshot.docs.sort((a, b) => {
+      const aData = a.data();
+      const bData = b.data();
+      let aTime = 0;
+      let bTime = 0;
       
-      const [day, month, year] = window.availableDate.split('/').map(Number);
-      const [startHour, startMin] = window.availableStartTime.split(':').map(Number);
-      const [endHour, endMin] = window.availableEndTime.split(':').map(Number);
-      
-      console.log('Parsed date:', { day, month, year });
-      console.log('Parsed time:', { startHour, startMin, endHour, endMin });
-      
-      const windowStart = new Date(year, month - 1, day, startHour, startMin, 0, 0);
-      const windowEnd = new Date(year, month - 1, day, endHour, endMin, 59, 999);
-      
-      console.log('Window start:', windowStart);
-      console.log('Window end:', windowEnd);
-      console.log('Now:', now);
-      console.log('Is now >= windowStart?', now >= windowStart);
-      console.log('Is now <= windowEnd?', now <= windowEnd);
-      
-      if (now >= windowStart && now <= windowEnd) {
-        console.log('Booking window is OPEN');
-        return { open: true, window: { id: doc.id, ...window } };
+      if (aData.createdAt) {
+        // Handle Firestore Timestamp
+        if (typeof aData.createdAt.toMillis === 'function') {
+          aTime = aData.createdAt.toMillis();
+        } else {
+          aTime = new Date(aData.createdAt as any).getTime();
+        }
       }
+      
+      if (bData.createdAt) {
+        // Handle Firestore Timestamp
+        if (typeof bData.createdAt.toMillis === 'function') {
+          bTime = bData.createdAt.toMillis();
+        } else {
+          bTime = new Date(bData.createdAt as any).getTime();
+        }
+      }
+      
+      console.log('Sorting comparison:', { aTime, bTime, result: bTime - aTime });
+      return bTime - aTime;
+    });
+    
+    console.log('Sorted docs count:', sortedDocs.length);
+    sortedDocs.forEach((doc, index) => {
+      const data = doc.data();
+      console.log(`Doc ${index}:`, {
+        availableDate: data.availableDate,
+        createdAt: data.createdAt,
+        createdAtMillis: data.createdAt && typeof data.createdAt.toMillis === 'function' ? data.createdAt.toMillis() : new Date(data.createdAt as any).getTime()
+      });
+    });
+    
+    // Only check the latest booking window
+    const latestDoc = sortedDocs[0];
+    const window = latestDoc.data() as BookingWindow;
+    console.log('Checking latest booking window:', window);
+    
+    const [day, month, year] = window.availableDate.split('/').map(Number);
+    const [startHour, startMin] = window.availableStartTime.split(':').map(Number);
+    const [endHour, endMin] = window.availableEndTime.split(':').map(Number);
+    
+    console.log('Parsed date:', { day, month, year });
+    console.log('Parsed time:', { startHour, startMin, endHour, endMin });
+    
+    const now = new Date();
+    const windowStart = new Date(year, month - 1, day, startHour, startMin, 0, 0);
+    const windowEnd = new Date(year, month - 1, day, endHour, endMin, 59, 999);
+    
+    console.log('Window start:', windowStart);
+    console.log('Window end:', windowEnd);
+    console.log('Now:', now);
+    console.log('Is now >= windowStart?', now >= windowStart);
+    console.log('Is now <= windowEnd?', now <= windowEnd);
+    
+    if (now >= windowStart && now <= windowEnd) {
+      console.log('Booking window is OPEN');
+      return { open: true, window: { id: latestDoc.id, ...window } };
     }
     
     console.log('No booking window is currently open');

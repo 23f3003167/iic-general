@@ -186,6 +186,8 @@ const ToolsManagement = () => {
   const { toast } = useToast();
 
   const [openSlotLauncher, setOpenSlotLauncher] = useState(false);
+  const [openBookingWindowTool, setOpenBookingWindowTool] = useState(false);
+  const [openReleaseSlotsTool, setOpenReleaseSlotsTool] = useState(false);
   const [openBehavioralTool, setOpenBehavioralTool] = useState(false);
   const [openPresentationTool, setOpenPresentationTool] = useState(false);
   const [openOneOnOneTool, setOpenOneOnOneTool] = useState(false);
@@ -195,9 +197,6 @@ const ToolsManagement = () => {
   const [slotDate, setSlotDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-  const [bookingWindowDate, setBookingWindowDate] = useState('');
-  const [bookingWindowStartTime, setBookingWindowStartTime] = useState('');
-  const [bookingWindowEndTime, setBookingWindowEndTime] = useState('');
   const [instructorNumber, setInstructorNumber] = useState('1');
   const [studentAuthorizationEmails, setStudentAuthorizationEmails] = useState('');
   const [isReleasingSlots, setIsReleasingSlots] = useState(false);
@@ -205,8 +204,10 @@ const ToolsManagement = () => {
 
   const [behavioralAvailabilities, setBehavioralAvailabilities] = useState<SlotAvailability[]>([]);
   const [presentationAvailabilities, setPresentationAvailabilities] = useState<SlotAvailability[]>([]);
+  const [oneOnOneAvailabilities, setOneOnOneAvailabilities] = useState<SlotAvailability[]>([]);
   const [selectedBehavioralAvailability, setSelectedBehavioralAvailability] = useState<string>('');
   const [selectedPresentationAvailability, setSelectedPresentationAvailability] = useState<string>('');
+  const [selectedOneOnOneAvailability, setSelectedOneOnOneAvailability] = useState<string>('');
   const [slotsConfig, setSlotsConfigState] = useState<{ editingEnabled?: boolean }>({ editingEnabled: false });
 
   const SUPER_ADMINS = ['sanjay_k@study.iitm.ac.in', 'jeyalakshmi_a@study.iitm.ac.in'];
@@ -218,9 +219,6 @@ const ToolsManagement = () => {
   const [presentationSyncToForm, setPresentationSyncToForm] = useState(true);
   const [presentationResetFormResponses, setPresentationResetFormResponses] = useState(false);
   const [presentationStudentAuthorizationEmails, setPresentationStudentAuthorizationEmails] = useState('');
-  const [presentationBookingWindowDate, setPresentationBookingWindowDate] = useState('');
-  const [presentationBookingWindowStartTime, setPresentationBookingWindowStartTime] = useState('');
-  const [presentationBookingWindowEndTime, setPresentationBookingWindowEndTime] = useState('');
   const [isReleasingPresentationSlots, setIsReleasingPresentationSlots] = useState(false);
   const [presentationInstructors, setPresentationInstructors] = useState<InstructorOption[]>([]);
 
@@ -230,9 +228,21 @@ const ToolsManagement = () => {
   const [oneOnOneInstructorNumber, setOneOnOneInstructorNumber] = useState('');
   const [oneOnOneDomain, setOneOnOneDomain] = useState('Data Science');
   const [oneOnOneDurationMinutes, setOneOnOneDurationMinutes] = useState<number>(ONE_ON_ONE_SLOT_DURATION_MINUTES);
-  const [oneOnOneSyncToForm, setOneOnOneSyncToForm] = useState(true);
+  const [oneOnOneStudentAuthorizationEmails, setOneOnOneStudentAuthorizationEmails] = useState('');
   const [isReleasingOneOnOneSlots, setIsReleasingOneOnOneSlots] = useState(false);
   const [oneOnOneInstructors, setOneOnOneInstructors] = useState<InstructorOption[]>([]);
+
+  // Booking Window Timeline state
+  const [baBookingDate, setBaBookingDate] = useState('');
+  const [baBookingStartTime, setBaBookingStartTime] = useState('');
+  const [baBookingEndTime, setBaBookingEndTime] = useState('');
+  const [presentationBookingDate, setPresentationBookingDate] = useState('');
+  const [presentationBookingStartTime, setPresentationBookingStartTime] = useState('');
+  const [presentationBookingEndTime, setPresentationBookingEndTime] = useState('');
+  const [oneOnOneBookingDate, setOneOnOneBookingDate] = useState('');
+  const [oneOnOneBookingStartTime, setOneOnOneBookingStartTime] = useState('');
+  const [oneOnOneBookingEndTime, setOneOnOneBookingEndTime] = useState('');
+  const [isUpdatingBookingWindow, setIsUpdatingBookingWindow] = useState(false);
 
   const [aiSheetId, setAiSheetId] = useState(import.meta.env.VITE_AI_EVALUATION_SHEET_ID || '');
   const [aiSheetIdEditable, setAiSheetIdEditable] = useState(false);
@@ -293,12 +303,14 @@ const ToolsManagement = () => {
 
     const loadAvailabilities = async () => {
       try {
-        const [baList, prList] = await Promise.all([
+        const [baList, prList, oneOnOneList] = await Promise.all([
           listSlotsAvailability('behavioral'),
           listSlotsAvailability('presentation'),
+          listSlotsAvailability('oneOnOne'),
         ]);
         setBehavioralAvailabilities(baList || []);
         setPresentationAvailabilities(prList || []);
+        setOneOnOneAvailabilities(oneOnOneList || []);
         // load config
         try {
           const cfg = await getSlotsConfig();
@@ -313,16 +325,7 @@ const ToolsManagement = () => {
 
     loadInstructors();
     loadAvailabilities();
-    
-    // Load booking window values from localStorage
-    const savedBookingWindowDate = localStorage.getItem('bookingWindowDate');
-    const savedBookingWindowStartTime = localStorage.getItem('bookingWindowStartTime');
-    const savedBookingWindowEndTime = localStorage.getItem('bookingWindowEndTime');
-    
-    if (savedBookingWindowDate) setBookingWindowDate(savedBookingWindowDate);
-    if (savedBookingWindowStartTime) setBookingWindowStartTime(savedBookingWindowStartTime);
-    if (savedBookingWindowEndTime) setBookingWindowEndTime(savedBookingWindowEndTime);
-    
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -346,6 +349,19 @@ const ToolsManagement = () => {
     setStartTime(a.startTime || '');
     setEndTime(a.endTime || '');
     setInstructorNumber(a.instructorNumber || instructorNumber);
+  };
+
+  const handleSelectOneOnOneAvailability = (id: string) => {
+    setSelectedOneOnOneAvailability(id);
+    if (!id) return;
+    const a = oneOnOneAvailabilities.find((it) => it.id === id);
+    if (!a) return;
+    setOneOnOneSlotDate(a.startDate || a.date || '');
+    setOneOnOneStartTime(a.startTime || '');
+    setOneOnOneEndTime(a.endTime || '');
+    setOneOnOneInstructorNumber(a.instructorNumber || oneOnOneInstructorNumber);
+    setOneOnOneDomain(a.domain || 'Data Science');
+    setOneOnOneDurationMinutes(a.durationMinutes || ONE_ON_ONE_SLOT_DURATION_MINUTES);
   };
 
   const selectedPresentationAvailabilityRow = presentationAvailabilities.find((item) => item.id === selectedPresentationAvailability);
@@ -375,9 +391,6 @@ const ToolsManagement = () => {
     setSlotDate('');
     setStartTime('');
     setEndTime('');
-    setBookingWindowDate('');
-    setBookingWindowStartTime('');
-    setBookingWindowEndTime('');
     setInstructorNumber(behavioralInstructors[0]?.number || '1');
     setStudentAuthorizationEmails('');
   };
@@ -387,9 +400,6 @@ const ToolsManagement = () => {
     setPresentationStartTime('');
     setPresentationEndTime('');
     setPresentationInstructorNumber(presentationInstructors[0]?.number || '1');
-    setPresentationBookingWindowDate('');
-    setPresentationBookingWindowStartTime('');
-    setPresentationBookingWindowEndTime('');
     setPresentationSyncToForm(true);
     setPresentationResetFormResponses(false);
     setPresentationStudentAuthorizationEmails('');
@@ -402,7 +412,7 @@ const ToolsManagement = () => {
     setOneOnOneInstructorNumber(oneOnOneInstructors[0]?.number || '');
     setOneOnOneDomain('Data Science');
     setOneOnOneDurationMinutes(ONE_ON_ONE_SLOT_DURATION_MINUTES);
-    setOneOnOneSyncToForm(true);
+    setOneOnOneStudentAuthorizationEmails('');
   };
 
   const clearAiTool = () => {
@@ -639,7 +649,7 @@ const ToolsManagement = () => {
   };
 
   const handleReleaseSlots = async () => {
-    if (!slotDate || !startTime || !endTime || !instructorNumber || !bookingWindowDate || !bookingWindowStartTime || !bookingWindowEndTime) {
+    if (!slotDate || !startTime || !endTime || !instructorNumber) {
       toast({
         title: 'Missing details',
         description: 'Please fill all slot fields before releasing.',
@@ -656,14 +666,6 @@ const ToolsManagement = () => {
       });
       return;
     }
-    if (bookingWindowEndTime <= bookingWindowStartTime) {
-      toast({
-        title: 'Invalid booking window',
-        description: 'Booking window end time should be after start time.',
-        variant: 'destructive',
-      });
-      return;
-    }
 
     const payload = {
       date: toDdMmYyyy(slotDate),
@@ -671,9 +673,6 @@ const ToolsManagement = () => {
       endTime: toAmPmFrom24Hour(endTime),
       durationMinutes: BA_SLOT_DURATION_MINUTES,
       instructorNumber: instructorNumber.trim(),
-      bookingWindowDate: toDdMmYyyy(bookingWindowDate),
-      bookingWindowStartTime: bookingWindowStartTime,
-      bookingWindowEndTime: bookingWindowEndTime,
       syncToForm: true,
       resetFormResponses: false,
       studentAuthorizationEmails: studentAuthorizationEmails.trim() || undefined,
@@ -686,38 +685,9 @@ const ToolsManagement = () => {
         ? ` Auth column ${response.authorizationColumn}: ${response.addedStudents ?? response.validStudents ?? 0} emails added.`
         : '';
 
-      // Sync booking window to Firestore directly
-      if (bookingWindowDate && bookingWindowStartTime && bookingWindowEndTime) {
-        try {
-          await createBookingWindowIfNotExists({
-            type: 'behavioral',
-            availableDate: toDdMmYyyy(bookingWindowDate),
-            availableStartTime: bookingWindowStartTime,
-            availableEndTime: bookingWindowEndTime,
-            createdBy: auth.currentUser?.email || '',
-            createdAt: new Date()
-          });
-        } catch (firestoreError) {
-          console.error('Failed to sync booking window to Firestore:', firestoreError);
-        }
-
-        // Also set booking window in Apps Script properties
-        try {
-          await callBehavioralAppsScript({
-            action: 'setBookingWindow',
-            date: toDdMmYyyy(bookingWindowDate),
-            startTime: bookingWindowStartTime,
-            endTime: bookingWindowEndTime,
-          });
-          console.log('Behavioral Apps Script booking window set successfully');
-        } catch (appsScriptError) {
-          console.error('Failed to set booking window in behavioral Apps Script:', appsScriptError);
-        }
-      }
-
       toast({
         title: 'Slots released',
-        description: `${response.slotsCreated} slots created. Booking window: ${response.bookingWindowDate || payload.bookingWindowDate} ${response.bookingWindowStartTime || payload.bookingWindowStartTime} - ${response.bookingWindowEndTime || payload.bookingWindowEndTime}.${authSummary}`,
+        description: `${response.slotsCreated} slots created.${authSummary}`,
       });
 
       addHistory({
@@ -727,11 +697,6 @@ const ToolsManagement = () => {
         message: `${response.slotsCreated} slots created`,
         result: response,
       });
-      
-      // Save booking window values to localStorage for next time
-      localStorage.setItem('bookingWindowDate', bookingWindowDate);
-      localStorage.setItem('bookingWindowStartTime', bookingWindowStartTime);
-      localStorage.setItem('bookingWindowEndTime', bookingWindowEndTime);
     } catch (error) {
       console.error(error);
       const message = error instanceof Error ? error.message : 'Could not release slots.';
@@ -774,30 +739,6 @@ const ToolsManagement = () => {
       });
       return;
     }
-    if (presentationBookingWindowDate && !presentationBookingWindowStartTime) {
-      toast({
-        title: 'Invalid booking window',
-        description: 'Booking window start time is required.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    if (presentationBookingWindowDate && !presentationBookingWindowEndTime) {
-      toast({
-        title: 'Invalid booking window',
-        description: 'Booking window end time is required.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    if (presentationBookingWindowEndTime <= presentationBookingWindowStartTime) {
-      toast({
-        title: 'Invalid booking window',
-        description: 'Booking window end time should be after start time.',
-        variant: 'destructive',
-      });
-      return;
-    }
 
     const payload = {
       date: toDdMmYyyy(presentationSlotDate),
@@ -805,9 +746,6 @@ const ToolsManagement = () => {
       endTime: toAmPmFrom24Hour(presentationEndTime),
       durationMinutes: PRESENTATION_SLOT_DURATION_MINUTES,
       instructorNumber: presentationInstructorNumber.trim(),
-      bookingWindowDate: presentationBookingWindowDate ? toDdMmYyyy(presentationBookingWindowDate) : undefined,
-      bookingWindowStartTime: presentationBookingWindowStartTime || undefined,
-      bookingWindowEndTime: presentationBookingWindowEndTime || undefined,
       syncToForm: presentationSyncToForm,
       resetFormResponses: presentationResetFormResponses,
       studentAuthorizationEmails: presentationStudentAuthorizationEmails.trim() || undefined,
@@ -820,49 +758,6 @@ const ToolsManagement = () => {
         ? ` Auth column ${response.authorizationColumn}: ${response.addedStudents ?? response.validStudents ?? 0} emails added.`
         : '';
       const resetSummary = response.resetFormResponses ? ' Form responses reset for reattempts.' : '';
-
-      // Sync booking window to Firestore directly
-      if (presentationBookingWindowDate && presentationBookingWindowStartTime && presentationBookingWindowEndTime) {
-        try {
-          console.log('Creating presentation booking window in Firestore:', {
-            type: 'presentation',
-            availableDate: toDdMmYyyy(presentationBookingWindowDate),
-            availableStartTime: presentationBookingWindowStartTime,
-            availableEndTime: presentationBookingWindowEndTime,
-            createdBy: auth.currentUser?.email || '',
-            createdAt: new Date()
-          });
-          const result = await createBookingWindowIfNotExists({
-            type: 'presentation',
-            availableDate: toDdMmYyyy(presentationBookingWindowDate),
-            availableStartTime: presentationBookingWindowStartTime,
-            availableEndTime: presentationBookingWindowEndTime,
-            createdBy: auth.currentUser?.email || '',
-            createdAt: new Date()
-          });
-          console.log('Firestore booking window created:', result);
-        } catch (firestoreError) {
-          console.error('Failed to sync booking window to Firestore:', firestoreError);
-          toast({
-            title: 'Firestore sync warning',
-            description: 'Booking window synced to sheet but not to Firestore.',
-            variant: 'destructive',
-          });
-        }
-
-        // Also set booking window in Apps Script properties
-        try {
-          await callPresentationAppsScript({
-            action: 'setBookingWindow',
-            date: toDdMmYyyy(presentationBookingWindowDate),
-            startTime: presentationBookingWindowStartTime,
-            endTime: presentationBookingWindowEndTime,
-          });
-          console.log('Apps Script booking window set successfully');
-        } catch (appsScriptError) {
-          console.error('Failed to set booking window in Apps Script:', appsScriptError);
-        }
-      }
 
       toast({
         title: 'Presentation slots released',
@@ -900,6 +795,89 @@ const ToolsManagement = () => {
     }
   };
 
+  const handleUpdateBookingWindow = async () => {
+    setIsUpdatingBookingWindow(true);
+    try {
+      const updates = [];
+
+      // Update Behavioral booking window
+      if (baBookingDate && baBookingStartTime && baBookingEndTime) {
+        updates.push(
+          createBookingWindowIfNotExists({
+            type: 'behavioral',
+            availableDate: toDdMmYyyy(baBookingDate),
+            availableStartTime: baBookingStartTime,
+            availableEndTime: baBookingEndTime,
+            createdBy: auth.currentUser?.email || '',
+            createdAt: new Date()
+          })
+        );
+        // Also set in Apps Script properties
+        updates.push(
+          callBehavioralAppsScript({
+            action: 'setBookingWindow',
+            date: toDdMmYyyy(baBookingDate),
+            startTime: baBookingStartTime,
+            endTime: baBookingEndTime,
+          })
+        );
+      }
+
+      // Update Presentation booking window
+      if (presentationBookingDate && presentationBookingStartTime && presentationBookingEndTime) {
+        updates.push(
+          createBookingWindowIfNotExists({
+            type: 'presentation',
+            availableDate: toDdMmYyyy(presentationBookingDate),
+            availableStartTime: presentationBookingStartTime,
+            availableEndTime: presentationBookingEndTime,
+            createdBy: auth.currentUser?.email || '',
+            createdAt: new Date()
+          })
+        );
+        // Also set in Apps Script properties
+        updates.push(
+          callPresentationAppsScript({
+            action: 'setBookingWindow',
+            date: toDdMmYyyy(presentationBookingDate),
+            startTime: presentationBookingStartTime,
+            endTime: presentationBookingEndTime,
+          })
+        );
+      }
+
+      // Update 1on1 booking window
+      if (oneOnOneBookingDate && oneOnOneBookingStartTime && oneOnOneBookingEndTime) {
+        updates.push(
+          createBookingWindowIfNotExists({
+            type: 'oneOnOne',
+            availableDate: toDdMmYyyy(oneOnOneBookingDate),
+            availableStartTime: oneOnOneBookingStartTime,
+            availableEndTime: oneOnOneBookingEndTime,
+            createdBy: auth.currentUser?.email || '',
+            createdAt: new Date()
+          })
+        );
+      }
+
+      await Promise.all(updates);
+      toast({
+        title: 'Booking windows updated',
+        description: 'Booking window timelines have been updated successfully.',
+      });
+      setOpenBookingWindowTool(false);
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Update failed',
+        description: error instanceof Error ? error.message : 'Could not update booking windows.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUpdatingBookingWindow(false);
+    }
+  };
+
   const handleReleaseOneOnOneSlots = async () => {
     if (!oneOnOneSlotDate || !oneOnOneStartTime || !oneOnOneEndTime || !oneOnOneInstructorNumber || !oneOnOneDomain) {
       toast({
@@ -926,7 +904,7 @@ const ToolsManagement = () => {
       durationMinutes: oneOnOneDurationMinutes,
       instructorNumber: oneOnOneInstructorNumber,
       domain: oneOnOneDomain,
-      syncToForm: oneOnOneSyncToForm,
+      studentAuthorizationEmails: oneOnOneStudentAuthorizationEmails.trim() || undefined,
     };
 
     setIsReleasingOneOnOneSlots(true);
@@ -945,7 +923,7 @@ const ToolsManagement = () => {
           endTime: toAmPmFrom24Hour(oneOnOneEndTime),
           durationMinutes: oneOnOneDurationMinutes,
           instructorNumber: oneOnOneInstructorNumber,
-          syncToForm: oneOnOneSyncToForm,
+          syncToForm: false,
           resetFormResponses: false,
         },
         status: 'SUCCESS',
@@ -973,7 +951,7 @@ const ToolsManagement = () => {
           endTime: toAmPmFrom24Hour(oneOnOneEndTime),
           durationMinutes: oneOnOneDurationMinutes,
           instructorNumber: oneOnOneInstructorNumber,
-          syncToForm: oneOnOneSyncToForm,
+          syncToForm: false,
           resetFormResponses: false,
         },
         status: 'FAILED',
@@ -1079,13 +1057,127 @@ const ToolsManagement = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Slot Booking Tools</DialogTitle>
-            <DialogDescription>Select a slot module.</DialogDescription>
+            <DialogDescription>Select an action.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Button
               className="w-full justify-start"
               onClick={() => {
                 setOpenSlotLauncher(false);
+                setOpenBookingWindowTool(true);
+              }}
+            >
+              Modify Booking Window Timeline
+            </Button>
+            <Button
+              className="w-full justify-start"
+              variant="outline"
+              onClick={() => {
+                setOpenSlotLauncher(false);
+                setOpenReleaseSlotsTool(true);
+              }}
+            >
+              Release Slots
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openBookingWindowTool} onOpenChange={setOpenBookingWindowTool}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Modify Booking Window Timeline</DialogTitle>
+            <DialogDescription>
+              Set the booking window dates and times for Behavioral, Presentation, and 1on1 slots.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Behavioral Booking Window */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-medium">Behavioral Assessment</h3>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Booking Window Date</label>
+                  <Input type="date" value={baBookingDate} onChange={(e) => setBaBookingDate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Start Time</label>
+                  <Input type="time" value={baBookingStartTime} onChange={(e) => setBaBookingStartTime(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">End Time</label>
+                  <Input type="time" value={baBookingEndTime} onChange={(e) => setBaBookingEndTime(e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            {/* Presentation Booking Window */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-medium">Presentation</h3>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Booking Window Date</label>
+                  <Input type="date" value={presentationBookingDate} onChange={(e) => setPresentationBookingDate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Start Time</label>
+                  <Input type="time" value={presentationBookingStartTime} onChange={(e) => setPresentationBookingStartTime(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">End Time</label>
+                  <Input type="time" value={presentationBookingEndTime} onChange={(e) => setPresentationBookingEndTime(e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            {/* 1on1 Booking Window */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-medium">1on1 Session</h3>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Booking Window Date</label>
+                  <Input type="date" value={oneOnOneBookingDate} onChange={(e) => setOneOnOneBookingDate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Start Time</label>
+                  <Input type="time" value={oneOnOneBookingStartTime} onChange={(e) => setOneOnOneBookingStartTime(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">End Time</label>
+                  <Input type="time" value={oneOnOneBookingEndTime} onChange={(e) => setOneOnOneBookingEndTime(e.target.value)} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+            Action will run as: {auth.currentUser?.email || 'Unknown Admin'}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenBookingWindowTool(false)} disabled={isUpdatingBookingWindow}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateBookingWindow} disabled={isUpdatingBookingWindow}>
+              {isUpdatingBookingWindow ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Update Booking Windows
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openReleaseSlotsTool} onOpenChange={setOpenReleaseSlotsTool}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Release Slots</DialogTitle>
+            <DialogDescription>Select a slot module to release slots.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Button
+              className="w-full justify-start"
+              onClick={() => {
+                setOpenReleaseSlotsTool(false);
                 setOpenBehavioralTool(true);
               }}
             >
@@ -1095,7 +1187,7 @@ const ToolsManagement = () => {
               className="w-full justify-start"
               variant="outline"
               onClick={() => {
-                setOpenSlotLauncher(false);
+                setOpenReleaseSlotsTool(false);
                 setOpenPresentationTool(true);
               }}
             >
@@ -1105,7 +1197,7 @@ const ToolsManagement = () => {
               className="w-full justify-start"
               variant="outline"
               onClick={() => {
-                setOpenSlotLauncher(false);
+                setOpenReleaseSlotsTool(false);
                 setOpenOneOnOneTool(true);
               }}
             >
@@ -1125,6 +1217,33 @@ const ToolsManagement = () => {
           </DialogHeader>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Saved Availability</label>
+              <Select value={selectedOneOnOneAvailability} onValueChange={handleSelectOneOnOneAvailability}>
+                <SelectTrigger>
+                  <SelectValue placeholder={oneOnOneAvailabilities.length > 0 ? 'Select availability' : 'No saved availability'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {oneOnOneAvailabilities.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {formatAvailabilityLabel(a)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground whitespace-pre-wrap">
+                {selectedOneOnOneAvailability ? (
+                  <>
+                    <div className="font-medium text-foreground">Selected availability</div>
+                    <div>{formatAvailabilityLabel(oneOnOneAvailabilities.find((it) => it.id === selectedOneOnOneAvailability))}</div>
+                    <div>ID: {selectedOneOnOneAvailability}</div>
+                  </>
+                ) : (
+                  'Select a saved availability to populate the release fields.'
+                )}
+              </div>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Date</label>
               <Input
@@ -1213,18 +1332,19 @@ const ToolsManagement = () => {
                 </SelectContent>
               </Select>
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Sync To Form (Legacy)</label>
-              <Button
-                type="button"
-                variant={oneOnOneSyncToForm ? 'default' : 'outline'}
-                className="w-full"
-                onClick={() => setOneOnOneSyncToForm((prev) => !prev)}
-              >
-                {oneOnOneSyncToForm ? 'Enabled' : 'Disabled'}
-              </Button>
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Student Authorization Emails (Optional)</label>
+            <Textarea
+              rows={4}
+              placeholder="Paste student email IDs separated by comma, space, or new line"
+              value={oneOnOneStudentAuthorizationEmails}
+              onChange={(e) => setOneOnOneStudentAuthorizationEmails(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              If provided, emails are added to the Students subsheet for authorization.
+            </p>
           </div>
 
           <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
@@ -1540,21 +1660,6 @@ const ToolsManagement = () => {
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Booking Window Date</label>
-              <Input type="date" value={presentationBookingWindowDate} onChange={(e) => setPresentationBookingWindowDate(e.target.value)} />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Booking Window Start Time</label>
-              <Input type="time" value={presentationBookingWindowStartTime} onChange={(e) => setPresentationBookingWindowStartTime(e.target.value)} />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Booking Window End Time</label>
-              <Input type="time" value={presentationBookingWindowEndTime} onChange={(e) => setPresentationBookingWindowEndTime(e.target.value)} />
-            </div>
           </div>
 
           <div className="space-y-2">
@@ -1680,21 +1785,6 @@ const ToolsManagement = () => {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Booking Window Date</label>
-              <Input type="date" value={bookingWindowDate} onChange={(e) => setBookingWindowDate(e.target.value)} />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Booking Window Start Time</label>
-              <Input type="time" value={bookingWindowStartTime} onChange={(e) => setBookingWindowStartTime(e.target.value)} />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Booking Window End Time</label>
-              <Input type="time" value={bookingWindowEndTime} onChange={(e) => setBookingWindowEndTime(e.target.value)} />
             </div>
           </div>
 
