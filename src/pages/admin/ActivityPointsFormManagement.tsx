@@ -497,11 +497,41 @@ const SectionForm = ({
     id: section?.id || '',
     title: section?.title || '',
     description: section?.description || '',
+    conditionalLogic: section?.conditionalLogic || null,
   });
+
+  const [conditions, setConditions] = useState(
+    section?.conditionalLogic?.showWhen?.map(c => ({
+      fieldId: c.fieldId,
+      equals: Array.isArray(c.equals) ? c.equals.join(', ') : (c.equals || ''),
+      notEquals: c.notEquals || '',
+    })) || []
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    const conditionalLogic = conditions.length > 0 ? {
+      showWhen: conditions.map(c => ({
+        fieldId: c.fieldId,
+        equals: c.equals ? c.equals.split(',').map(s => s.trim()) : undefined,
+        notEquals: c.notEquals || undefined,
+    }))
+    } : undefined;
+    onSubmit({ ...formData, conditionalLogic });
+  };
+
+  const addCondition = () => {
+    setConditions([...conditions, { fieldId: '', equals: '', notEquals: '' }]);
+  };
+
+  const removeCondition = (index: number) => {
+    setConditions(conditions.filter((_, i) => i !== index));
+  };
+
+  const updateCondition = (index: number, field: string, value: string) => {
+    setConditions(conditions.map((c, i) => 
+      i === index ? { ...c, [field]: value } : c
+    ));
   };
 
   return (
@@ -537,6 +567,64 @@ const SectionForm = ({
           placeholder="Section description..."
         />
       </div>
+      
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label>Conditional Logic</Label>
+          <Button type="button" size="sm" variant="outline" onClick={addCondition}>
+            <Plus className="mr-2 h-3 w-3" />
+            Add Condition
+          </Button>
+        </div>
+        {conditions.map((condition, index) => (
+          <div key={index} className="border rounded-md p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Condition {index + 1}</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => removeCondition(index)}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label htmlFor={`condition-field-${index}`} className="text-xs">Field ID</Label>
+                <Input
+                  id={`condition-field-${index}`}
+                  value={condition.fieldId}
+                  onChange={(e) => updateCondition(index, 'fieldId', e.target.value)}
+                  placeholder="activityType"
+                  className="text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor={`condition-equals-${index}`} className="text-xs">Equals (comma-separated for multiple)</Label>
+                <Input
+                  id={`condition-equals-${index}`}
+                  value={condition.equals}
+                  onChange={(e) => updateCondition(index, 'equals', e.target.value)}
+                  placeholder="Common Mandatory Activity Points"
+                  className="text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor={`condition-not-equals-${index}`} className="text-xs">Not Equals</Label>
+                <Input
+                  id={`condition-not-equals-${index}`}
+                  value={condition.notEquals}
+                  onChange={(e) => updateCondition(index, 'notEquals', e.target.value)}
+                  placeholder="Value to exclude"
+                  className="text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
@@ -569,6 +657,14 @@ const FieldForm = ({
     options: field?.options?.join(', ') || '',
   });
 
+  const [conditions, setConditions] = useState(
+    field?.conditionalLogic?.showWhen?.map(c => ({
+      fieldId: c.fieldId,
+      equals: Array.isArray(c.equals) ? c.equals.join(', ') : (c.equals || ''),
+      notEquals: c.notEquals || '',
+    })) || []
+  );
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const options = formData.options
@@ -576,11 +672,37 @@ const FieldForm = ({
       .map(o => o.trim())
       .filter(Boolean);
     
+    const conditionalLogic = conditions.length > 0 ? {
+      showWhen: conditions.map(c => ({
+        fieldId: c.fieldId,
+        equals: c.equals ? c.equals.split(',').map(s => s.trim()) : undefined,
+        notEquals: c.notEquals || undefined,
+    }))
+    } : undefined;
+    
     onSubmit({
       ...formData,
       options: options.length > 0 ? options : undefined,
+      conditionalLogic,
     });
   };
+
+  const addCondition = () => {
+    setConditions([...conditions, { fieldId: '', equals: '', notEquals: '' }]);
+  };
+
+  const removeCondition = (index: number) => {
+    setConditions(conditions.filter((_, i) => i !== index));
+  };
+
+  const updateCondition = (index: number, field: string, value: string) => {
+    setConditions(conditions.map((c, i) => 
+      i === index ? { ...c, [field]: value } : c
+    ));
+  };
+
+  // Get all available field IDs for conditional logic
+  const allFieldIds = sections.flatMap(s => s.fields.map(f => f.id));
 
   const needsOptions = ['dropdown', 'radio', 'checkbox'].includes(formData.type);
 
@@ -660,6 +782,70 @@ const FieldForm = ({
           />
         </div>
       )}
+      
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label>Conditional Logic</Label>
+          <Button type="button" size="sm" variant="outline" onClick={addCondition}>
+            <Plus className="mr-2 h-3 w-3" />
+            Add Condition
+          </Button>
+        </div>
+        {conditions.map((condition, index) => (
+          <div key={index} className="border rounded-md p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Condition {index + 1}</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => removeCondition(index)}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label htmlFor={`field-condition-field-${index}`} className="text-xs">Field ID</Label>
+                <Select
+                  value={condition.fieldId}
+                  onValueChange={(value) => updateCondition(index, 'fieldId', value)}
+                >
+                  <SelectTrigger id={`field-condition-field-${index}`} className="text-sm">
+                    <SelectValue placeholder="Select field" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allFieldIds.map(fieldId => (
+                      <SelectItem key={fieldId} value={fieldId}>{fieldId}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor={`field-condition-equals-${index}`} className="text-xs">Equals (comma-separated for multiple)</Label>
+                <Input
+                  id={`field-condition-equals-${index}`}
+                  value={condition.equals}
+                  onChange={(e) => updateCondition(index, 'equals', e.target.value)}
+                  placeholder="Option value"
+                  className="text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor={`field-condition-not-equals-${index}`} className="text-xs">Not Equals</Label>
+                <Input
+                  id={`field-condition-not-equals-${index}`}
+                  value={condition.notEquals}
+                  onChange={(e) => updateCondition(index, 'notEquals', e.target.value)}
+                  placeholder="Value to exclude"
+                  className="text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel

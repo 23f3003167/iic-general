@@ -7,13 +7,128 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { auth } from '@/lib/firebase';
-import { listSlotsAvailability, createSlotAvailability, deleteSlotAvailability, getSlotsConfig, setSlotsConfig, type SlotAvailability, type SlotsAvailabilityWindow } from '@/lib/firestoreService';
+import { listSlotsAvailability, createSlotAvailability, createSlotAvailabilityBulk, deleteSlotAvailability, getSlotsConfig, setSlotsConfig, type SlotAvailability, type SlotsAvailabilityWindow } from '@/lib/firestoreService';
 import { getBehavioralInstructors, getPresentationInstructors, getOneOnOneInstructors, type InstructorOption } from '@/lib/toolsService';
 import PresentationSlotsOverview from './PresentationSlotsOverview';
 import BehavioralSlotsOverview from './BehavioralSlotsOverview';
 import OneOnOneSlotsOverview from './OneOnOneSlotsOverview';
 
 const SUPER_ADMINS = ['sanjay_k@study.iitm.ac.in', 'jeyalakshmi_a@study.iitm.ac.in'];
+
+type SlotSection = SlotAvailability['section'];
+
+const parseCsv = (text: string): string[][] => {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let value = '';
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === '"') {
+      if (quoted && text[index + 1] === '"') {
+        value += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (character === ',' && !quoted) {
+      row.push(value.trim());
+      value = '';
+    } else if ((character === '\n' || character === '\r') && !quoted) {
+      if (character === '\r' && text[index + 1] === '\n') index += 1;
+      row.push(value.trim());
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+      value = '';
+    } else {
+      value += character;
+    }
+  }
+
+  row.push(value.trim());
+  if (row.some(Boolean)) rows.push(row);
+  return rows;
+};
+
+const toIsoDate = (value: string): string | null => {
+  const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return null;
+  const [, day, month, year] = match;
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+  if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return null;
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+};
+
+const to24HourTime = (value: string): string | null => {
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return null;
+  let hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours < 1 || hours > 12 || minutes > 59) return null;
+  if (match[3].toUpperCase() === 'PM' && hours !== 12) hours += 12;
+  if (match[3].toUpperCase() === 'AM' && hours === 12) hours = 0;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
+const parseBulkSlots = (
+  csv: string,
+  instructorNumbers: Map<string, string>,
+  createdBy: string,
+): { slots: SlotAvailability[]; errors: string[] } => {
+  const [headers, ...rows] = parseCsv(csv);
+  const columnIndex = new Map(headers.map((header, index) => [header.replace(/^\uFEFF/, '').trim().toLowerCase(), index]));
+  const requiredHeaders = ['section', 'instructor name', 'date', 'start time', 'end time', 'duration'];
+  const missingHeaders = requiredHeaders.filter((header) => !columnIndex.has(header));
+  if (missingHeaders.length) {
+    return { slots: [], errors: [`Missing CSV columns: ${missingHeaders.join(', ')}`] };
+  }
+
+  const slots: SlotAvailability[] = [];
+  const errors: string[] = [];
+  const instructorNumberColumn = ['instructor number', 'instructornumber', 'instructor email', 'instructoremail']
+    .find((header) => columnIndex.has(header));
+  rows.forEach((row, rowIndex) => {
+    const value = (header: string) => row[columnIndex.get(header)!] || '';
+    const sourceSection = value('section').replace(/\s/g, '').toLowerCase();
+    const section: SlotSection | null = sourceSection === '1on1' || sourceSection === 'oneonone'
+      ? 'oneOnOne'
+      : sourceSection === 'behavioral' || sourceSection === 'presentation'
+        ? sourceSection
+        : null;
+    const instructorName = value('instructor name').trim();
+    const date = toIsoDate(value('date'));
+    const startTime = to24HourTime(value('start time'));
+    const endTime = to24HourTime(value('end time'));
+    const durationMinutes = Number(value('duration'));
+    const uploadedInstructorNumber = instructorNumberColumn ? value(instructorNumberColumn).trim() : '';
+    const instructorNumber = uploadedInstructorNumber || instructorNumbers.get(instructorName.toLowerCase());
+
+    if (!section || !instructorName || !date || !startTime || !endTime || !Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+      errors.push(`Row ${rowIndex + 2}: invalid section, instructor, date, time, or duration.`);
+      return;
+    }
+    if (!instructorNumber) {
+      errors.push(`Row ${rowIndex + 2}: instructor "${instructorName}" was not found. Add an Instructor Number column with their email.`);
+      return;
+    }
+
+    slots.push({
+      section,
+      instructorName,
+      instructorNumber,
+      date,
+      startTime,
+      endTime,
+      durationMinutes,
+      domain: value('domain').trim() || undefined,
+      active: true,
+      createdBy,
+    });
+  });
+
+  return { slots, errors };
+};
 
 const SlotsAvailabilityPage = () => {
   const { toast } = useToast();
@@ -29,6 +144,7 @@ const SlotsAvailabilityPage = () => {
   const [duration, setDuration] = useState({ behavioral: 10, presentation: 15, oneOnOne: 30 });
   const [domain, setDomain] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isBulkUploading, setIsBulkUploading] = useState(false);
   const [config, setConfig] = useState<SlotsAvailabilityWindow>({
     editingEnabled: false,
     availableDate: '',
@@ -136,6 +252,52 @@ const SlotsAvailabilityPage = () => {
     } catch (err) {
       console.error(err);
       toast({ title: 'Delete failed', variant: 'destructive' });
+    }
+  };
+
+  const handleBulkUpload = async (file?: File) => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      toast({ title: 'Upload a CSV file', variant: 'destructive' });
+      return;
+    }
+
+    setIsBulkUploading(true);
+    try {
+      const [csv, behavioral, presentation, oneOnOne] = await Promise.all([
+        file.text(),
+        getBehavioralInstructors(),
+        getPresentationInstructors(),
+        getOneOnOneInstructors(),
+      ]);
+      const instructorNumbers = new Map(
+        [...behavioral, ...presentation, ...oneOnOne].map((instructor) => [
+          instructor.name.trim().toLowerCase(),
+          instructor.number,
+        ])
+      );
+      const { slots, errors } = parseBulkSlots(csv, instructorNumbers, auth.currentUser?.email || 'unknown');
+      if (!slots.length) {
+        throw new Error(errors[0] || 'No valid availability rows were found in the CSV.');
+      }
+
+      await createSlotAvailabilityBulk(slots);
+      if (slots.some((slot) => slot.section === section)) {
+        setAvailabilities(await listSlotsAvailability(section));
+      }
+      toast({
+        title: 'Bulk availability saved',
+        description: `${slots.length} slot${slots.length === 1 ? '' : 's'} added${errors.length ? `; ${errors.length} invalid row(s) skipped.` : '.'}`,
+      });
+    } catch (error) {
+      console.error('Bulk upload failed:', error);
+      toast({
+        title: 'Bulk upload failed',
+        description: error instanceof Error ? error.message : 'Could not save the CSV data.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsBulkUploading(false);
     }
   };
 
@@ -290,6 +452,25 @@ const SlotsAvailabilityPage = () => {
                   <div className="flex items-end">
                     <Button onClick={handleCreate}>Save Availability</Button>
                   </div>
+                </div>
+
+                <div className="rounded-md border border-dashed p-4 space-y-2">
+                  <div>
+                    <h3 className="font-medium">Bulk Adding</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Upload a CSV with Section, Instructor Name, Date, Start Time, End Time, Domain, and Duration columns. Instructor Number (email) is optional but recommended.
+                    </p>
+                  </div>
+                  <Input
+                    type="file"
+                    accept=".csv,text/csv"
+                    disabled={isBulkUploading}
+                    onChange={(event) => {
+                      void handleBulkUpload(event.target.files?.[0]);
+                      event.currentTarget.value = '';
+                    }}
+                  />
+                  {isBulkUploading && <p className="text-sm text-muted-foreground">Saving CSV availability…</p>}
                 </div>
               </div>
               )}

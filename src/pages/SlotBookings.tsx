@@ -26,6 +26,7 @@ import {
 } from '@/lib/oneOnOneService';
 import { getBookingWindowsFromFirestore, isBookingWindowOpen } from '@/lib/firestoreService';
 import { 
+  getStoredVerifiedEmail,
   getStoredStudentDomain, 
   getStoredStudentPlan,
   storeStudentDomain,
@@ -33,7 +34,6 @@ import {
 } from '@/lib/emailVerificationService';
 
 const SlotBookings = () => {
-  const [email, setEmail] = useState('');
   const [assessmentType, setAssessmentType] = useState('behavioral');
   const [isOpen, setIsOpen] = useState(false);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
@@ -42,7 +42,6 @@ const SlotBookings = () => {
   const [error, setError] = useState('');
   
   // Behavioral state
-  const [behavioralEmail, setBehavioralEmail] = useState('');
   const [behavioralVerifyLoading, setBehavioralVerifyLoading] = useState(false);
   const [behavioralVerifyError, setBehavioralVerifyError] = useState('');
   const [behavioralVerification, setBehavioralVerification] = useState<BehavioralStudentVerification | null>(null);
@@ -55,7 +54,6 @@ const SlotBookings = () => {
   const [behavioralBookingSuccess, setBehavioralBookingSuccess] = useState<any>(null);
   
   // Presentation state
-  const [presentationEmail, setPresentationEmail] = useState('');
   const [presentationVerifyLoading, setPresentationVerifyLoading] = useState(false);
   const [presentationVerifyError, setPresentationVerifyError] = useState('');
   const [presentationVerification, setPresentationVerification] = useState<BehavioralStudentVerification | null>(null);
@@ -68,7 +66,6 @@ const SlotBookings = () => {
   const [presentationBookingSuccess, setPresentationBookingSuccess] = useState<any>(null);
   
   // 1on1 state
-  const [oneOnOneEmail, setOneOnOneEmail] = useState('');
   const [oneOnOneDomain, setOneOnOneDomain] = useState('');
   const [oneOnOnePlan, setOneOnOnePlan] = useState('');
   const [oneOnOneVerifyLoading, setOneOnOneVerifyLoading] = useState(false);
@@ -89,6 +86,12 @@ const SlotBookings = () => {
   const [presentationBookingWindow, setPresentationBookingWindow] = useState<any>(null);
   const [oneOnOneBookingWindow, setOneOnOneBookingWindow] = useState<any>(null);
   const [bookingWindowsLoading, setBookingWindowsLoading] = useState(true);
+  const [bookingWindowOpen, setBookingWindowOpen] = useState({
+    behavioral: false,
+    presentation: false,
+    oneOnOne: false,
+  });
+  const verifiedEmail = getStoredVerifiedEmail()?.trim().toLowerCase() || '';
   const currentTimestamp = useMemo(
     () => new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }),
     [behavioralBookingDialogOpen, presentationBookingDialogOpen, oneOnOneBookingDialogOpen]
@@ -105,6 +108,16 @@ const SlotBookings = () => {
         setBehavioralBookingWindow(behavioral || null);
         setPresentationBookingWindow(presentation || null);
         setOneOnOneBookingWindow(oneOnOne || null);
+        const [behavioralStatus, presentationStatus, oneOnOneStatus] = await Promise.all([
+          isBookingWindowOpen('behavioral'),
+          isBookingWindowOpen('presentation'),
+          isBookingWindowOpen('oneOnOne'),
+        ]);
+        setBookingWindowOpen({
+          behavioral: behavioralStatus.open,
+          presentation: presentationStatus.open,
+          oneOnOne: oneOnOneStatus.open,
+        });
       } catch (err) {
         console.error('Error fetching booking windows:', err);
       } finally {
@@ -113,6 +126,8 @@ const SlotBookings = () => {
     };
     
     fetchBookingWindows();
+    const intervalId = window.setInterval(fetchBookingWindows, 60_000);
+    return () => window.clearInterval(intervalId);
   }, []);
 
   const makeBookingId = () => {
@@ -123,8 +138,8 @@ const SlotBookings = () => {
   };
 
   const handleCheckSlot = async () => {
-    if (!email) {
-      setError('Please enter your email ID');
+    if (!verifiedEmail) {
+      setError('Please verify your email by signing in before checking a slot.');
       return;
     }
 
@@ -135,11 +150,11 @@ const SlotBookings = () => {
     try {
       let data;
       if (assessmentType === 'behavioral') {
-        data = await checkBehavioralSlot(email, assessmentType);
+        data = await checkBehavioralSlot(verifiedEmail, assessmentType);
       } else if (assessmentType === 'presentation') {
-        data = await checkPresentationSlot(email, assessmentType);
+        data = await checkPresentationSlot(verifiedEmail, assessmentType);
       } else if (assessmentType === 'oneOnOne') {
-        data = await checkOneOnOneSlot(email, assessmentType);
+        data = await checkOneOnOneSlot(verifiedEmail, assessmentType);
       } else {
         throw new Error('Invalid assessment type');
       }
@@ -159,15 +174,14 @@ const SlotBookings = () => {
 
   const handleClose = () => {
     setIsOpen(false);
-    setEmail('');
     setError('');
     setSlotInfo(null);
   };
 
   const handleVerifyForBehavioralBooking = async () => {
-    const normalizedEmail = behavioralEmail.trim().toLowerCase();
+    const normalizedEmail = verifiedEmail;
     if (!normalizedEmail) {
-      setBehavioralVerifyError('Please enter your email ID');
+      setBehavioralVerifyError('Please verify your email by signing in before booking a slot.');
       return;
     }
 
@@ -222,9 +236,9 @@ const SlotBookings = () => {
   };
 
   const handleVerifyForPresentationBooking = async () => {
-    const normalizedEmail = presentationEmail.trim().toLowerCase();
+    const normalizedEmail = verifiedEmail;
     if (!normalizedEmail) {
-      setPresentationVerifyError('Please enter your email ID');
+      setPresentationVerifyError('Please verify your email by signing in before booking a slot.');
       return;
     }
 
@@ -279,7 +293,7 @@ const SlotBookings = () => {
   };
 
   const handleBookBehavioralSlot = async () => {
-    const bookingEmail = behavioralVerification?.email || behavioralEmail.trim().toLowerCase();
+    const bookingEmail = behavioralVerification?.email || verifiedEmail;
     if (!bookingEmail || !behavioralBookingName.trim() || !behavioralBookingContact.trim() || !behavioralBookingSlot) {
       setBehavioralVerifyError('Fill all booking fields before confirming.');
       return;
@@ -321,7 +335,7 @@ const SlotBookings = () => {
   };
 
   const handleBookPresentationSlot = async () => {
-    const bookingEmail = presentationVerification?.email || presentationEmail.trim().toLowerCase();
+    const bookingEmail = presentationVerification?.email || verifiedEmail;
     if (!bookingEmail || !presentationBookingName.trim() || !presentationBookingContact.trim() || !presentationBookingSlot) {
       setPresentationVerifyError('Fill all booking fields before confirming.');
       return;
@@ -363,9 +377,9 @@ const SlotBookings = () => {
   };
 
   const handleVerifyForOneOnOneBooking = async () => {
-    const normalizedEmail = oneOnOneEmail.trim().toLowerCase();
+    const normalizedEmail = verifiedEmail;
     if (!normalizedEmail) {
-      setOneOnOneVerifyError('Please enter your email ID');
+      setOneOnOneVerifyError('Please verify your email by signing in before booking a slot.');
       return;
     }
     if (!oneOnOneDomain) {
@@ -384,6 +398,12 @@ const SlotBookings = () => {
     setOneOnOneBookingSuccess(null);
 
     try {
+      const bookingWindowCheck = await isBookingWindowOpen('oneOnOne');
+      if (!bookingWindowCheck.open) {
+        setOneOnOneVerifyError('Booking window is currently closed.');
+        return;
+      }
+
       // Store domain and plan in local storage
       storeStudentDomain(oneOnOneDomain);
       storeStudentPlan(oneOnOnePlan);
@@ -426,7 +446,7 @@ const SlotBookings = () => {
   };
 
   const handleBookOneOnOneSlot = async () => {
-    const bookingEmail = oneOnOneVerification?.email || oneOnOneEmail.trim().toLowerCase();
+    const bookingEmail = oneOnOneVerification?.email || verifiedEmail;
     const domain = oneOnOneDomain || getStoredStudentDomain() || '';
     const plan = oneOnOnePlan || getStoredStudentPlan() || '';
 
@@ -537,20 +557,13 @@ const SlotBookings = () => {
                 <DialogHeader>
                   <DialogTitle>Check Your Assessment Slot</DialogTitle>
                   <DialogDescription>
-                    Enter your email ID to find your scheduled slot
+                    Check the scheduled slot for your verified portal email
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email ID</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="your.email@study.iitm.ac.in"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      disabled={loading}
-                    />
+                    <Label>Verified Email ID</Label>
+                    <Input value={verifiedEmail || 'Sign in to verify your email'} readOnly />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="assessment-type">Assessment Type</Label>
@@ -605,26 +618,22 @@ const SlotBookings = () => {
             <CardHeader>
               <CardTitle className="text-lg">Book Behavioral Slot</CardTitle>
               <CardDescription>
-                Verify your IITM email first. If verified, you can book an available slot directly from the portal.
+                Use your verified portal email to book an available slot.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="behavioral-verify-email">Email ID</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="behavioral-verify-email"
-                    type="email"
-                    placeholder="your.email@study.iitm.ac.in"
-                    value={behavioralEmail}
-                    onChange={(e) => setBehavioralEmail(e.target.value)}
-                    disabled={behavioralVerifyLoading}
-                  />
+              {bookingWindowsLoading ? (
+                <p className="text-sm text-muted-foreground">Checking booking window…</p>
+              ) : !bookingWindowOpen.behavioral ? (
+                <p className="text-sm text-muted-foreground">Booking window is currently closed.</p>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Using verified email: {verifiedEmail || 'Sign in to continue'}</p>
                   <Button onClick={handleVerifyForBehavioralBooking} disabled={behavioralVerifyLoading}>
                     {behavioralVerifyLoading ? 'Verifying...' : 'Verify & Continue'}
                   </Button>
                 </div>
-              </div>
+              )}
 
               {behavioralVerifyError ? (
                 <Alert variant="destructive">
@@ -676,26 +685,22 @@ const SlotBookings = () => {
             <CardHeader>
               <CardTitle className="text-lg">Book Presentation Slot</CardTitle>
               <CardDescription>
-                Verify your IITM email first. If verified, you can book an available slot directly from the portal.
+                Use your verified portal email to book an available slot.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="presentation-verify-email">Email ID</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="presentation-verify-email"
-                    type="email"
-                    placeholder="your.email@study.iitm.ac.in"
-                    value={presentationEmail}
-                    onChange={(e) => setPresentationEmail(e.target.value)}
-                    disabled={presentationVerifyLoading}
-                  />
+              {bookingWindowsLoading ? (
+                <p className="text-sm text-muted-foreground">Checking booking window…</p>
+              ) : !bookingWindowOpen.presentation ? (
+                <p className="text-sm text-muted-foreground">Booking window is currently closed.</p>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Using verified email: {verifiedEmail || 'Sign in to continue'}</p>
                   <Button onClick={handleVerifyForPresentationBooking} disabled={presentationVerifyLoading}>
                     {presentationVerifyLoading ? 'Verifying...' : 'Verify & Continue'}
                   </Button>
                 </div>
-              </div>
+              )}
 
               {presentationVerifyError ? (
                 <Alert variant="destructive">
@@ -733,52 +738,48 @@ const SlotBookings = () => {
             <CardHeader>
               <CardTitle className="text-lg">Book 1on1 Slot</CardTitle>
               <CardDescription>
-                Verify your IITM email and select your domain/plan. If verified, you can book an available slot directly from the portal.
+                Use your verified portal email and select your domain and plan.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="oneonone-verify-email">Email ID</Label>
-                <Input
-                  id="oneonone-verify-email"
-                  type="email"
-                  placeholder="your.email@study.iitm.ac.in"
-                  value={oneOnOneEmail}
-                  onChange={(e) => setOneOnOneEmail(e.target.value)}
-                  disabled={oneOnOneVerifyLoading}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-2">
-                  <Label htmlFor="oneonone-domain">Domain</Label>
-                  <Select value={oneOnOneDomain} onValueChange={setOneOnOneDomain} disabled={oneOnOneVerifyLoading}>
-                    <SelectTrigger id="oneonone-domain">
-                      <SelectValue placeholder="Select domain" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Data Science">Data Science</SelectItem>
-                      <SelectItem value="Programming">Programming</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="oneonone-plan">Plan</Label>
-                  <Select value={oneOnOnePlan} onValueChange={setOneOnOnePlan} disabled={oneOnOneVerifyLoading}>
-                    <SelectTrigger id="oneonone-plan">
-                      <SelectValue placeholder="Select plan" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Internship">Internship</SelectItem>
-                      <SelectItem value="Employment">Employment</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Button onClick={handleVerifyForOneOnOneBooking} disabled={oneOnOneVerifyLoading} className="w-full">
-                  {oneOnOneVerifyLoading ? 'Verifying...' : 'Verify & Continue'}
-                </Button>
-              </div>
+              {bookingWindowsLoading ? (
+                <p className="text-sm text-muted-foreground">Checking booking window…</p>
+              ) : !bookingWindowOpen.oneOnOne ? (
+                <p className="text-sm text-muted-foreground">Booking window is currently closed.</p>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">Using verified email: {verifiedEmail || 'Sign in to continue'}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="oneonone-domain">Domain</Label>
+                      <Select value={oneOnOneDomain} onValueChange={setOneOnOneDomain} disabled={oneOnOneVerifyLoading}>
+                        <SelectTrigger id="oneonone-domain">
+                          <SelectValue placeholder="Select domain" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Data Science">Data Science</SelectItem>
+                          <SelectItem value="Programming">Programming</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="oneonone-plan">Plan</Label>
+                      <Select value={oneOnOnePlan} onValueChange={setOneOnOnePlan} disabled={oneOnOneVerifyLoading}>
+                        <SelectTrigger id="oneonone-plan">
+                          <SelectValue placeholder="Select plan" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Internship">Internship</SelectItem>
+                          <SelectItem value="Employment">Employment</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Button onClick={handleVerifyForOneOnOneBooking} disabled={oneOnOneVerifyLoading} className="w-full">
+                    {oneOnOneVerifyLoading ? 'Verifying...' : 'Verify & Continue'}
+                  </Button>
+                </>
+              )}
 
               {oneOnOneVerifyError ? (
                 <Alert variant="destructive">
@@ -853,7 +854,7 @@ const SlotBookings = () => {
               </div>
               <div className="space-y-1">
                 <Label>Email ID</Label>
-                <Input value={behavioralVerification?.email || behavioralEmail.trim().toLowerCase()} readOnly />
+                <Input value={behavioralVerification?.email || verifiedEmail} readOnly />
               </div>
               <div className="space-y-1">
                 <Label>Contact</Label>
@@ -915,7 +916,7 @@ const SlotBookings = () => {
               </div>
               <div className="space-y-1">
                 <Label>Email ID</Label>
-                <Input value={presentationVerification?.email || presentationEmail.trim().toLowerCase()} readOnly />
+                <Input value={presentationVerification?.email || verifiedEmail} readOnly />
               </div>
               <div className="space-y-1">
                 <Label>Contact</Label>
@@ -977,7 +978,7 @@ const SlotBookings = () => {
               </div>
               <div className="space-y-1">
                 <Label>Email ID</Label>
-                <Input value={oneOnOneVerification?.email || oneOnOneEmail.trim().toLowerCase()} readOnly />
+                <Input value={oneOnOneVerification?.email || verifiedEmail} readOnly />
               </div>
               <div className="space-y-1">
                 <Label>Contact</Label>

@@ -10,7 +10,7 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { verifyAdminAccess } from '@/lib/adminAuth';
+import { getAdminPortalRole } from '@/lib/adminAuth';
 import { useToast } from '@/components/ui/use-toast';
 
 const AdminLogin = () => {
@@ -26,7 +26,8 @@ const AdminLogin = () => {
       const result = await signInWithPopup(auth, provider);
       const signedInEmail = result.user.email || '';
 
-      if (!(await verifyAdminAccess(result.user))) {
+      const role = await getAdminPortalRole(result.user);
+      if (!role) {
         await signOut(auth);
         toast({
           title: 'Unauthorized',
@@ -59,7 +60,7 @@ const AdminLogin = () => {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
-      if (user && (await verifyAdminAccess(user))) {
+      if (user && (await getAdminPortalRole(user))) {
         navigate('/admin/dashboard');
       }
     });

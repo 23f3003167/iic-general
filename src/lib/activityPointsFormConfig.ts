@@ -70,6 +70,27 @@ export const ensureStudentNameSection = (sections: FormSection[]): FormSection[]
   return [studentNameSection, ...sections];
 };
 
+const projectFields: FormField[] = [1, 2, 3, 4].flatMap((projectNumber) => [
+  {
+    id: `project${projectNumber}Name`,
+    label: `Project ${projectNumber} Name`,
+    type: 'shortAnswer' as const,
+    required: true,
+    placeholder: 'Enter project name',
+  },
+  {
+    id: `project${projectNumber}Link`,
+    label: `Project ${projectNumber} (GitHub Link)`,
+    type: 'shortAnswer' as const,
+    required: true,
+    placeholder: 'https://github.com/username/repo',
+    validation: {
+      pattern: '^https?://(www\\.)?github\\.com/.+',
+      message: 'Please provide a valid GitHub repository URL',
+    },
+  },
+]);
+
 export const activityPointsFormConfig: FormConfig = 
   {
   "sections": [
@@ -211,7 +232,7 @@ export const activityPointsFormConfig: FormConfig =
           "type": "dropdown",
           "required": true,
           "options": [
-            "Application Development",
+            "Modern Application Development",
             "Software Engineer Certificate",
             "Cloud & DevOps",
             "System Commands",
@@ -322,10 +343,14 @@ export const activityPointsFormConfig: FormConfig =
     },
     {
       "id": "sc",
-      "title": "System Commands (SC)",
+      "title": "System Commands (CMA)",
       "requiresCertificateUpload": true,
       "conditionalLogic": {
         "showWhen": [
+          {
+            "fieldId": "activityType",
+            "equals": "Common Mandatory Activity Points"
+          },
           {
             "fieldId": "mandatoryCourse",
             "equals": "SC (System Commands)"
@@ -336,51 +361,57 @@ export const activityPointsFormConfig: FormConfig =
         {
           "id": "scActivityTitle",
           "label": "Activity Title for System Commands",
-          "type": "dropdown",
+          "type": "radio",
           "required": true,
           "options": [
-            "VM Tasks",
-            "Bash Track on Exercism - Solved 30 problems",
-            "Bash Track on Exercism - Reputation points is over 100"
+            "VM Tasks (1st series)"
           ]
-        },
-        {
-          "id": "scVmTasksCount",
-          "label": "How many questions have you finished in VM Tasks?",
-          "type": "shortAnswer",
-          "required": true,
-          "placeholder": "Enter number or NA if Bash Track selected",
-          "conditionalLogic": {
-            "showWhen": [
-              {
-                "fieldId": "scActivityTitle",
-                "equals": "VM Tasks"
-              }
-            ]
-          }
-        },
-        {
-          "id": "scHackerrankProfile",
-          "label": "Link to Hackerrank Profile",
-          "type": "shortAnswer",
-          "required": true,
-          "placeholder": "https://www.hackerrank.com/profile/username",
-          "validation": {
-            "pattern": "^https?://(www\\.)?hackerrank\\.com/.+",
-            "message": "Please provide a valid HackerRank profile URL"
-          }
         }
       ]
     },
     {
-      "id": "cloud-devops",
-      "title": "Cloud & DevOps",
+      "id": "cloud-devops-cma",
+      "title": "Cloud & DevOps (CMA)",
       "requiresCertificateUpload": true,
       "conditionalLogic": {
         "showWhen": [
           {
+            "fieldId": "activityType",
+            "equals": "Common Mandatory Activity Points"
+          },
+          {
             "fieldId": "mandatoryCourse",
             "equals": "Cloud & DevOps"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "id": "cloudActivityTitleCMA",
+          "label": "Activity Title for Cloud & DevOps",
+          "type": "radio",
+          "required": true,
+          "options": [
+            "Intro to Cloud Computing by Simplilearn",
+            "AWS Cloud Foundation Course",
+            "Any other Similar Certifications"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "placement-cloud-devops",
+      "title": "Cloud & DevOps (AM_EP)",
+      "requiresCertificateUpload": true,
+      "conditionalLogic": {
+        "showWhen": [
+          {
+            "fieldId": "activityType",
+            "equals": "Additional Mandatory Activity Points"
+          },
+          {
+            "fieldId": "subscriptionType",
+            "equals": "Placement - Software Development"
           },
           {
             "fieldId": "placementSdCourse",
@@ -390,15 +421,12 @@ export const activityPointsFormConfig: FormConfig =
       },
       "fields": [
         {
-          "id": "cloudActivityTitle",
+          "id": "placementCloudActivityTitle",
           "label": "Activity Title for Cloud & DevOps",
-          "type": "dropdown",
+          "type": "radio",
           "required": true,
           "options": [
-            "Intro to Cloud Computing by Simplilearn",
-            "AWS Cloud Foundation Course",
-            "Associate Certifications",
-            "Any other Similar Certifications"
+            "Associate Certification"
           ]
         }
       ]
@@ -410,8 +438,20 @@ export const activityPointsFormConfig: FormConfig =
       "conditionalLogic": {
         "showWhen": [
           {
-            "fieldId": "cloudActivityTitle",
-            "equals": "Associate Certifications"
+            "fieldId": "activityType",
+            "equals": "Additional Mandatory Activity Points"
+          },
+          {
+            "fieldId": "subscriptionType",
+            "equals": "Placement - Software Development"
+          },
+          {
+            "fieldId": "placementSdCourse",
+            "equals": "Cloud & DevOps"
+          },
+          {
+            "fieldId": "placementCloudActivityTitle",
+            "equals": "Associate Certification"
           }
         ]
       },
@@ -419,7 +459,7 @@ export const activityPointsFormConfig: FormConfig =
         {
           "id": "certificateTitle",
           "label": "Certificate Title",
-          "type": "checkbox",
+          "type": "radio",
           "required": true,
           "options": [
             "Microsoft Azure AZ204",
@@ -468,125 +508,154 @@ export const activityPointsFormConfig: FormConfig =
       ]
     },
     {
-      "id": "mad",
+      "id": "mad-internship",
       "title": "Modern Application Development",
-      "requiresCertificateUpload": true,
-      "conditionalLogic": {
-        "showWhen": [
-          {
-            "fieldId": "sdCourse",
-            "equals": "Modern Application Development"
-          },
-          {
-            "fieldId": "placementSdCourse",
-            "equals": "Application Development"
-          }
-        ]
-      },
-      "fields": [
-        {
-          "id": "project1Name",
-          "label": "Project 1 Name",
-          "type": "shortAnswer",
-          "required": false,
-          "placeholder": "Enter project name"
-        },
-        {
-          "id": "project1Link",
-          "label": "Project 1 (GitHub Link)",
-          "type": "shortAnswer",
-          "required": true,
-          "placeholder": "https://github.com/username/repo",
-          "validation": {
-            "pattern": "^https?://(www\\.)?github\\.com/.+",
-            "message": "Please provide a valid GitHub repository URL"
-          }
-        },
-        {
-          "id": "project2Name",
-          "label": "Project 2 Name",
-          "type": "shortAnswer",
-          "required": false,
-          "placeholder": "Enter project name"
-        },
-        {
-          "id": "project2Link",
-          "label": "Project 2 (GitHub Link)",
-          "type": "shortAnswer",
-          "required": true,
-          "placeholder": "https://github.com/username/repo",
-          "validation": {
-            "pattern": "^https?://(www\\.)?github\\.com/.+",
-            "message": "Please provide a valid GitHub repository URL"
-          }
-        },
-        {
-          "id": "project3Name",
-          "label": "Project 3 Name",
-          "type": "shortAnswer",
-          "required": false,
-          "placeholder": "Enter project name"
-        },
-        {
-          "id": "project3Link",
-          "label": "Project 3 (GitHub Link)",
-          "type": "shortAnswer",
-          "required": true,
-          "placeholder": "https://github.com/username/repo",
-          "validation": {
-            "pattern": "^https?://(www\\.)?github\\.com/.+",
-            "message": "Please provide a valid GitHub repository URL"
-          }
-        },
-        {
-          "id": "project4Name",
-          "label": "Project 4 Name",
-          "type": "shortAnswer",
-          "required": false,
-          "placeholder": "Enter project name"
-        },
-        {
-          "id": "project4Link",
-          "label": "Project 4 (GitHub Link)",
-          "type": "shortAnswer",
-          "required": true,
-          "placeholder": "https://github.com/username/repo",
-          "validation": {
-            "pattern": "^https?://(www\\.)?github\\.com/.+",
-            "message": "Please provide a valid GitHub repository URL"
-          }
-        }
-      ]
+      "conditionalLogic": { "showWhen": [
+        { "fieldId": "activityType", "equals": "Additional Mandatory Activity Points" },
+        { "fieldId": "subscriptionType", "equals": "Internship - Software Development" },
+        { "fieldId": "sdCourse", "equals": "Modern Application Development" }
+      ] },
+      "fields": projectFields
     },
     {
-      "id": "se-cert",
-      "title": "Software Engineer Certification",
+      "id": "mad-placement",
+      "title": "Modern Application Development",
+      "conditionalLogic": { "showWhen": [
+        { "fieldId": "activityType", "equals": "Additional Mandatory Activity Points" },
+        { "fieldId": "subscriptionType", "equals": "Placement - Software Development" },
+        { "fieldId": "placementSdCourse", "equals": "Modern Application Development" }
+      ] },
+      "fields": projectFields
+    },
+    {
+      "id": "se-cert-internship",
+      "title": "Software Engineer Intern Certificate",
+      "conditionalLogic": { "showWhen": [
+        { "fieldId": "activityType", "equals": "Additional Mandatory Activity Points" },
+        { "fieldId": "subscriptionType", "equals": "Internship - Software Development" },
+        { "fieldId": "sdCourse", "equals": "Software Engineer Intern Certificate" }
+      ] },
+      "fields": [{
+        "id": "seHackerrankProfile", "label": "Link to HackerRank Profile", "type": "shortAnswer", "required": true,
+        "placeholder": "https://www.hackerrank.com/profile/username",
+        "validation": { "pattern": "^https?://(www\\.)?hackerrank\\.com/.+", "message": "Please provide a valid HackerRank profile URL" }
+      }]
+    },
+    {
+      "id": "se-cert-placement",
+      "title": "Software Engineer Certificate",
+      "conditionalLogic": { "showWhen": [
+        { "fieldId": "activityType", "equals": "Additional Mandatory Activity Points" },
+        { "fieldId": "subscriptionType", "equals": "Placement - Software Development" },
+        { "fieldId": "placementSdCourse", "equals": "Software Engineer Certificate" }
+      ] },
+      "fields": [{
+        "id": "seHackerrankProfile", "label": "Link to HackerRank Profile", "type": "shortAnswer", "required": true,
+        "placeholder": "https://www.hackerrank.com/profile/username",
+        "validation": { "pattern": "^https?://(www\\.)?hackerrank\\.com/.+", "message": "Please provide a valid HackerRank profile URL" }
+      }]
+    },
+    {
+      "id": "programming-workshop-1",
+      "title": "Programming Workshop 1",
       "requiresCertificateUpload": true,
-      "conditionalLogic": {
-        "showWhen": [
-          {
-            "fieldId": "sdCourse",
-            "equals": "Software Engineer Intern Certificate"
-          },
-          {
-            "fieldId": "placementSdCourse",
-            "equals": "Software Engineer Certificate"
-          }
+      "conditionalLogic": { "showWhen": [
+        { "fieldId": "activityType", "equals": "Additional Mandatory Activity Points" },
+        { "fieldId": "subscriptionType", "equals": "Internship - Software Development" },
+        { "fieldId": "sdCourse", "equals": "Programming Workshop 1" }
+      ] },
+      "fields": []
+    },
+    {
+      "id": "machine-learning-basics",
+      "title": "Machine Learning Basics Certificate",
+      "requiresCertificateUpload": true,
+      "conditionalLogic": { "showWhen": [
+        { "fieldId": "activityType", "equals": "Additional Mandatory Activity Points" },
+        { "fieldId": "subscriptionType", "equals": "Internship - Data Science" },
+        { "fieldId": "dsCourse", "equals": "Machine Learning Basics Certificate" }
+      ] },
+      "fields": []
+    },
+    {
+      "id": "data-science-workshop-1",
+      "title": "Data Science Workshop 1",
+      "requiresCertificateUpload": true,
+      "conditionalLogic": { "showWhen": [
+        { "fieldId": "activityType", "equals": "Additional Mandatory Activity Points" },
+        { "fieldId": "subscriptionType", "equals": "Internship - Data Science" },
+        { "fieldId": "dsCourse", "equals": "Data Science Workshop 1" }
+      ] },
+      "fields": []
+    },
+    {
+      "id": "programming-workshop-2",
+      "title": "Programming Workshop 2",
+      "requiresCertificateUpload": true,
+      "conditionalLogic": { "showWhen": [
+        { "fieldId": "activityType", "equals": "Additional Mandatory Activity Points" },
+        { "fieldId": "subscriptionType", "equals": "Placement - Software Development" },
+        { "fieldId": "placementSdCourse", "equals": "Programming Workshop 2" }
+      ] },
+      "fields": []
+    },
+    {
+      "id": "data-science-workshop-2",
+      "title": "Data Science Workshop 2",
+      "requiresCertificateUpload": true,
+      "conditionalLogic": { "showWhen": [
+        { "fieldId": "activityType", "equals": "Additional Mandatory Activity Points" },
+        { "fieldId": "subscriptionType", "equals": "Placement - Data Science" },
+        { "fieldId": "placementDsCourse", "equals": "Data Science Workshop 2" }
+      ] },
+      "fields": []
+    },
+    {
+      "id": "placement-system-commands",
+      "title": "System Commands (Placement)",
+      "conditionalLogic": { "showWhen": [
+        { "fieldId": "activityType", "equals": "Additional Mandatory Activity Points" },
+        { "fieldId": "subscriptionType", "equals": "Placement - Software Development" },
+        { "fieldId": "placementSdCourse", "equals": "System Commands" }
+      ] },
+      "fields": [{
+        "id": "placementScActivityTitle",
+        "label": "Activity Title for System Commands",
+        "type": "radio",
+        "required": true,
+        "options": [
+          "VM Tasks (2nd series)",
+          "Bash Track on Exercism - Solved 30 problems",
+          "Bash Track on Exercism - Reputation points is over 100"
         ]
-      },
-      "fields": [
-        {
-          "id": "seHackerrankProfile",
-          "label": "Link to HackerRank Profile",
-          "type": "shortAnswer",
-          "required": true,
-          "placeholder": "https://www.hackerrank.com/profile/username",
-          "validation": {
-            "pattern": "^https?://(www\\.)?hackerrank\\.com/.+",
-            "message": "Please provide a valid HackerRank profile URL (not certificate URL)"
-          }
-        }
-      ]
+      }]
+    },
+    {
+      "id": "placement-system-commands-vm",
+      "title": "System Commands – VM Tasks (2nd series)",
+      "requiresCertificateUpload": true,
+      "conditionalLogic": { "showWhen": [
+        { "fieldId": "activityType", "equals": "Additional Mandatory Activity Points" },
+        { "fieldId": "subscriptionType", "equals": "Placement - Software Development" },
+        { "fieldId": "placementSdCourse", "equals": "System Commands" },
+        { "fieldId": "placementScActivityTitle", "equals": "VM Tasks (2nd series)" }
+      ] },
+      "fields": []
+    },
+    {
+      "id": "placement-system-commands-exercism",
+      "title": "System Commands – Exercism",
+      "conditionalLogic": { "showWhen": [
+        { "fieldId": "activityType", "equals": "Additional Mandatory Activity Points" },
+        { "fieldId": "subscriptionType", "equals": "Placement - Software Development" },
+        { "fieldId": "placementSdCourse", "equals": "System Commands" },
+        { "fieldId": "placementScActivityTitle", "equals": ["Bash Track on Exercism - Solved 30 problems", "Bash Track on Exercism - Reputation points is over 100"] }
+      ] },
+      "fields": [{
+        "id": "scHackerrankProfile", "label": "Link to HackerRank Profile", "type": "shortAnswer", "required": true,
+        "placeholder": "https://www.hackerrank.com/profile/username",
+        "validation": { "pattern": "^https?://(www\\.)?hackerrank\\.com/.+", "message": "Please provide a valid HackerRank profile URL" }
+      }]
     },
     {
       "id": "mlp",

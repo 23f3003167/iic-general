@@ -230,6 +230,7 @@ const ToolsManagement = () => {
   const [oneOnOneDurationMinutes, setOneOnOneDurationMinutes] = useState<number>(ONE_ON_ONE_SLOT_DURATION_MINUTES);
   const [oneOnOneStudentAuthorizationEmails, setOneOnOneStudentAuthorizationEmails] = useState('');
   const [isReleasingOneOnOneSlots, setIsReleasingOneOnOneSlots] = useState(false);
+  const [isReleasingAllOneOnOneSlots, setIsReleasingAllOneOnOneSlots] = useState(false);
   const [oneOnOneInstructors, setOneOnOneInstructors] = useState<InstructorOption[]>([]);
 
   // Booking Window Timeline state
@@ -962,6 +963,93 @@ const ToolsManagement = () => {
     }
   };
 
+  const handleReleaseAllOneOnOneSlotsForDate = async () => {
+    if (!oneOnOneSlotDate) {
+      toast({ title: 'Select a date', description: 'Choose the date whose saved availability should be released.', variant: 'destructive' });
+      return;
+    }
+
+    const dateAvailabilities = oneOnOneAvailabilities.filter(
+      (availability) => (availability.startDate || availability.date) === oneOnOneSlotDate
+    );
+    if (!dateAvailabilities.length) {
+      toast({ title: 'No saved availability', description: 'No active 1on1 availability was found for this date.', variant: 'destructive' });
+      return;
+    }
+
+    if (!window.confirm(`Release all ${dateAvailabilities.length} saved 1on1 availability record(s) for ${oneOnOneSlotDate}? This adds bookable slots and cannot be undone automatically.`)) {
+      return;
+    }
+
+    type ReleaseGroup = {
+      instructorNumber: string;
+      domain: string;
+      durationMinutes: number;
+      startTime: string;
+      endTime: string;
+    };
+    const releaseGroups: ReleaseGroup[] = [];
+    const invalidRecords: SlotAvailability[] = [];
+
+    [...dateAvailabilities]
+      .sort((left, right) => `${left.instructorNumber}|${left.domain}|${left.durationMinutes}|${left.startTime}`.localeCompare(
+        `${right.instructorNumber}|${right.domain}|${right.durationMinutes}|${right.startTime}`
+      ))
+      .forEach((availability) => {
+        if (!availability.instructorNumber || !availability.domain || !availability.startTime || !availability.endTime || !availability.durationMinutes) {
+          invalidRecords.push(availability);
+          return;
+        }
+        const group = releaseGroups[releaseGroups.length - 1];
+        // Adjacent ranges for the same instructor/domain/duration are combined
+        // into one Apps Script request, avoiding hundreds of individual calls.
+        if (
+          group &&
+          group.instructorNumber === availability.instructorNumber &&
+          group.domain === availability.domain &&
+          group.durationMinutes === availability.durationMinutes &&
+          availability.startTime <= group.endTime
+        ) {
+          if (availability.endTime > group.endTime) group.endTime = availability.endTime;
+          return;
+        }
+        releaseGroups.push({
+          instructorNumber: availability.instructorNumber,
+          domain: availability.domain,
+          durationMinutes: availability.durationMinutes,
+          startTime: availability.startTime,
+          endTime: availability.endTime,
+        });
+      });
+
+    if (!releaseGroups.length) {
+      toast({ title: 'No releasable availability', description: 'Saved records are missing required slot details.', variant: 'destructive' });
+      return;
+    }
+
+    setIsReleasingAllOneOnOneSlots(true);
+    try {
+      let slotsCreated = 0;
+      const failures: string[] = [];
+      for (const group of releaseGroups) {
+        try {
+          const response = await releaseOneOnOneSlots({ date: oneOnOneSlotDate, ...group });
+          slotsCreated += response.slotsCreated;
+        } catch (error) {
+          failures.push(error instanceof Error ? error.message : 'Unknown release error');
+        }
+      }
+
+      toast({
+        title: failures.length ? 'Bulk release completed with errors' : 'All 1on1 slots released',
+        description: `${slotsCreated} bookable slot${slotsCreated === 1 ? '' : 's'} created from ${releaseGroups.length} release group(s).${invalidRecords.length ? ` ${invalidRecords.length} invalid availability record(s) skipped.` : ''}${failures.length ? ` ${failures.length} group(s) failed.` : ''}`,
+        variant: failures.length ? 'destructive' : 'default',
+      });
+    } finally {
+      setIsReleasingAllOneOnOneSlots(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -1352,10 +1440,18 @@ const ToolsManagement = () => {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={clearOneOnOneSlotBooking} disabled={isReleasingOneOnOneSlots}>
+            <Button variant="outline" onClick={clearOneOnOneSlotBooking} disabled={isReleasingOneOnOneSlots || isReleasingAllOneOnOneSlots}>
               Reset
             </Button>
-            <Button onClick={handleReleaseOneOnOneSlots} disabled={isReleasingOneOnOneSlots}>
+            <Button
+              variant="outline"
+              onClick={handleReleaseAllOneOnOneSlotsForDate}
+              disabled={isReleasingOneOnOneSlots || isReleasingAllOneOnOneSlots || !oneOnOneSlotDate}
+            >
+              {isReleasingAllOneOnOneSlots ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Release All for Date
+            </Button>
+            <Button onClick={handleReleaseOneOnOneSlots} disabled={isReleasingOneOnOneSlots || isReleasingAllOneOnOneSlots}>
               {isReleasingOneOnOneSlots ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               Release 1on1 Slots
             </Button>

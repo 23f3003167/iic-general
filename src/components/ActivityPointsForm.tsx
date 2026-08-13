@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useState, useEffect, useRef } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -26,6 +26,64 @@ interface ActivityPointsFormProps {
   onSubmit?: (data: Record<string, string>) => Promise<void>;
 }
 
+const REQUIRED_ACTIVITY_SECTION_IDS = new Set([
+  'activity-type-selection',
+  'common-mandatory-course',
+  'subscription-type',
+  'internship-sd',
+  'internship-ds',
+  'placement-sd',
+  'placement-ds',
+  'cloud-devops',
+  'cloud-devops-cma',
+  'placement-cloud-devops',
+  'associate-certifications',
+  'sc',
+  'mad',
+  'mad-internship',
+  'mad-placement',
+  'se-cert',
+  'se-cert-internship',
+  'se-cert-placement',
+  'programming-workshop-1',
+  'programming-workshop-2',
+  'machine-learning-basics',
+  'data-science-workshop-1',
+  'data-science-workshop-2',
+  'placement-system-commands',
+  'placement-system-commands-vm',
+  'placement-system-commands-exercism',
+  'mlp',
+]);
+
+/**
+ * The Apps Script may contain an older, admin-managed form configuration.
+ * Replace the dependent activity branches with their bundled definitions so
+ * newly deployed paths do not remain hidden behind an older saved config.
+ */
+const withRequiredActivityPaths = (config: FormConfig): FormConfig => ({
+  ...config,
+  sections: (() => {
+    const savedSections = ensureStudentNameSection(config.sections);
+    const savedById = new Map(savedSections.map((section) => [section.id, section]));
+    const localIds = new Set(activityPointsFormConfig.sections.map((section) => section.id));
+
+    // Keep the local configuration's order. The saved configuration can still
+    // supply unrelated admin-managed sections, but it cannot move a dependent
+    // section (such as JAVA) above Activity Type or course selection.
+    const orderedSections = activityPointsFormConfig.sections.map((localSection) =>
+      REQUIRED_ACTIVITY_SECTION_IDS.has(localSection.id)
+        ? localSection
+        : savedById.get(localSection.id) || localSection
+    );
+
+    const extraSavedSections = savedSections.filter(
+      (section) => !localIds.has(section.id) && !REQUIRED_ACTIVITY_SECTION_IDS.has(section.id)
+    );
+    return [...orderedSections, ...extraSavedSections];
+  })(),
+});
+
 const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,11 +93,25 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
   const [formConfig, setFormConfig] = useState<FormConfig>(activityPointsFormConfig);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
 
+  // Use ref to track formConfig to prevent infinite loops
+  const formConfigRef = useRef<FormConfig>(activityPointsFormConfig);
+
   const formSchema = z.object({
     activityType: z.string().min(1, 'Please select activity points type'),
+    mandatoryCourse: z.string().optional(),
+    subscriptionType: z.string().optional(),
+    sdCourse: z.string().optional(),
+    dsCourse: z.string().optional(),
+    placementSdCourse: z.string().optional(),
+    placementDsCourse: z.string().optional(),
+    scActivityTitle: z.string().optional(),
+    placementScActivityTitle: z.string().optional(),
+    cloudActivityTitleCMA: z.string().optional(),
+    placementCloudActivityTitle: z.string().optional(),
+    certificateTitle: z.string().optional(),
     certificateLink: z.string().optional(),
   }).superRefine((data, context) => {
-    const sections = getVisibleSections(data, formConfig);
+    const sections = getVisibleSections(data, formConfigRef.current);
     const requiresUpload = sections.some(section => section.requiresCertificateUpload);
     const certificateLink = data.certificateLink?.trim();
 
@@ -64,7 +136,8 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
+    getValues,
     setValue,
     formState: { errors }
   } = useForm({
@@ -73,20 +146,44 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
       activityType: '',
       mandatoryCourse: '',
       subscriptionType: '',
+      sdCourse: '',
+      dsCourse: '',
+      placementSdCourse: '',
+      placementDsCourse: '',
+      scActivityTitle: '',
+      placementScActivityTitle: '',
+      cloudActivityTitleCMA: '',
+      placementCloudActivityTitle: '',
+      certificateTitle: '',
+      certificateLink: '',
     }
   });
 
-  const watchedValues = watch();
+  // Keep validation in sync with every dynamic field, including studentName.
+  const watchedFormData = useWatch({ control }) as Record<string, string | undefined>;
 
   useEffect(() => {
     loadFormConfig();
   }, []);
 
   useEffect(() => {
-    setFormData(watchedValues);
-    const sections = getVisibleSections(watchedValues, formConfig);
+    const currentFormData = Object.fromEntries(
+      Object.entries(watchedFormData).map(([fieldId, value]) => [fieldId, value ?? ''])
+    ) as Record<string, string>;
+
+    setFormData(currentFormData);
+    const sections = getVisibleSections(currentFormData, formConfigRef.current);
     setVisibleSections(sections);
-  }, [watchedValues, formConfig]);
+  }, [watchedFormData]);
+
+  // Update ref when formConfig changes
+  useEffect(() => {
+    formConfigRef.current = formConfig;
+    // Recalculate visible sections when config changes
+    const currentFormData = getValues() as Record<string, string>;
+    const sections = getVisibleSections(currentFormData, formConfig);
+    setVisibleSections(sections);
+  }, [formConfig, getValues]);
 
   const requiresCertificateUpload = visibleSections.some(section => section.requiresCertificateUpload);
 
@@ -116,10 +213,8 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
         Array.isArray(result.data.config.sections) &&
         result.data.config.sections.some((section: FormSection) => section.id !== 'certificate-upload')
       ) {
-        setFormConfig({
-          ...result.data.config,
-          sections: ensureStudentNameSection(result.data.config.sections),
-        });
+        const newConfig = withRequiredActivityPaths(result.data.config);
+        setFormConfig(newConfig);
       } else {
         // An empty config is the Apps Script's uninitialized default.
         setFormConfig(activityPointsFormConfig);
@@ -312,12 +407,17 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
     setIsSubmitting(true);
 
     try {
+      // Read directly from React Hook Form so submission cannot validate a
+      // stale render state.
+      const currentFormData = getValues() as Record<string, string>;
+      const currentVisibleSections = getVisibleSections(currentFormData, formConfigRef.current);
+
       // Validate all visible fields
       let hasErrors = false;
-      visibleSections.forEach(section => {
-        const visibleFields = getVisibleFields(section, formData);
+      currentVisibleSections.forEach(section => {
+        const visibleFields = getVisibleFields(section, currentFormData);
         visibleFields.forEach(field => {
-          const error = validateField(field, formData[field.id] || '');
+          const error = validateField(field, currentFormData[field.id] || '');
           if (error) {
             hasErrors = true;
           }
@@ -347,7 +447,7 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
       }
 
       const submissionData = {
-        ...formData,
+        ...currentFormData,
         email: studentEmail,
         studentEmailId: studentEmail,
       };

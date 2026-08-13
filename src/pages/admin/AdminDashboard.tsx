@@ -16,6 +16,7 @@ import {
   Database,
   BarChart3,
   FileEdit,
+  Users,
 } from 'lucide-react';
 import { CheckCircle2 } from 'lucide-react';
 import {
@@ -38,7 +39,7 @@ import {
 } from '@/components/ui/select';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { verifyAdminAccess } from '@/lib/adminAuth';
+import { getAdminPortalRole, type AdminPortalRole } from '@/lib/adminAuth';
 import { useToast } from '@/components/ui/use-toast';
 import {
   getAnnouncements,
@@ -60,6 +61,7 @@ import { RecruitersManagement } from './RecruitersManagement';
 import { CompanyOutreachManagement } from './CompanyOutreachManagement';
 import ReportsManagement from './ReportsManagement';
 import ActivityPointsFormManagement from './ActivityPointsFormManagement';
+import TeamManagement from './TeamManagement';
 
 const adminNavItems = [
   { path: '/admin/dashboard', label: 'Overview', icon: Home },
@@ -75,13 +77,16 @@ const adminNavItems = [
   { path: '/admin/database', label: 'Database', icon: Database },
   { path: '/admin/reports', label: 'Reports', icon: BarChart3 },
   { path: '/admin/activity-points-form', label: 'Activity Points Form', icon: FileEdit },
+  { path: '/admin/team', label: 'Team', icon: Users },
 ];
+
+const evaluatorPaths = new Set(['/admin/evaluators', '/admin/slots-availability']);
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [role, setRole] = useState<AdminPortalRole | null>(null);
   const [checking, setChecking] = useState(true);
   const [stats, setStats] = useState({
     announcements: 0,
@@ -93,13 +98,13 @@ const AdminDashboard = () => {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        setIsAdmin(false);
+        setRole(null);
         setChecking(false);
         navigate('/admin');
         return;
       }
-      const allowed = await verifyAdminAccess(user);
-      if (!allowed) {
+      const nextRole = await getAdminPortalRole(user);
+      if (!nextRole) {
         await signOut(auth);
         toast({
           title: 'Unauthorized',
@@ -107,21 +112,24 @@ const AdminDashboard = () => {
           variant: 'destructive',
         });
         navigate('/admin');
-        setIsAdmin(false);
+        setRole(null);
         setChecking(false);
         return;
       }
-      setIsAdmin(true);
+      setRole(nextRole);
+      if (nextRole === 'evaluator' && !evaluatorPaths.has(location.pathname)) {
+        navigate('/admin/evaluators');
+      }
       setChecking(false);
     });
     return () => unsub();
-  }, [navigate, toast]);
+  }, [location.pathname, navigate, toast]);
 
   useEffect(() => {
-    if (isAdmin && location.pathname === '/admin/dashboard') {
+    if (role === 'admin' && location.pathname === '/admin/dashboard') {
       loadStats();
     }
-  }, [isAdmin, location]);
+  }, [role, location]);
 
   const loadStats = async (showToast?: boolean) => {
     try {
@@ -211,7 +219,12 @@ const AdminDashboard = () => {
     );
   }
 
-  if (!isAdmin) return null;
+  if (!role) return null;
+
+  const isAdmin = role === 'admin';
+  const visibleNavItems = isAdmin
+    ? adminNavItems
+    : adminNavItems.filter((item) => evaluatorPaths.has(item.path));
 
   const currentPage = location.pathname;
   const statsData = [
@@ -236,6 +249,10 @@ const AdminDashboard = () => {
   ];
 
   const renderContent = () => {
+    if (!isAdmin && !evaluatorPaths.has(currentPage)) {
+      return <EvaluatorsManagement />;
+    }
+
     switch (currentPage) {
       case '/admin/announcements':
         return <AnnouncementsManagement />;
@@ -261,7 +278,10 @@ const AdminDashboard = () => {
         return <ReportsManagement />;
       case '/admin/activity-points-form':
         return <ActivityPointsFormManagement />;
+      case '/admin/team':
+        return <TeamManagement />;
       default:
+        if (!isAdmin) return <EvaluatorsManagement />;
         return (
           <div className="space-y-6">
             <div>
@@ -362,7 +382,7 @@ const AdminDashboard = () => {
           {/* Sidebar */}
           <aside className="lg:w-56 shrink-0">
             <nav className="space-y-1">
-              {adminNavItems.map((item) => {
+              {visibleNavItems.map((item) => {
                 const isActive = location.pathname === item.path;
                 const Icon = item.icon;
                 return (

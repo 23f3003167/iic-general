@@ -34,3 +34,32 @@ export async function signOutUnauthorized(message?: string) {
     console.warn(message);
   }
 }
+
+export async function fetchEvaluatorEmails(): Promise<string[]> {
+  try {
+    const snap = await getDoc(doc(db, 'admins', 'evaluators'));
+    if (!snap.exists()) return [];
+    const emails = Array.isArray(snap.data()?.emails) ? snap.data().emails : [];
+    return emails.map((email) => String(email).trim().toLowerCase()).filter(Boolean);
+  } catch (error) {
+    console.error('Error fetching evaluator emails:', error);
+    throw error;
+  }
+}
+
+export type AdminPortalRole = 'admin' | 'evaluator';
+
+export async function getAdminPortalRole(user: User | null): Promise<AdminPortalRole | null> {
+  if (!user?.email) return null;
+
+  try {
+    const email = user.email.trim().toLowerCase();
+    const adminEmails = await fetchAllowedEmails();
+    if (adminEmails.includes(email)) return 'admin';
+
+    const evaluatorEmails = await fetchEvaluatorEmails();
+    return evaluatorEmails.includes(email) ? 'evaluator' : null;
+  } catch {
+    return null;
+  }
+}

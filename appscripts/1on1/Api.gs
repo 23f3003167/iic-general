@@ -134,12 +134,20 @@ function getOneOnOneBookableSlots_(payload) {
   if (existing) return { email: email, domain: domain, plan: plan, verified: true, alreadyBooked: true, booking: existing, slots: [] };
 
   var values = getRequiredSheet_('Slot').getDataRange().getValues();
-  var slots = [];
+  // A slot can be released more than once.  The booking UI uses the slot text as
+  // its value, so return one option per text and total its remaining seats.
+  // Without this, an available duplicate can be displayed while booking looks
+  // up an earlier, exhausted duplicate with the same text.
+  var slotsByText = {};
   for (var i = 1; i < values.length; i++) {
     var text = String(values[i][0] || '').trim();
     if (!text || Number(values[i][2] || 0) <= 0 || extractDomain_(text).toLowerCase() !== domain.toLowerCase()) continue;
-    slots.push({ slot: text, seatRemaining: Number(values[i][2]), evaluatorEmail: normalizeEmail_(values[i][4]) });
+    if (!slotsByText[text]) {
+      slotsByText[text] = { slot: text, seatRemaining: 0, evaluatorEmail: normalizeEmail_(values[i][4]) };
+    }
+    slotsByText[text].seatRemaining += Number(values[i][2] || 0);
   }
+  var slots = Object.keys(slotsByText).map(function (slotText) { return slotsByText[slotText]; });
   return { email: email, domain: domain, plan: plan, verified: true, alreadyBooked: false, slots: slots };
 }
 
@@ -191,8 +199,15 @@ function bookOneOnOneSlot_(payload) {
       throw new Error('This email already has a booked slot.');
     }
     var slotSheet = getRequiredSheet_('Slot'), values = slotSheet.getDataRange().getValues(), row = -1;
-    for (var i = 1; i < values.length; i++) if (String(values[i][0] || '').trim() === slot) { row = i; break; }
-    if (row < 0 || Number(values[row][2] || 0) <= 0) throw new Error('Selected slot is no longer available.');
+    // Select an available row, not merely the first row with the same slot
+    // label. Duplicate releases are valid and may have different availability.
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][0] || '').trim() === slot && Number(values[i][2] || 0) > 0) {
+        row = i;
+        break;
+      }
+    }
+    if (row < 0) throw new Error('Selected slot is no longer available.');
     if (extractDomain_(slot).toLowerCase() !== domain.toLowerCase()) throw new Error('Selected slot does not match the chosen domain.');
 
     var taken = Number(values[row][1] || 0), remaining = Number(values[row][2] || 0), instructor = normalizeEmail_(values[row][4]);
@@ -249,12 +264,22 @@ function ensureSummaryHeader_(sheet) { if (!sheet.getLastRow()) sheet.appendRow(
 function upsertSummary_(booking, instructor, resume, progressCard) {
   var sheet = summarySheet_(); ensureSummaryHeader_(sheet); var values = sheet.getDataRange().getValues(), target = -1;
   for (var i = 1; i < values.length; i++) if (normalizeEmail_(values[i][1]) === booking.email) { target = i + 1; break; }
-  var row = [Utilities.getUuid(), booking.email, booking.name, resume, progressCard, booking.domain, booking.plan, instructor, booking.slot, 'Pending', '', '', '', '', '', '', '', '', '', ''];
+  var instructorName = resolveInstructorName_(instructor);
+  var row = [Utilities.getUuid(), booking.email, booking.name, resume, progressCard, booking.domain, booking.plan, instructorName, booking.slot, 'Pending', '', '', '', '', '', '', '', '', '', ''];
   if (target > 0) {
     var existing = values[target - 1];
     for (var column = 1; column < 10; column++) existing[column] = row[column];
     sheet.getRange(target, 1, 1, row.length).setValues([existing]);
   } else sheet.appendRow(row);
+}
+function resolveInstructorName_(instructorEmail) {
+  var normalizedEmail = normalizeEmail_(instructorEmail);
+  if (!normalizedEmail) return '';
+  var values = getRequiredSheet_('Instructors').getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (normalizeEmail_(values[i][1]) === normalizedEmail) return String(values[i][0] || '').trim() || normalizedEmail;
+  }
+  return normalizedEmail;
 }
 
 function getUniqueInstructors_() {

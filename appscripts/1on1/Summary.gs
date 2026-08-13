@@ -20,6 +20,7 @@ function refreshOneOnOneSummary() {
 
     ensureOneOnOneSummaryHeader_(summarySheet);
     var instructorMap = getOneOnOneInstructorMap_();
+    replaceOneOnOneSummaryInstructorEmails_(summarySheet, instructorMap);
     var slotInstructorMap = getOneOnOneSlotInstructorMap_();
     var existingEmails = getOneOnOneSummaryEmails_(summarySheet);
     var bookedValues = bookedSheet.getDataRange().getValues();
@@ -48,9 +49,65 @@ function refreshOneOnOneSummary() {
     if (rowsToAppend.length) {
       summarySheet.getRange(summarySheet.getLastRow() + 1, 1, rowsToAppend.length, 20).setValues(rowsToAppend);
     }
+    sortOneOnOneSummaryBySlot_(summarySheet);
   } finally {
     lock.releaseLock();
   }
+}
+
+/** Sorts Summary rows by the date and start time encoded in the Slot column. */
+function sortOneOnOneSummaryBySlot_(sheet) {
+  var rowCount = sheet.getLastRow() - 1;
+  if (rowCount < 2) return;
+
+  var columnCount = sheet.getLastColumn();
+  var rows = sheet.getRange(2, 1, rowCount, columnCount).getValues();
+  var sortableRows = rows.map(function (row, index) {
+    return {
+      row: row,
+      index: index,
+      time: getOneOnOneSlotStartTime_(row[8])
+    };
+  });
+
+  sortableRows.sort(function (first, second) {
+    var firstTime = first.time ? first.time.getTime() : Number.MAX_SAFE_INTEGER;
+    var secondTime = second.time ? second.time.getTime() : Number.MAX_SAFE_INTEGER;
+    return firstTime - secondTime || first.index - second.index;
+  });
+
+  sheet.getRange(2, 1, rowCount, columnCount).setValues(
+    sortableRows.map(function (item) { return item.row; })
+  );
+}
+
+function getOneOnOneSlotStartTime_(slot) {
+  // Expected format: dd/MM/yyyy EEEE hh:mm AM - hh:mm AM (Domain)
+  var match = String(slot || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4}).*?(\d{1,2}):(\d{2})\s*([AP]M)/i);
+  if (!match) return null;
+
+  var hour = Number(match[4]);
+  var minute = Number(match[5]);
+  var period = String(match[6]).toUpperCase();
+  if (period === 'PM' && hour !== 12) hour += 12;
+  if (period === 'AM' && hour === 12) hour = 0;
+
+  return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]), hour, minute);
+}
+
+function replaceOneOnOneSummaryInstructorEmails_(sheet, instructorMap) {
+  if (sheet.getLastRow() < 2) return;
+  var range = sheet.getRange(2, 8, sheet.getLastRow() - 1, 1);
+  var values = range.getValues();
+  var changed = false;
+  for (var i = 0; i < values.length; i++) {
+    var instructorEmail = String(values[i][0] || '').trim().toLowerCase();
+    if (instructorMap[instructorEmail] && values[i][0] !== instructorMap[instructorEmail]) {
+      values[i][0] = instructorMap[instructorEmail];
+      changed = true;
+    }
+  }
+  if (changed) range.setValues(values);
 }
 
 function createOneOnOneSummaryTimeTrigger() {

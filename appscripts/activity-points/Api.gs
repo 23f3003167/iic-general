@@ -164,6 +164,7 @@ function submitActivityPoints_(payload) {
     'pdsaActivityTitle': 'Activity Title for PDSA',
     'pdsaLeetcodeProfile': 'Link to Leetcode Profile',
     'scActivityTitle': 'Activity Title for System Commands',
+    'placementScActivityTitle': 'Activity Title for System Commands',
     'scVmTasksCount': 'How many questions have you finished in VM Tasks?',
     'scHackerrankProfile': 'Link to Hackerrank Profile',
     'cloudActivityTitle': 'Activity Title for Cloud & DevOps',
@@ -185,6 +186,33 @@ function submitActivityPoints_(payload) {
     'certificateLink': 'links'
   };
 
+  // Some response-sheet headers are duplicated (for example, HackerRank
+  // profile columns). These fields must target their exact worksheet columns.
+  // Indices below are zero-based: Q=16, S=18, X:AE=23:30, AF=31, AG=32.
+  var fixedColumnIndices = {
+    'scActivityTitle': 16,
+    'placementScActivityTitle': 16,
+    'scHackerrankProfile': 18,
+    'project1Name': 23,
+    'project1Link': 24,
+    'project2Name': 25,
+    'project2Link': 26,
+    'project3Name': 27,
+    'project3Link': 28,
+    'project4Name': 29,
+    'project4Link': 30,
+    'seHackerrankProfile': 31,
+    'mlpActivityTitle': 32
+  };
+
+  // Both Cloud & DevOps paths write their selected activity to the same sheet
+  // column. Use one normalized field to avoid duplicate activity entries.
+  if (payload.cloudActivityTitleCMA) {
+    payload['cloudActivityTitle'] = payload.cloudActivityTitleCMA;
+  } else if (payload.placementCloudActivityTitle) {
+    payload['cloudActivityTitle'] = payload.placementCloudActivityTitle;
+  }
+
   // Set timestamp
   rowData[0] = new Date();
 
@@ -200,11 +228,13 @@ function submitActivityPoints_(payload) {
 
     var columnName = fieldMapping[fieldId];
     if (columnName) {
-      var columnIndex = headers.findIndex(
-        h => String(h || '').trim().toLowerCase() === columnName.toLowerCase()
-      );
+      var columnIndex = Object.prototype.hasOwnProperty.call(fixedColumnIndices, fieldId)
+        ? fixedColumnIndices[fieldId]
+        : headers.findIndex(
+            h => String(h || '').trim().toLowerCase() === columnName.toLowerCase()
+          );
       
-      if (columnIndex !== -1) {
+      if (columnIndex !== -1 && columnIndex < headers.length) {
         rowData[columnIndex] = value;
         
         // Add to activities list if it's an activity title
@@ -286,8 +316,9 @@ function getFormConfig_() {
   var configRow = data.find(row => row[0] === 'config');
   
   if (configRow && configRow[1]) {
+    var savedConfig = normalizeCloudDevOpsPaths_(JSON.parse(configRow[1]));
     return {
-      config: JSON.parse(configRow[1]),
+      config: savedConfig,
       lastUpdated: configRow[2] ? new Date(configRow[2]).toISOString() : null
     };
   }
@@ -313,6 +344,8 @@ function saveFormConfig_(payload) {
   if (!config || !Array.isArray(config.sections)) {
     throw new Error('Invalid config format');
   }
+
+  config = normalizeCloudDevOpsPaths_(config);
   
   var sheetName = 'Form Config';
   var sheet = SpreadsheetApp.getActive().getSheetByName(sheetName);
@@ -348,4 +381,110 @@ function saveFormConfig_(payload) {
     message: 'Form configuration saved successfully',
     lastUpdated: new Date().toISOString()
   };
+}
+
+var CLOUD_DEVOPS_SECTION_IDS_ = {
+  'cloud-devops': true,
+  'cloud-devops-cma': true,
+  'placement-cloud-devops': true,
+  'associate-certifications': true
+};
+
+function normalizeCloudDevOpsPaths_(config) {
+  // Keep the empty-config fallback intact: the web app uses its full bundled
+  // definition until an administrator has saved a configuration.
+  if (!config || !Array.isArray(config.sections) || config.sections.length === 0) {
+    return config;
+  }
+
+  var normalized = {};
+  for (var key in config) {
+    if (Object.prototype.hasOwnProperty.call(config, key)) {
+      normalized[key] = config[key];
+    }
+  }
+
+  normalized.sections = config.sections.filter(function(section) {
+    return !CLOUD_DEVOPS_SECTION_IDS_[section.id];
+  }).concat(getCloudDevOpsSections_());
+
+  return normalized;
+}
+
+function getCloudDevOpsSections_() {
+  return [
+    {
+      id: 'cloud-devops-cma',
+      title: 'Cloud & DevOps (CMA)',
+      requiresCertificateUpload: true,
+      conditionalLogic: {
+        showWhen: [
+          { fieldId: 'activityType', equals: 'Common Mandatory Activity Points' },
+          { fieldId: 'mandatoryCourse', equals: 'Cloud & DevOps' }
+        ]
+      },
+      fields: [
+        {
+          id: 'cloudActivityTitleCMA',
+          label: 'Activity Title for Cloud & DevOps',
+          type: 'radio',
+          required: true,
+          options: [
+            'Intro to Cloud Computing by Simplilearn',
+            'AWS Cloud Foundation Course',
+            'Any other Similar Certifications'
+          ]
+        }
+      ]
+    },
+    {
+      id: 'placement-cloud-devops',
+      title: 'Cloud & DevOps (AM_EP)',
+      requiresCertificateUpload: true,
+      conditionalLogic: {
+        showWhen: [
+          { fieldId: 'activityType', equals: 'Additional Mandatory Activity Points' },
+          { fieldId: 'subscriptionType', equals: 'Placement - Software Development' },
+          { fieldId: 'placementSdCourse', equals: 'Cloud & DevOps' }
+        ]
+      },
+      fields: [
+        {
+          id: 'placementCloudActivityTitle',
+          label: 'Activity Title for Cloud & DevOps',
+          type: 'radio',
+          required: true,
+          options: ['Associate Certification']
+        }
+      ]
+    },
+    {
+      id: 'associate-certifications',
+      title: 'Associate Certifications',
+      requiresCertificateUpload: true,
+      conditionalLogic: {
+        showWhen: [
+          { fieldId: 'activityType', equals: 'Additional Mandatory Activity Points' },
+          { fieldId: 'subscriptionType', equals: 'Placement - Software Development' },
+          { fieldId: 'placementSdCourse', equals: 'Cloud & DevOps' },
+          { fieldId: 'placementCloudActivityTitle', equals: 'Associate Certification' }
+        ]
+      },
+      fields: [
+        {
+          id: 'certificateTitle',
+          label: 'Certificate Title',
+          type: 'radio',
+          required: true,
+          options: [
+            'Microsoft Azure AZ204',
+            'AWS Certified Solutions Architect – Associate',
+            'AWS Certified Developer – Associate',
+            'AWS Certified SysOps Administrator – Associate',
+            'Google Associate Certifications'
+          ]
+        }
+      ]
+    }
+  ];
 }

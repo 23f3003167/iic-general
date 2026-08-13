@@ -10,6 +10,7 @@ import {
   orderBy,
   where,
   setDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Announcement, Document, FAQ, FormEntry, Opportunity, OpportunityApplication, Recruiter } from '@/types';
@@ -64,6 +65,22 @@ export async function createSlotAvailability(payload: SlotAvailability): Promise
     active: payload.active === undefined ? true : payload.active,
   });
   return { id: docRef.id };
+}
+
+export async function createSlotAvailabilityBulk(payloads: SlotAvailability[]): Promise<void> {
+  // Firestore permits a maximum of 500 writes per batch. Keep a small margin
+  // so this remains safe if metadata is added to each write in the future.
+  const batchSize = 450;
+  for (let start = 0; start < payloads.length; start += batchSize) {
+    const batch = writeBatch(db);
+    payloads.slice(start, start + batchSize).forEach((payload) => {
+      batch.set(doc(collection(db, SLOT_AVAILABILITY_COLLECTION)), {
+        ...payload,
+        active: payload.active === undefined ? true : payload.active,
+      });
+    });
+    await batch.commit();
+  }
 }
 
 export async function deleteSlotAvailability(id: string): Promise<void> {
