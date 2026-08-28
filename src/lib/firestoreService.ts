@@ -13,7 +13,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Announcement, Document, FAQ, FormEntry, Opportunity, OpportunityApplication, Recruiter } from '@/types';
+import type { Announcement, ExamSyllabus, FAQ, FormEntry, ImportantLink, Opportunity, OpportunityApplication, Recruiter, TrainingLecture } from '@/types';
 import { computeFormsStatus } from './statusCompute';
 
 export type SlotAvailability = {
@@ -359,28 +359,59 @@ export async function deleteFAQ(id: string): Promise<void> {
   await deleteDoc(doc(db, 'faqs', id));
 }
 
-// Documents CRUD
-export async function getDocuments(): Promise<Document[]> {
-  const snapshot = await getDocs(collection(db, 'documents'));
-  return snapshot.docs.map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() } as Document));
+// Resources CRUD
+export async function getTrainingLectures(): Promise<TrainingLecture[]> {
+  const snapshot = await getDocs(collection(db, 'trainingLectures'));
+  return snapshot.docs.map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() } as TrainingLecture));
 }
 
-export async function getDocument(id: string): Promise<Document | null> {
-  const docSnap = await getDoc(doc(db, 'documents', id));
-  return docSnap.exists() ? ({ id: docSnap.id, ...docSnap.data() } as Document) : null;
-}
-
-export async function createDocument(document: Omit<Document, 'id'>): Promise<string> {
-  const docRef = await addDoc(collection(db, 'documents'), document);
+export async function createTrainingLecture(lecture: Omit<TrainingLecture, 'id'>): Promise<string> {
+  const docRef = await addDoc(collection(db, 'trainingLectures'), lecture);
   return docRef.id;
 }
 
-export async function updateDocument(id: string, document: Partial<Omit<Document, 'id'>>): Promise<void> {
-  await updateDoc(doc(db, 'documents', id), document);
+export async function updateTrainingLecture(id: string, lecture: Partial<Omit<TrainingLecture, 'id'>>): Promise<void> {
+  await updateDoc(doc(db, 'trainingLectures', id), lecture);
 }
 
-export async function deleteDocument(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'documents', id));
+export async function deleteTrainingLecture(id: string): Promise<void> {
+  await deleteDoc(doc(db, 'trainingLectures', id));
+}
+
+export async function getImportantLinks(): Promise<ImportantLink[]> {
+  const snapshot = await getDocs(collection(db, 'importantLinks'));
+  return snapshot.docs.map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() } as ImportantLink));
+}
+
+export async function createImportantLink(link: Omit<ImportantLink, 'id'>): Promise<string> {
+  const docRef = await addDoc(collection(db, 'importantLinks'), link);
+  return docRef.id;
+}
+
+export async function updateImportantLink(id: string, link: Partial<Omit<ImportantLink, 'id'>>): Promise<void> {
+  await updateDoc(doc(db, 'importantLinks', id), link);
+}
+
+export async function deleteImportantLink(id: string): Promise<void> {
+  await deleteDoc(doc(db, 'importantLinks', id));
+}
+
+export async function getExamSyllabi(): Promise<ExamSyllabus[]> {
+  const snapshot = await getDocs(collection(db, 'examSyllabi'));
+  return snapshot.docs.map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() } as ExamSyllabus));
+}
+
+export async function createExamSyllabus(syllabus: Omit<ExamSyllabus, 'id'>): Promise<string> {
+  const docRef = await addDoc(collection(db, 'examSyllabi'), syllabus);
+  return docRef.id;
+}
+
+export async function updateExamSyllabus(id: string, syllabus: Partial<Omit<ExamSyllabus, 'id'>>): Promise<void> {
+  await updateDoc(doc(db, 'examSyllabi', id), syllabus);
+}
+
+export async function deleteExamSyllabus(id: string): Promise<void> {
+  await deleteDoc(doc(db, 'examSyllabi', id));
 }
 
 // Recruiters CRUD

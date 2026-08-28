@@ -1037,7 +1037,7 @@ const SlotBookings = () => {
                   disabled={oneOnOneBookingLoading}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Download your progress card from Student Dashboard &gt; Documents for Download, upload to Google Drive, set sharing to 'Anyone with the link can view,' and paste the link here.
+                  Download your progress card from the training resources provided to you, upload it to Google Drive, set sharing to 'Anyone with the link can view,' and paste the link here.
                 </p>
               </div>
             </div>

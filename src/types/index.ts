@@ -30,12 +30,26 @@ export interface FAQ {
   answer: string;
 }
 
-export interface Document {
+export interface TrainingLecture {
+  id: string;
+  title: string;
+  description: string;
+  videoUrl: string;
+  // Kept temporarily so lectures created before video-provider support still play.
+  youtubeUrl?: string;
+}
+
+export interface ImportantLink {
   id: string;
   title: string;
   description: string;
   url: string;
-  type: 'PDF' | 'Drive' | 'External';
+}
+
+export interface ExamSyllabus {
+  id: string;
+  title: string;
+  description: string;
 }
 
 export type RecruiterVerificationStatus = 'VERIFIED' | 'PENDING' | 'REJECTED' | 'DISABLED';

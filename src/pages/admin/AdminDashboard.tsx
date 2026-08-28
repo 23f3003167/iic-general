@@ -44,14 +44,12 @@ import { useToast } from '@/components/ui/use-toast';
 import {
   getAnnouncements,
   getFAQs,
-  getDocuments,
   createAnnouncement,
   createFAQ,
-  createDocument,
 } from '@/lib/firestoreService';
 import AnnouncementsManagement from './AnnouncementsManagement';
 import FAQsManagement from './FAQsManagement';
-import DocumentsManagement from './DocumentsManagement';
+import ResourcesManagement from './ResourcesManagement';
 import ToolsManagement from './ToolsManagement';
 import EvaluatorsManagement from './EvaluatorsManagement';
 import ExamsManagement from './ExamsManagement';
@@ -68,7 +66,7 @@ const adminNavItems = [
   { path: '/admin/announcements', label: 'Announcements', icon: Bell },
   { path: '/admin/tools', label: 'Tools', icon: Wrench },
   { path: '/admin/faqs', label: 'FAQs', icon: HelpCircle },
-  { path: '/admin/documents', label: 'Documents', icon: BookOpen },
+  { path: '/admin/resources', label: 'Resources', icon: BookOpen },
   { path: '/admin/exams', label: 'Exams', icon: ClipboardList },
   { path: '/admin/slots-availability', label: 'Slots Availability', icon: Calendar },
   { path: '/admin/evaluators', label: 'Evaluators', icon: CheckCircle2 },
@@ -91,7 +89,6 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState({
     announcements: 0,
     faqs: 0,
-    documents: 0,
   });
   const [openAddDialog, setOpenAddDialog] = useState<string | null>(null);
 
@@ -133,15 +130,13 @@ const AdminDashboard = () => {
 
   const loadStats = async (showToast?: boolean) => {
     try {
-      const [announcements, faqs, documents] = await Promise.all([
+      const [announcements, faqs] = await Promise.all([
         getAnnouncements(),
         getFAQs(),
-        getDocuments(),
       ]);
       setStats({
         announcements: announcements.length,
         faqs: faqs.length,
-        documents: documents.length,
       });
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -191,25 +186,6 @@ const AdminDashboard = () => {
       }
     };
 
-    const handleAddDocument = async (docData: any) => {
-      try {
-        await createDocument(docData);
-        toast({
-          title: 'Document created',
-          description: 'The document has been created successfully.',
-        });
-        setOpenAddDialog(null);
-        loadStats();
-      } catch (error) {
-        console.error(error);
-        toast({
-          title: 'Error',
-          description: 'Could not create the document. Please try again.',
-          variant: 'destructive',
-        });
-      }
-    };
-  
 
   if (checking) {
     return (
@@ -240,12 +216,6 @@ const AdminDashboard = () => {
       icon: HelpCircle,
       color: 'text-category-marks',
     },
-    {
-      label: 'Documents',
-      count: stats.documents,
-      icon: BookOpen,
-      color: 'text-category-slot',
-    },
   ];
 
   const renderContent = () => {
@@ -260,8 +230,8 @@ const AdminDashboard = () => {
         return <ToolsManagement />;
       case '/admin/faqs':
         return <FAQsManagement />;
-      case '/admin/documents':
-        return <DocumentsManagement />;
+      case '/admin/resources':
+        return <ResourcesManagement />;
       case '/admin/exams':
         return <ExamsManagement />;
       case '/admin/slots-availability':
@@ -287,7 +257,7 @@ const AdminDashboard = () => {
             <div>
               <h1 className="text-2xl font-bold">Dashboard Overview</h1>
               <p className="text-muted-foreground">
-                Manage announcements, FAQs, documents, and exams.
+                Manage announcements, FAQs, resources, and exams.
               </p>
             </div>
 
@@ -334,12 +304,9 @@ const AdminDashboard = () => {
                     <Plus className="mr-2 h-4 w-4" />
                     Add FAQ
                   </Button>
-                  <Button
-                    onClick={() => setOpenAddDialog('document')}
-                    className="w-full justify-start"
-                  >
+                  <Button onClick={() => navigate('/admin/resources')} className="w-full justify-start">
                     <Plus className="mr-2 h-4 w-4" />
-                    Add Document
+                    Manage Resources
                   </Button>
                   <Button
                     onClick={() => navigate('/admin/exams')}
@@ -420,11 +387,6 @@ const AdminDashboard = () => {
       open={openAddDialog === 'faq'}
       onOpenChange={(open) => setOpenAddDialog(open ? 'faq' : null)}
       onSubmit={handleAddFAQ}
-    />
-    <AddDocumentDialog
-      open={openAddDialog === 'document'}
-      onOpenChange={(open) => setOpenAddDialog(open ? 'document' : null)}
-      onSubmit={handleAddDocument}
     />
   </>
   );
@@ -573,87 +535,6 @@ const AddFAQDialog = ({ open, onOpenChange, onSubmit }: DialogProps) => {
       </DialogContent>
     </Dialog>
   );
-};
-
-const AddDocumentDialog = ({ open, onOpenChange, onSubmit }: DialogProps) => {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    url: '',
-  });
-
-  const detectDocType = (url: string): 'PDF' | 'Drive' | 'External' => {
-    const u = url.toLowerCase();
-    if (u.endsWith('.pdf')) return 'PDF';
-    if (u.includes('drive.google.com')) return 'Drive';
-    return 'External';
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit({
-      ...formData,
-      type: detectDocType(formData.url),
-    });
-    setFormData({
-      title: '',
-      description: '',
-      url: '',
-    });
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add New Document</DialogTitle>
-          <DialogDescription>
-            Add a new document for students to access.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
-            <Input
-              id="title"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Description *</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={3}
-              required
-            />
-          </div>
-          {/* Type removed; determined automatically from URL */}
-          <div className="space-y-2">
-            <Label htmlFor="url">URL *</Label>
-            <Input
-              id="url"
-              type="url"
-              value={formData.url}
-              onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-              placeholder="https://..."
-              required
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit">Create Document</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-
 };
 
 export default AdminDashboard;

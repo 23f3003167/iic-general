@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null &&
+        request.auth.token.email in
+        get(/databases/$(database)/documents/admins/allowed).data.emails;
+    }
+
+    function isEvaluator() {
+      return request.auth != null &&
+        request.auth.token.email in
+        get(/databases/$(database)/documents/admins/evaluators).data.emails;
+    }
+
+    function isAdminOrEvaluator() {
+      return isAdmin() || isEvaluator();
+    }
+
+    function isSlotsSuperAdmin() {
+      return request.auth != null &&
+        request.auth.token.email in [
+          'sanjay_k@study.iitm.ac.in',
+          'jeyalakshmi_a@study.iitm.ac.in'
+        ];
+    }
+
+    match /forms/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /announcements/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /faqs/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Student-facing resources. Administrators configure their content.
+    match /trainingLectures/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /importantLinks/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /examSyllabi/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /slotsAvailabilityConfig/{doc} {
+      allow read: if request.auth != null;
+      allow write: if isSlotsSuperAdmin();
+    }
+
+    match /slotsAvailability/{doc} {
+      allow read, write: if isAdminOrEvaluator();
+    }
+
+    match /bookingWindows/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    match /admins/allowed {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /admins/evaluators {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    match /admins/{doc} {
+      allow read, write: if false;
+    }
+  }
+}

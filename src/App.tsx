@@ -11,7 +11,7 @@ import ProtectedStudentRoute from "@/components/ProtectedStudentRoute";
 const Index = lazy(() => import("./pages/Index"));
 const Announcements = lazy(() => import("./pages/Announcements"));
 const FAQs = lazy(() => import("./pages/FAQs"));
-const Documents = lazy(() => import("./pages/Documents"));
+const Resources = lazy(() => import("./pages/Resources"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const ExamPage = lazy(() => import("./pages/Exam"));
 const ScoresPage = lazy(() => import("./pages/Scores"));
@@ -46,7 +46,7 @@ const App = () => {
             <Route path="/" element={<ProtectedStudentRoute><Announcements /></ProtectedStudentRoute>} />
             <Route path="/announcements" element={<ProtectedStudentRoute><Announcements /></ProtectedStudentRoute>} />
             <Route path="/faqs" element={<ProtectedStudentRoute><FAQs /></ProtectedStudentRoute>} />
-            <Route path="/documents" element={<ProtectedStudentRoute><Documents /></ProtectedStudentRoute>} />
+            <Route path="/resources" element={<ProtectedStudentRoute><Resources /></ProtectedStudentRoute>} />
             <Route path="/chat" element={<ProtectedStudentRoute><ChatPage /></ProtectedStudentRoute>} />
             <Route path="/exam" element={<ProtectedStudentRoute><ExamPage /></ProtectedStudentRoute>} />
             <Route path="/scores" element={<ProtectedStudentRoute><ScoresPage /></ProtectedStudentRoute>} />
@@ -57,7 +57,7 @@ const App = () => {
             <Route path="/admin/announcements" element={<AdminDashboard />} />
             <Route path="/admin/tools" element={<AdminDashboard />} />
             <Route path="/admin/faqs" element={<AdminDashboard />} />
-            <Route path="/admin/documents" element={<AdminDashboard />} />
+            <Route path="/admin/resources" element={<AdminDashboard />} />
             <Route path="/admin/exams" element={<AdminDashboard />} />
             <Route path="/admin/slots-availability" element={<AdminDashboard />} />
             <Route path="/admin/evaluators" element={<AdminDashboard />} />

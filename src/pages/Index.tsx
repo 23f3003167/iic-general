@@ -15,7 +15,7 @@ const Index = () => {
                 <p className="font-semibold text-base">Student Eligibility Notice</p>
                 <p className="text-blue-800">
                   Only IIC Jan 2026 training students are authorized to access the portal. 
-                  Announcements and documents are exclusively available for registered students.
+                  Announcements and training resources are exclusively available for registered students.
                 </p>
               </div>
             </AlertDescription>
@@ -27,7 +27,7 @@ const Index = () => {
               Placement Training Portal
             </h1>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Access announcements, FAQs, documents, and other training resources.
+              Access announcements, FAQs, and training resources.
             </p>
           </div>
 
@@ -49,10 +49,10 @@ const Index = () => {
             </div>
 
             <div className="rounded-lg border bg-card p-6 text-center hover:bg-accent/50 transition-colors">
-              <h3 className="text-lg font-semibold mb-2">Documents</h3>
-              <p className="text-sm text-muted-foreground mb-4">Access training materials and resources</p>
-              <a href="/documents" className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
-                View Documents
+              <h3 className="text-lg font-semibold mb-2">Resources</h3>
+              <p className="text-sm text-muted-foreground mb-4">Watch lectures and access important training material</p>
+              <a href="/resources" className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+                View Resources
               </a>
             </div>
           </div>

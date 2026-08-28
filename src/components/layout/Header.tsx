@@ -11,7 +11,7 @@ import { useToast } from '@/components/ui/use-toast';
 const navItems = [
   { path: '/announcements', label: 'Announcements', icon: Megaphone },
   { path: '/faqs', label: 'FAQs', icon: HelpCircle },
-  { path: '/documents', label: 'Documents', icon: BookOpen },
+  { path: '/resources', label: 'Resources', icon: BookOpen },
   { path: '/exam', label: 'Exam', icon: ClipboardList },
   { path: '/scores', label: 'Scores', icon: BarChart3 },
   { path: '/slot-bookings', label: 'Slot Bookings', icon: CalendarClock },
