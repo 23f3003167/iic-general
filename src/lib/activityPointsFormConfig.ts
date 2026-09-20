@@ -261,7 +261,8 @@ export const activityPointsFormConfig: FormConfig =
           "options": [
             "Data Visualization Design",
             "AWS",
-            "Data Science Workshop 2"
+            "Data Science Workshop 2",
+            "DLP NPPE"
           ],
           "placeholder": ""
         }
@@ -732,6 +733,40 @@ export const activityPointsFormConfig: FormConfig =
             "AWS Academy Course - Data Engineering",
             "Machine Learning Foundations",
             "Machine Learning for Natural Language Processing"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dlp-nppe",
+      "title": "DLP NPPE",
+      "requiresCertificateUpload": true,
+      "conditionalLogic": {
+        "showWhen": [
+          {
+            "fieldId": "activityType",
+            "equals": "Additional Mandatory Activity Points"
+          },
+          {
+            "fieldId": "subscriptionType",
+            "equals": "Placement - Data Science"
+          },
+          {
+            "fieldId": "placementDsCourse",
+            "equals": "DLP NPPE"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "id": "dlpNppeActivityTitle",
+          "label": "Select NPPE",
+          "type": "dropdown",
+          "required": true,
+          "options": [
+            "NPPE 1",
+            "NPPE 2",
+            "NPPE 3"
           ]
         }
       ]

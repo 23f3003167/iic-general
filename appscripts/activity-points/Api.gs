@@ -246,6 +246,12 @@ function submitActivityPoints_(payload) {
         }
       }
     }
+
+    // DLP NPPE is recorded in the existing Activities summary because the
+    // legacy response sheet has no dedicated column for its NPPE level.
+    if (fieldId === 'dlpNppeActivityTitle') {
+      activities.push(value);
+    }
   }
 
   // Set the Activities column

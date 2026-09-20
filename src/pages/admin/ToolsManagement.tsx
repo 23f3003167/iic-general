@@ -22,7 +22,7 @@ import {
 import { Copy, Loader2, Upload, Wrench } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { auth } from '@/lib/firebase';
-import { listSlotsAvailability, type SlotAvailability, getSlotsConfig, createBookingWindowIfNotExists, type BookingWindow } from '@/lib/firestoreService';
+import { listSlotsAvailability, type SlotAvailability, getSlotsConfig, getBookingWindowsFromFirestore, createBookingWindowIfNotExists, type BookingWindow } from '@/lib/firestoreService';
 import {
   releaseBehaviouralSlots,
   getBehavioralInstructors,
@@ -138,6 +138,11 @@ type ReleaseHistoryEntry = {
 function toDdMmYyyy(isoDate: string): string {
   const [year, month, day] = isoDate.split('-');
   return `${day}/${month}/${year}`;
+}
+
+function toIsoDate(date: string): string {
+  const [day, month, year] = date.split('/');
+  return year && month && day ? `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}` : date;
 }
 
 function toAmPmFrom24Hour(time24: string): string {
@@ -304,14 +309,33 @@ const ToolsManagement = () => {
 
     const loadAvailabilities = async () => {
       try {
-        const [baList, prList, oneOnOneList] = await Promise.all([
+        const [baList, prList, oneOnOneList, bookingWindows] = await Promise.all([
           listSlotsAvailability('behavioral'),
           listSlotsAvailability('presentation'),
           listSlotsAvailability('oneOnOne'),
+          getBookingWindowsFromFirestore(),
         ]);
         setBehavioralAvailabilities(baList || []);
         setPresentationAvailabilities(prList || []);
         setOneOnOneAvailabilities(oneOnOneList || []);
+        const behavioralWindow = bookingWindows.find((window) => window.type === 'behavioral');
+        const presentationWindow = bookingWindows.find((window) => window.type === 'presentation');
+        const oneOnOneWindow = bookingWindows.find((window) => window.type === 'oneOnOne');
+        if (behavioralWindow) {
+          setBaBookingDate(toIsoDate(behavioralWindow.availableDate));
+          setBaBookingStartTime(behavioralWindow.availableStartTime);
+          setBaBookingEndTime(behavioralWindow.availableEndTime);
+        }
+        if (presentationWindow) {
+          setPresentationBookingDate(toIsoDate(presentationWindow.availableDate));
+          setPresentationBookingStartTime(presentationWindow.availableStartTime);
+          setPresentationBookingEndTime(presentationWindow.availableEndTime);
+        }
+        if (oneOnOneWindow) {
+          setOneOnOneBookingDate(toIsoDate(oneOnOneWindow.availableDate));
+          setOneOnOneBookingStartTime(oneOnOneWindow.availableStartTime);
+          setOneOnOneBookingEndTime(oneOnOneWindow.availableEndTime);
+        }
         // load config
         try {
           const cfg = await getSlotsConfig();
@@ -659,6 +683,24 @@ const ToolsManagement = () => {
       return;
     }
 
+    if (!baBookingDate || !baBookingStartTime || !baBookingEndTime) {
+      toast({
+        title: 'Missing booking window',
+        description: 'Set the Behavioral booking window date, start time, and end time before releasing slots.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (baBookingEndTime <= baBookingStartTime) {
+      toast({
+        title: 'Invalid booking window',
+        description: 'Booking window end time should be after start time.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (endTime <= startTime) {
       toast({
         title: 'Invalid timing',
@@ -674,6 +716,9 @@ const ToolsManagement = () => {
       endTime: toAmPmFrom24Hour(endTime),
       durationMinutes: BA_SLOT_DURATION_MINUTES,
       instructorNumber: instructorNumber.trim(),
+      bookingWindowDate: toDdMmYyyy(baBookingDate),
+      bookingWindowStartTime: toAmPmFrom24Hour(baBookingStartTime),
+      bookingWindowEndTime: toAmPmFrom24Hour(baBookingEndTime),
       syncToForm: true,
       resetFormResponses: false,
       studentAuthorizationEmails: studentAuthorizationEmails.trim() || undefined,

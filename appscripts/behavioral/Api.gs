@@ -129,7 +129,7 @@ function releaseBehaviouralSlots_(payload) {
   if (!bookingWindowDate || !bookingWindowStartTime || !bookingWindowEndTime) {
     throw new Error('Booking window date and time are required');
   }
-  if (bookingWindowEndTime <= bookingWindowStartTime) {
+  if (parseClockTimeMinutes_(bookingWindowEndTime) <= parseClockTimeMinutes_(bookingWindowStartTime)) {
     throw new Error('Booking window end time should be after start time');
   }
 
@@ -201,6 +201,19 @@ function releaseBehaviouralSlots_(payload) {
     bookingWindowStartTime: bookingWindowStartTime,
     bookingWindowEndTime: bookingWindowEndTime
   };
+}
+
+function parseClockTimeMinutes_(value) {
+  var match = String(value || '').trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!match) return NaN;
+
+  var hours = Number(match[1]);
+  var minutes = Number(match[2]);
+  var period = match[3] ? match[3].toUpperCase() : '';
+  if (minutes > 59 || hours > (period ? 12 : 23) || (period && hours < 1)) return NaN;
+  if (period === 'AM' && hours === 12) hours = 0;
+  if (period === 'PM' && hours !== 12) hours += 12;
+  return hours * 60 + minutes;
 }
 
 function appendAuthorizationEmailsToStudents_(emailInput) {

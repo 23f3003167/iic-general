@@ -34,6 +34,7 @@ const REQUIRED_ACTIVITY_SECTION_IDS = new Set([
   'internship-ds',
   'placement-sd',
   'placement-ds',
+  'dlp-nppe',
   'cloud-devops',
   'cloud-devops-cma',
   'placement-cloud-devops',

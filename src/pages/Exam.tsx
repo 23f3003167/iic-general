@@ -118,23 +118,17 @@ export default function ExamPage() {
   useEffect(() => {
     if (screen !== 'running' || !isTimedAssessment) return;
 
-    const handleFocusLoss = () => {
+    const handleVisibility = () => {
+      if (!document.hidden) return;
+
       setTabSwitchCount((previous) => previous + 1);
       setWarningVisible(true);
       window.setTimeout(() => setWarningVisible(false), 3500);
     };
 
-    const handleVisibility = () => {
-      if (document.hidden) {
-        handleFocusLoss();
-      }
-    };
-
-    window.addEventListener('blur', handleFocusLoss);
     document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      window.removeEventListener('blur', handleFocusLoss);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [screen, isTimedAssessment]);

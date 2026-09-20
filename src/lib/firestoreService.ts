@@ -60,8 +60,10 @@ export async function listSlotsAvailability(section: 'behavioral' | 'presentatio
 }
 
 export async function createSlotAvailability(payload: SlotAvailability): Promise<{ id: string }> {
+  const { domain, ...slotPayload } = payload;
   const docRef = await addDoc(collection(db, SLOT_AVAILABILITY_COLLECTION), {
-    ...payload,
+    ...slotPayload,
+    ...(domain === undefined ? {} : { domain }),
     active: payload.active === undefined ? true : payload.active,
   });
   return { id: docRef.id };
@@ -74,8 +76,10 @@ export async function createSlotAvailabilityBulk(payloads: SlotAvailability[]): 
   for (let start = 0; start < payloads.length; start += batchSize) {
     const batch = writeBatch(db);
     payloads.slice(start, start + batchSize).forEach((payload) => {
+      const { domain, ...slotPayload } = payload;
       batch.set(doc(collection(db, SLOT_AVAILABILITY_COLLECTION)), {
-        ...payload,
+        ...slotPayload,
+        ...(domain === undefined ? {} : { domain }),
         active: payload.active === undefined ? true : payload.active,
       });
     });
