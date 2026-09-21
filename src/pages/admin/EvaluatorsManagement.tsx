@@ -26,6 +26,7 @@ type DraftScores = {
   clarity: string;
   analyticalSkills: string;
   grammar: string;
+  rating: string;
   content: string;
   slideComposition: string;
   presentation: string;
@@ -50,6 +51,7 @@ function initialDraft(section: EvaluationSection, evaluation?: EvaluationRow): D
       clarity: '',
       analyticalSkills: '',
       grammar: '',
+      rating: '',
       content: presentationEvaluation?.content != null ? String(presentationEvaluation.content) : '',
       slideComposition: presentationEvaluation?.slideComposition != null ? String(presentationEvaluation.slideComposition) : '',
       presentation: presentationEvaluation?.presentation != null ? String(presentationEvaluation.presentation) : '',
@@ -72,6 +74,7 @@ function initialDraft(section: EvaluationSection, evaluation?: EvaluationRow): D
       clarity: '',
       analyticalSkills: '',
       grammar: '',
+      rating: '',
       content: '',
       slideComposition: '',
       presentation: '',
@@ -96,6 +99,7 @@ function initialDraft(section: EvaluationSection, evaluation?: EvaluationRow): D
     clarity: behavioralEvaluation?.clarity != null ? String(behavioralEvaluation.clarity) : '',
     analyticalSkills: behavioralEvaluation?.analyticalSkills != null ? String(behavioralEvaluation.analyticalSkills) : '',
     grammar: behavioralEvaluation?.grammar != null ? String(behavioralEvaluation.grammar) : '',
+    rating: behavioralEvaluation?.rating || '',
     content: '',
     slideComposition: '',
     presentation: '',
@@ -223,6 +227,7 @@ const EvaluatorsManagement = () => {
         const clarity = parseScore(draft.clarity);
         const analyticalSkills = parseScore(draft.analyticalSkills);
         const grammar = parseScore(draft.grammar);
+        const rating = draft.rating as 'Excellent' | 'Good' | 'Average' | 'Poor';
 
         if (!Number.isFinite(relevance) || relevance < 0 || relevance > 20) {
           toast({ title: 'Invalid score', description: 'Relevance must be between 0 and 20.', variant: 'destructive' });
@@ -244,6 +249,10 @@ const EvaluatorsManagement = () => {
           toast({ title: 'Invalid score', description: 'Grammar must be between 0 and 25.', variant: 'destructive' });
           return;
         }
+        if (!['Excellent', 'Good', 'Average', 'Poor'].includes(rating)) {
+          toast({ title: 'Missing rating', description: 'Select a rating before saving.', variant: 'destructive' });
+          return;
+        }
 
         await submitEvaluation(section, {
           id: row.id,
@@ -252,6 +261,7 @@ const EvaluatorsManagement = () => {
           analyticalSkills,
           grammar,
           feedback: draft.feedback,
+          rating,
         });
       } else {
         if (section === 'presentation') {
@@ -491,7 +501,7 @@ const EvaluatorsManagement = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {section === 'behavioral' ? (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                       <div className="space-y-1">
                         <p className="text-sm font-medium">Relevance (20)</p>
                         <Input
@@ -534,6 +544,22 @@ const EvaluatorsManagement = () => {
                           value={draft.grammar}
                           onChange={(e) => updateDraft(row.id, { grammar: e.target.value })}
                         />
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Rating</p>
+                        <Select value={draft.rating || 'BLANK'} onValueChange={(value) => updateDraft(row.id, { rating: value === 'BLANK' ? '' : value })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select rating" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Excellent">Excellent</SelectItem>
+                            <SelectItem value="Good">Good</SelectItem>
+                            <SelectItem value="Average">Average</SelectItem>
+                            <SelectItem value="Poor">Poor</SelectItem>
+                            <SelectItem value="BLANK">Select rating</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   ) : section === 'presentation' ? (

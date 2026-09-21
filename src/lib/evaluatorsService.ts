@@ -19,6 +19,7 @@ type BehavioralSubmitEvaluationArgs = {
   analyticalSkills: number;
   grammar: number;
   feedback: string;
+  rating: 'Excellent' | 'Good' | 'Average' | 'Poor';
 };
 
 type PresentationSubmitEvaluationArgs = {

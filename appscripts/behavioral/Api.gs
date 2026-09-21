@@ -397,6 +397,7 @@ function getPendingEvaluations_(payload) {
       name: name,
       email: email,
       contact: String(row[13] || '').trim(),
+      rating: String(row[14] || '').trim(),
       status: status || 'Pending',
       relevance: row[6] || null,
       clarity: row[7] || null,
@@ -433,6 +434,11 @@ function submitEvaluation_(payload) {
   var analyticalSkills = parseScore_(payload.analyticalSkills, 'Analytical/Problem-Solving Skills', 0, 25);
   var grammar = parseScore_(payload.grammar, 'Grammar', 0, 25);
   var feedback = String(payload.feedback || '').trim();
+  var rating = String(payload.rating || '').trim();
+  var allowedRatings = ['Excellent', 'Good', 'Average', 'Poor'];
+  if (allowedRatings.indexOf(rating) === -1) {
+    throw new Error('Rating must be Excellent, Good, Average, or Poor');
+  }
 
   var sheet = getSummarySheet_();
   var values = sheet.getDataRange().getValues();
@@ -460,6 +466,7 @@ function submitEvaluation_(payload) {
   sheet.getRange(targetRow, 11).setValue(total);
   sheet.getRange(targetRow, 12).setValue(outOf20);
   sheet.getRange(targetRow, 13).setValue(feedback);
+  sheet.getRange(targetRow, 15).setValue(rating);
 
   return { updated: true };
 }

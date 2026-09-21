@@ -73,6 +73,10 @@ function refreshSummary() {
     const summarySheet = ss.getSheetByName("Summary");
     Logger.log("Summary sheet: " + (summarySheet ? "FOUND" : "NOT FOUND"));
 
+    if (summarySheet) {
+      summarySheet.getRange(1, 15).setValue("Rating");
+    }
+
     const instructorMap = getInstructorMap();
     Logger.log("Instructor map size: " + Object.keys(instructorMap).length);
 
@@ -161,7 +165,8 @@ function refreshSummary() {
         "",
         "",
         "",
-        contact
+        contact,
+        ""
       ]);
     }
 
@@ -169,13 +174,15 @@ function refreshSummary() {
 
     if (rowsToAppend.length > 0) {
       summarySheet
-        .getRange(summarySheet.getLastRow() + 1, 1, rowsToAppend.length, 14)
+        .getRange(summarySheet.getLastRow() + 1, 1, rowsToAppend.length, 15)
         .setValues(rowsToAppend);
 
       Logger.log("✅ Rows written to Summary");
     } else {
       Logger.log("⚠️ Nothing to append");
     }
+
+    sortSummaryBySlot_(summarySheet);
 
   } catch (err) {
     Logger.log("🔥 ERROR: " + err);
@@ -187,6 +194,42 @@ function refreshSummary() {
   }
 }
 
+function sortSummaryBySlot_(summarySheet) {
+  const lastRow = summarySheet.getLastRow();
+  if (lastRow < 3) return;
+
+  const range = summarySheet.getRange(2, 1, lastRow - 1, 15);
+  const rows = range.getValues();
+
+  rows.sort((a, b) => {
+    const aDate = parseSlotToDate(String(a[2] || ""));
+    const bDate = parseSlotToDate(String(b[2] || ""));
+
+    if (!aDate && !bDate) return 0;
+    if (!aDate) return 1;
+    if (!bDate) return -1;
+
+    const dayDifference = new Date(
+      aDate.getFullYear(),
+      aDate.getMonth(),
+      aDate.getDate()
+    ).getTime() - new Date(
+      bDate.getFullYear(),
+      bDate.getMonth(),
+      bDate.getDate()
+    ).getTime();
+    if (dayDifference !== 0) return dayDifference;
+
+    const instructorDifference = String(a[1] || "").localeCompare(String(b[1] || ""));
+    if (instructorDifference !== 0) return instructorDifference;
+
+    return aDate.getTime() - bDate.getTime();
+  });
+
+  range.setValues(rows);
+  Logger.log("✅ Summary rows sorted by slot date and time");
+}
+
 /* ===========================
    EXISTING RECORD MAP
 =========================== */
@@ -195,7 +238,7 @@ function getExistingIds(summarySheet) {
   const last = summarySheet.getLastRow();
   if (last < 2) return map;
 
-  const data = summarySheet.getRange(2, 1, last - 1, 14).getValues();
+  const data = summarySheet.getRange(2, 1, last - 1, 15).getValues();
 
   data.forEach((r, idx) => {
     const email = String(r[4] || "").trim(); // Column E

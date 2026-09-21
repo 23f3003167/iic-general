@@ -242,6 +242,7 @@ export interface BehavioralEvaluation extends BaseEvaluation {
   analyticalSkills?: number;
   grammar?: number;
   outOf20?: number;
+  rating?: 'Excellent' | 'Good' | 'Average' | 'Poor';
 }
 
 export interface PresentationEvaluation extends BaseEvaluation {
