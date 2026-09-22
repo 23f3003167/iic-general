@@ -213,7 +213,7 @@ const EvaluatorsManagement = () => {
   const summary = useMemo(() => {
     return {
       total: rows.length,
-      pending: rows.length,
+      pending: rows.filter((row) => row.status.toLowerCase() !== 'completed').length,
     };
   }, [rows]);
 
@@ -349,11 +349,13 @@ const EvaluatorsManagement = () => {
         }
       }
 
-      setRows((prev) => prev.filter((item) => item.id !== row.id));
+      setRows((prev) => prev.map((item) => item.id === row.id
+        ? { ...item, status: 'Completed' }
+        : item));
 
       toast({
-        title: 'Score submitted',
-        description: `Saved evaluation for ${row.name}.`,
+        title: 'Evaluation saved',
+        description: `Saved evaluation for ${row.name}. You can still edit it today.`,
       });
     } catch (error) {
       console.error(error);

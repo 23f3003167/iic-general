@@ -284,19 +284,31 @@ function resolveInstructorName_(instructorEmail) {
 
 function getUniqueInstructors_() {
   var values = summarySheet_().getDataRange().getValues(), seen = {}, result = [];
-  for (var i = 1; i < values.length; i++) { var instructor = String(values[i][7] || '').trim(); if (instructor && !seen[instructor]) { seen[instructor] = true; result.push(instructor); } }
+  for (var i = 1; i < values.length; i++) { var instructor = String(values[i][7] || '').trim(); if (instructor && isSlotToday_(values[i][8]) && !seen[instructor]) { seen[instructor] = true; result.push(instructor); } }
   return result.sort();
 }
 function getPendingEvaluations_(payload) {
   var instructor = String(payload.instructorName || '').trim(), values = summarySheet_().getDataRange().getValues(), result = [];
   if (!instructor) throw new Error('Instructor name is required');
-  for (var i = 1; i < values.length; i++) { var r = values[i]; if (String(r[7] || '').trim().toLowerCase() === instructor.toLowerCase() && String(r[9] || '').trim().toLowerCase() === 'pending') result.push({ id: String(r[1]), instructor: String(r[7]), name: String(r[2]), email: String(r[1]), resumeUrl: String(r[3]), progressCard: String(r[4]), domain: String(r[5]), plan: String(r[6]), slot: String(r[8]), slotTime: String(r[8]), technicalProgramming: r[11] || '', technicalDataScience: r[12] || '', communication: r[13] || '', readiness: r[14] || '', exceptional: r[15] || '', tasks: r[16] || '', roles: r[17] || '', detailedFeedback1: r[18] || '', status: 'Pending' }); }
+  for (var i = 1; i < values.length; i++) { var r = values[i]; if (String(r[7] || '').trim().toLowerCase() === instructor.toLowerCase() && isSlotToday_(r[8])) result.push({ id: String(r[1]), instructor: String(r[7]), name: String(r[2]), email: String(r[1]), resumeUrl: String(r[3]), progressCard: String(r[4]), domain: String(r[5]), plan: String(r[6]), slot: String(r[8]), slotTime: String(r[8]), technicalProgramming: r[11] || '', technicalDataScience: r[12] || '', communication: r[13] || '', readiness: r[14] || '', exceptional: r[15] || '', tasks: r[16] || '', roles: r[17] || '', detailedFeedback1: r[18] || '', status: String(r[9] || 'Pending') }); }
   return result;
+}
+
+function isSlotToday_(slot) {
+  var value = String(slot || '');
+  var slashDate = value.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  var isoDate = value.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  var slotDate = slashDate
+    ? slashDate[1].padStart(2, '0') + '/' + slashDate[2].padStart(2, '0') + '/' + slashDate[3]
+    : isoDate
+      ? isoDate[3].padStart(2, '0') + '/' + isoDate[2].padStart(2, '0') + '/' + isoDate[1]
+      : '';
+  return slotDate === Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
 }
 function submitEvaluation_(payload) {
   var email = normalizeEmail_(payload.id), sheet = summarySheet_(), values = sheet.getDataRange().getValues();
   if (!email) throw new Error('Evaluation ID is required');
-  for (var i = 1; i < values.length; i++) if (normalizeEmail_(values[i][1]) === email) { sheet.getRange(i + 1, 10).setValue('Completed'); sheet.getRange(i + 1, 12, 1, 8).setValues([[Number(payload.technicalProgramming || 0), Number(payload.technicalDataScience || 0), Number(payload.communication || 0), String(payload.readiness || ''), String(payload.exceptional || ''), String(payload.tasks || ''), String(payload.roles || ''), String(payload.detailedFeedback1 || '')]]); return { updated: true, row: i + 1 }; }
+  for (var i = 1; i < values.length; i++) if (normalizeEmail_(values[i][1]) === email) { if (!isSlotToday_(values[i][8])) throw new Error('Only today\'s evaluations can be edited'); sheet.getRange(i + 1, 10).setValue('Completed'); sheet.getRange(i + 1, 12, 1, 8).setValues([[Number(payload.technicalProgramming || 0), Number(payload.technicalDataScience || 0), Number(payload.communication || 0), String(payload.readiness || ''), String(payload.exceptional || ''), String(payload.tasks || ''), String(payload.roles || ''), String(payload.detailedFeedback1 || '')]]); return { updated: true, row: i + 1 }; }
   throw new Error('Student not found for ID: ' + email);
 }
 function getOneOnOneStats_() {

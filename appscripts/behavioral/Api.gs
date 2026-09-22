@@ -303,13 +303,14 @@ function getUniqueInstructors_() {
     return [];
   }
 
-  var values = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+  var values = sheet.getRange(2, 2, lastRow - 1, 2).getValues();
   var seen = {};
   var unique = [];
 
   for (var i = 0; i < values.length; i++) {
     var name = String(values[i][0] || '').trim();
     if (!name) continue;
+    if (!isSlotToday_(values[i][1])) continue;
     if (seen[name]) continue;
     seen[name] = true;
     unique.push(name);
@@ -388,7 +389,7 @@ function getPendingEvaluations_(payload) {
 
     if (!id) continue;
     if (instructor !== instructorName) continue;
-    if (status.toLowerCase() === 'completed') continue;
+    if (!isSlotToday_(slot)) continue;
 
     items.push({
       id: id,
@@ -410,6 +411,15 @@ function getPendingEvaluations_(payload) {
   }
 
   return items;
+}
+
+function isSlotToday_(slot) {
+  var match = String(slot || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!match) return false;
+
+  var slotDate = match[1].padStart(2, '0') + '/' + match[2].padStart(2, '0') + '/' + match[3];
+  var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+  return slotDate === today;
 }
 
 function parseScore_(value, label, min, max) {
@@ -453,6 +463,9 @@ function submitEvaluation_(payload) {
 
   if (targetRow === -1) {
     throw new Error('Evaluation row not found for ID: ' + id);
+  }
+  if (!isSlotToday_(values[targetRow - 1][2])) {
+    throw new Error('Only today\'s evaluations can be edited');
   }
 
   var total = relevance + clarity + analyticalSkills + grammar;
