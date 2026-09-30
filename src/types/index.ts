@@ -250,6 +250,7 @@ export interface PresentationEvaluation extends BaseEvaluation {
   slideComposition?: number;
   presentation?: number;
   outOf30?: number;
+  rating?: 'Excellent' | 'Good' | 'Average' | 'Poor';
 }
 
 export interface OneOnOneEvaluation extends BaseEvaluation {

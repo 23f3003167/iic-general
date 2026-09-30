@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
@@ -147,7 +146,6 @@ const ActivityPoints = () => {
   const [activeTab, setActiveTab] = useState<'submit' | 'lookup' | 'submissions'>('submit');
   
   // Submissions state
-  const [email, setEmail] = useState('');
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const [error, setError] = useState('');
@@ -206,8 +204,9 @@ const ActivityPoints = () => {
   }, [toast]);
 
   const handleCheckSubmissions = async () => {
-    if (!email.trim()) {
-      setError('Please enter your email');
+    const email = getStoredVerifiedEmail();
+    if (!email) {
+      setError('Please sign in with Google to view your submissions.');
       return;
     }
 
@@ -337,18 +336,9 @@ const ActivityPoints = () => {
                   <CardTitle>Check Your Submissions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex gap-2">
-                    <Input
-                      type="email"
-                      placeholder="Enter your email ID"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleCheckSubmissions()}
-                    />
-                    <Button onClick={handleCheckSubmissions} disabled={loadingSubmissions}>
-                      {loadingSubmissions ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Check'}
-                    </Button>
-                  </div>
+                  <Button onClick={handleCheckSubmissions} disabled={loadingSubmissions}>
+                    {loadingSubmissions ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Check'}
+                  </Button>
 
                   {error && (
                     <div className="text-sm text-red-600">{error}</div>

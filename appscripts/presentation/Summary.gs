@@ -69,6 +69,8 @@ function refreshSummary() {
       throw new Error("Form or Summary sheet missing.");
     }
 
+    ensureSummaryContactRatingHeaders_(summarySheet);
+
     const formLastRow = formSheet.getLastRow();
     const formLastColumn = formSheet.getLastColumn();
     if (formLastRow < 2) return;
@@ -94,7 +96,7 @@ function refreshSummary() {
       const key = email + " | " + slot;
       if (existing[key]) {
         if (contact && !existing[key].contact) {
-          summarySheet.getRange(existing[key].rowNumber, 13).setValue(contact);
+          summarySheet.getRange(existing[key].rowNumber, 14).setValue(contact);
           existing[key].contact = contact;
         }
         continue;
@@ -117,19 +119,63 @@ function refreshSummary() {
         "",
         "",
         "",
-        contact
+        "",
+        contact,
+        ""
       ]);
     }
 
     if (rowsToAppend.length > 0) {
       summarySheet
-        .getRange(summarySheet.getLastRow() + 1, 1, rowsToAppend.length, 13)
+        .getRange(summarySheet.getLastRow() + 1, 1, rowsToAppend.length, 15)
         .setValues(rowsToAppend);
     }
+
+    sortSummaryBySlot_(summarySheet);
 
   } finally {
     lock.releaseLock();
   }
+}
+
+function ensureSummaryContactRatingHeaders_(summarySheet) {
+  summarySheet.getRange(1, 14).setValue("Contact");
+  summarySheet.getRange(1, 15).setValue("Rating");
+}
+
+function sortSummaryBySlot_(summarySheet) {
+  const lastRow = summarySheet.getLastRow();
+  if (lastRow < 3) return;
+
+  const range = summarySheet.getRange(2, 1, lastRow - 1, 15);
+  const rows = range.getValues();
+
+  rows.sort((a, b) => {
+    const aDate = parseSlotToDate(String(a[2] || ""));
+    const bDate = parseSlotToDate(String(b[2] || ""));
+
+    if (!aDate && !bDate) return 0;
+    if (!aDate) return 1;
+    if (!bDate) return -1;
+
+    const dayDifference = new Date(
+      aDate.getFullYear(),
+      aDate.getMonth(),
+      aDate.getDate()
+    ).getTime() - new Date(
+      bDate.getFullYear(),
+      bDate.getMonth(),
+      bDate.getDate()
+    ).getTime();
+    if (dayDifference !== 0) return dayDifference;
+
+    const instructorDifference = String(a[1] || "").localeCompare(String(b[1] || ""));
+    if (instructorDifference !== 0) return instructorDifference;
+
+    return aDate.getTime() - bDate.getTime();
+  });
+
+  range.setValues(rows);
 }
 
 /* ===========================
@@ -140,12 +186,12 @@ function getExistingIds(summarySheet) {
   const last = summarySheet.getLastRow();
   if (last < 2) return map;
 
-  const data = summarySheet.getRange(2, 1, last - 1, Math.max(14, summarySheet.getLastColumn())).getValues();
+  const data = summarySheet.getRange(2, 1, last - 1, Math.max(15, summarySheet.getLastColumn())).getValues();
 
   data.forEach((r, idx) => {
     const email = String(r[4] || "").trim(); // Column E
     const slot  = String(r[2] || "").trim(); // Column C
-    const contact = String(r[12] || r[13] || "").trim(); // Column M (legacy N supported)
+    const contact = String(r[13] || r[12] || "").trim(); // Contact may be in M or N depending on history
 
     if (email && slot) {
       map[email + " | " + slot] = {

@@ -310,7 +310,6 @@ function getUniqueInstructors_() {
   for (var i = 0; i < values.length; i++) {
     var name = String(values[i][0] || '').trim();
     if (!name) continue;
-    if (!isSlotToday_(values[i][1])) continue;
     if (seen[name]) continue;
     seen[name] = true;
     unique.push(name);
@@ -389,7 +388,6 @@ function getPendingEvaluations_(payload) {
 
     if (!id) continue;
     if (instructor !== instructorName) continue;
-    if (!isSlotToday_(slot)) continue;
 
     items.push({
       id: id,
@@ -464,10 +462,6 @@ function submitEvaluation_(payload) {
   if (targetRow === -1) {
     throw new Error('Evaluation row not found for ID: ' + id);
   }
-  if (!isSlotToday_(values[targetRow - 1][2])) {
-    throw new Error('Only today\'s evaluations can be edited');
-  }
-
   var total = relevance + clarity + analyticalSkills + grammar;
   var outOf20 = Number((total / 5).toFixed(2));
 

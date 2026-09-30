@@ -28,6 +28,7 @@ type PresentationSubmitEvaluationArgs = {
   slideComposition: number;
   presentation: number;
   feedback: string;
+  rating: 'Excellent' | 'Good' | 'Average' | 'Poor';
 };
 
 type OneOnOneSubmitEvaluationArgs = {
@@ -110,7 +111,10 @@ async function callEvaluatorsAppsScript<T>(
   });
 
   if (!response.ok) {
-    throw new Error(`Apps Script request failed (${response.status})`);
+    throw new Error(
+      `Evaluator Apps Script request failed (${response.status}). ` +
+      `Redeploy the evaluator API as a Web app and update VITE_BEHAVIORAL_APPS_SCRIPT_WEB_APP_URL if the deployment URL changed.`,
+    );
   }
 
   const result = await parseJsonResponse<T>(response);

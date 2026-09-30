@@ -19,7 +19,7 @@ import type {
   OneOnOneEvaluation,
   PresentationEvaluation,
 } from '@/types';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Edit, Loader2, RefreshCw } from 'lucide-react';
 
 type DraftScores = {
   relevance: string;
@@ -51,7 +51,7 @@ function initialDraft(section: EvaluationSection, evaluation?: EvaluationRow): D
       clarity: '',
       analyticalSkills: '',
       grammar: '',
-      rating: '',
+      rating: presentationEvaluation?.rating || '',
       content: presentationEvaluation?.content != null ? String(presentationEvaluation.content) : '',
       slideComposition: presentationEvaluation?.slideComposition != null ? String(presentationEvaluation.slideComposition) : '',
       presentation: presentationEvaluation?.presentation != null ? String(presentationEvaluation.presentation) : '',
@@ -119,6 +119,21 @@ function parseScore(value: string): number {
   return Number(value.trim());
 }
 
+function getEvaluationDate(slot: string): string {
+  const slashDate = slot.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (slashDate) {
+    return `${slashDate[3]}-${slashDate[2].padStart(2, '0')}-${slashDate[1].padStart(2, '0')}`;
+  }
+
+  const isoDate = slot.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  return isoDate ? `${isoDate[1]}-${isoDate[2].padStart(2, '0')}-${isoDate[3].padStart(2, '0')}` : '';
+}
+
+function formatEvaluationDate(date: string): string {
+  const [year, month, day] = date.split('-');
+  return `${day}/${month}/${year}`;
+}
+
 const EvaluatorsManagement = () => {
   const { toast } = useToast();
   const [section, setSection] = useState<EvaluationSection | null>(null);
@@ -128,6 +143,8 @@ const EvaluatorsManagement = () => {
   const [selectedInstructor, setSelectedInstructor] = useState<string>('');
   const [rows, setRows] = useState<EvaluationRow[]>([]);
   const [drafts, setDrafts] = useState<Record<string, DraftScores>>({});
+  const [selectedDate, setSelectedDate] = useState('');
+  const [editingIds, setEditingIds] = useState<Record<string, boolean>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
 
   const loadInstructors = async () => {
@@ -176,6 +193,10 @@ const EvaluatorsManagement = () => {
         nextDrafts[item.id] = initialDraft(currentSection, item);
       });
       setDrafts(nextDrafts);
+      setEditingIds(Object.fromEntries(pending.map((item) => [
+        item.id,
+        item.status.toLowerCase() !== 'completed',
+      ])));
     } catch (error) {
       console.error(error);
       toast({
@@ -200,6 +221,21 @@ const EvaluatorsManagement = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section, selectedInstructor]);
 
+  const availableDates = useMemo(() => {
+    return [...new Set(rows.map((row) => getEvaluationDate(row.slot)).filter(Boolean))].sort();
+  }, [rows]);
+
+  useEffect(() => {
+    if (!availableDates.includes(selectedDate)) {
+      setSelectedDate(availableDates[0] || '');
+    }
+  }, [availableDates, selectedDate]);
+
+  const visibleRows = useMemo(
+    () => rows.filter((row) => getEvaluationDate(row.slot) === selectedDate),
+    [rows, selectedDate],
+  );
+
   const updateDraft = (id: string, patch: Partial<DraftScores>) => {
     setDrafts((prev) => ({
       ...prev,
@@ -212,10 +248,10 @@ const EvaluatorsManagement = () => {
 
   const summary = useMemo(() => {
     return {
-      total: rows.length,
-      pending: rows.filter((row) => row.status.toLowerCase() !== 'completed').length,
+      total: visibleRows.length,
+      pending: visibleRows.filter((row) => row.status.toLowerCase() !== 'completed').length,
     };
-  }, [rows]);
+  }, [visibleRows]);
 
   const handleSubmit = async (row: EvaluationRow) => {
     const draft = drafts[row.id] || initialDraft(section, row);
@@ -268,6 +304,7 @@ const EvaluatorsManagement = () => {
           const content = parseScore(draft.content);
           const slideComposition = parseScore(draft.slideComposition);
           const presentation = parseScore(draft.presentation);
+          const rating = draft.rating as 'Excellent' | 'Good' | 'Average' | 'Poor';
 
           if (!Number.isFinite(content) || content < 0 || content > 30) {
             toast({ title: 'Invalid score', description: 'Content must be between 0 and 30.', variant: 'destructive' });
@@ -289,6 +326,10 @@ const EvaluatorsManagement = () => {
             });
             return;
           }
+          if (!['Excellent', 'Good', 'Average', 'Poor'].includes(rating)) {
+            toast({ title: 'Missing rating', description: 'Select a rating before saving.', variant: 'destructive' });
+            return;
+          }
 
           await submitEvaluation(section, {
             id: row.id,
@@ -296,6 +337,7 @@ const EvaluatorsManagement = () => {
             slideComposition,
             presentation,
             feedback: draft.feedback,
+            rating,
           });
         } else {
           const technicalProgramming = parseScore(draft.technicalProgramming);
@@ -352,6 +394,7 @@ const EvaluatorsManagement = () => {
       setRows((prev) => prev.map((item) => item.id === row.id
         ? { ...item, status: 'Completed' }
         : item));
+      setEditingIds((prev) => ({ ...prev, [row.id]: false }));
 
       toast({
         title: 'Evaluation saved',
@@ -419,7 +462,7 @@ const EvaluatorsManagement = () => {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Filter Evaluator</CardTitle>
-          <CardDescription>Select evaluator name to load pending rows.</CardDescription>
+          <CardDescription>Select an evaluator and date to load evaluation rows.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-[320px_1fr] items-end">
           <div className="space-y-2">
@@ -441,6 +484,20 @@ const EvaluatorsManagement = () => {
           <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
             Pending rows: {summary.pending}
           </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Evaluation Date</p>
+            <Select value={selectedDate} onValueChange={setSelectedDate} disabled={!selectedInstructor || availableDates.length === 0}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select date" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableDates.map((date) => (
+                  <SelectItem key={date} value={date}>{formatEvaluationDate(date)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
 
@@ -450,7 +507,7 @@ const EvaluatorsManagement = () => {
             <p className="text-sm text-muted-foreground">Loading pending rows...</p>
           </CardContent>
         </Card>
-      ) : rows.length === 0 ? (
+      ) : visibleRows.length === 0 ? (
         <Card>
           <CardContent className="py-8">
             <p className="text-sm text-muted-foreground">No slots for you today.</p>
@@ -458,7 +515,7 @@ const EvaluatorsManagement = () => {
         </Card>
       ) : (
         <div className="space-y-4">
-          {rows.map((row) => {
+          {visibleRows.map((row) => {
             const draft = drafts[row.id] || initialDraft(section, row);
             const total = section === 'behavioral'
               ? Number(draft.relevance || 0) +
@@ -502,6 +559,7 @@ const EvaluatorsManagement = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <fieldset disabled={!editingIds[row.id]} className="space-y-4">
                   {section === 'behavioral' ? (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                       <div className="space-y-1">
@@ -565,7 +623,7 @@ const EvaluatorsManagement = () => {
                       </div>
                     </div>
                   ) : section === 'presentation' ? (
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                       <div className="space-y-1">
                         <p className="text-sm font-medium">Content (30)</p>
                         <Input
@@ -597,6 +655,22 @@ const EvaluatorsManagement = () => {
                           value={draft.presentation}
                           onChange={(e) => updateDraft(row.id, { presentation: e.target.value })}
                         />
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Rating</p>
+                        <Select value={draft.rating || 'BLANK'} onValueChange={(value) => updateDraft(row.id, { rating: value === 'BLANK' ? '' : value })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select rating" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Excellent">Excellent</SelectItem>
+                            <SelectItem value="Good">Good</SelectItem>
+                            <SelectItem value="Average">Average</SelectItem>
+                            <SelectItem value="Poor">Poor</SelectItem>
+                            <SelectItem value="BLANK">Select rating</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   ) : (
@@ -754,16 +828,29 @@ const EvaluatorsManagement = () => {
                     </div>
                   )}
 
+                  </fieldset>
+
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm text-muted-foreground">
                       {section === 'oneOnOne'
                         ? `Current Technical Total: ${Number.isFinite(total) ? total : 0} / 15`
                         : `Current Total: ${Number.isFinite(total) ? total : 0} / 100`}
                     </p>
-                    <Button onClick={() => handleSubmit(row)} disabled={submittingId === row.id}>
+                    <div className="flex items-center gap-2">
+                      {row.status.toLowerCase() === 'completed' && !editingIds[row.id] ? (
+                        <Button
+                          variant="outline"
+                          onClick={() => setEditingIds((prev) => ({ ...prev, [row.id]: true }))}
+                        >
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit
+                        </Button>
+                      ) : null}
+                      <Button onClick={() => handleSubmit(row)} disabled={!editingIds[row.id] || submittingId === row.id}>
                       {submittingId === row.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                       {section === 'oneOnOne' ? 'Save Evaluation' : 'Save Score'}
-                    </Button>
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

@@ -478,7 +478,6 @@ function getUniqueInstructors_() {
   for (var i = 0; i < values.length; i++) {
     var name = String(values[i][0] || '').trim();
     if (!name) continue;
-    if (!isSlotToday_(values[i][1])) continue;
     if (seen[name]) continue;
     seen[name] = true;
     unique.push(name);
@@ -488,6 +487,47 @@ function getUniqueInstructors_() {
   return unique;
 }
 
+function isPresentationRating_(value) {
+  return ['Excellent', 'Good', 'Average', 'Poor'].indexOf(String(value || '').trim()) !== -1;
+}
+
+function isPresentationContact_(value) {
+  var contact = String(value || '').trim();
+  var digits = contact.replace(/\D/g, '');
+  return digits.length >= 7 && digits.length <= 15 && !/[A-Za-z]/.test(contact);
+}
+
+function normalizePresentationContactRating_(sheet, rowNumber, row) {
+  var contact = String(row[13] || '').trim();
+  var legacyContact = String(row[12] || '').trim();
+  var rating = String(row[14] || '').trim();
+
+  if (isPresentationRating_(contact) && isPresentationContact_(rating)) {
+    sheet.getRange(rowNumber, 14).setValue(rating);
+    sheet.getRange(rowNumber, 15).setValue(contact);
+    return { contact: rating, rating: contact };
+  }
+
+  if (!isPresentationContact_(contact) && isPresentationContact_(legacyContact)) {
+    contact = legacyContact;
+    sheet.getRange(rowNumber, 14).setValue(contact);
+    sheet.getRange(rowNumber, 13).clearContent();
+  }
+
+  if (isPresentationContact_(rating)) {
+    if (!isPresentationContact_(contact)) {
+      contact = rating;
+      sheet.getRange(rowNumber, 14).setValue(contact);
+    }
+    sheet.getRange(rowNumber, 15).clearContent();
+    rating = '';
+  } else if (!isPresentationRating_(rating)) {
+    rating = '';
+  }
+
+  return { contact: contact, rating: rating };
+}
+
 function getPendingEvaluations_(payload) {
   var instructorName = String(payload.instructorName || '').trim();
   if (!instructorName) {
@@ -495,6 +535,7 @@ function getPendingEvaluations_(payload) {
   }
 
   var sheet = getSummarySheet_();
+  ensureSummaryContactRatingHeaders_(sheet);
   var values = sheet.getDataRange().getValues();
   var items = [];
 
@@ -506,10 +547,10 @@ function getPendingEvaluations_(payload) {
     var name = String(row[3] || '').trim();
     var email = String(row[4] || '').trim();
     var status = String(row[5] || '').trim();
+    var contactRating = normalizePresentationContactRating_(sheet, i + 1, row);
 
     if (!id) continue;
     if (instructor !== instructorName) continue;
-    if (!isSlotToday_(slot)) continue;
 
     items.push({
       id: id,
@@ -518,7 +559,8 @@ function getPendingEvaluations_(payload) {
       name: name,
       email: email,
       status: status || 'Pending',
-      contact: String(row[12] || row[13] || '').trim(),
+      contact: contactRating.contact,
+      rating: contactRating.rating,
       content: row[6] || null,
       slideComposition: row[7] || null,
       presentation: row[8] || null,
@@ -561,8 +603,14 @@ function submitEvaluation_(payload) {
   var slideComposition = parseScore_(payload.slideComposition, 'Slide Composition & Organization', 0, 35);
   var presentation = parseScore_(payload.presentation, 'Presentation', 0, 35);
   var feedback = String(payload.feedback || '').trim();
+  var rating = String(payload.rating || '').trim();
+  var allowedRatings = ['Excellent', 'Good', 'Average', 'Poor'];
+  if (allowedRatings.indexOf(rating) === -1) {
+    throw new Error('Rating must be Excellent, Good, Average, or Poor');
+  }
 
   var sheet = getSummarySheet_();
+  ensureSummaryContactRatingHeaders_(sheet);
   var values = sheet.getDataRange().getValues();
   var targetRow = -1;
 
@@ -576,10 +624,7 @@ function submitEvaluation_(payload) {
   if (targetRow === -1) {
     throw new Error('Evaluation row not found for ID: ' + id);
   }
-  if (!isSlotToday_(values[targetRow - 1][2])) {
-    throw new Error('Only today\'s evaluations can be edited');
-  }
-
+  normalizePresentationContactRating_(sheet, targetRow, values[targetRow - 1]);
   var total = content + slideComposition + presentation;
   var outOf30 = Number((total * 0.3).toFixed(2));
 
@@ -590,6 +635,7 @@ function submitEvaluation_(payload) {
   sheet.getRange(targetRow, 10).setValue(feedback);
   sheet.getRange(targetRow, 11).setValue(total);
   sheet.getRange(targetRow, 12).setValue(outOf30);
+  sheet.getRange(targetRow, 15).setValue(rating);
 
   return { updated: true };
 }
@@ -891,6 +937,9 @@ function bookPresentationSlot_(payload) {
   if (!email) {
     throw new Error('Email is required');
   }
+  if (!isAuthorizedStudent(email)) {
+    throw new Error('This email is not authorized to book a presentation slot.');
+  }
   if (!name) {
     throw new Error('Name is required');
   }
@@ -1110,6 +1159,14 @@ function getPresentationBookableSlots_(payload) {
   var email = normalizeEmail_(payload.email);
   if (!email) {
     throw new Error('Email is required');
+  }
+
+  if (!isAuthorizedStudent(email)) {
+    return {
+      email: email,
+      verified: false,
+      slots: []
+    };
   }
 
   if (findExistingBookedSlotByEmail_(email)) {

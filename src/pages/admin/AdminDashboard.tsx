@@ -60,6 +60,7 @@ import { CompanyOutreachManagement } from './CompanyOutreachManagement';
 import ReportsManagement from './ReportsManagement';
 import ActivityPointsFormManagement from './ActivityPointsFormManagement';
 import TeamManagement from './TeamManagement';
+import ChatbotKnowledgeManagement from './ChatbotKnowledgeManagement';
 
 const adminNavItems = [
   { path: '/admin/dashboard', label: 'Overview', icon: Home },
@@ -76,6 +77,7 @@ const adminNavItems = [
   { path: '/admin/reports', label: 'Reports', icon: BarChart3 },
   { path: '/admin/activity-points-form', label: 'Activity Points Form', icon: FileEdit },
   { path: '/admin/team', label: 'Team', icon: Users },
+  { path: '/admin/chatbot-knowledge', label: 'Chatbot Knowledge', icon: HelpCircle },
 ];
 
 const evaluatorPaths = new Set(['/admin/evaluators', '/admin/slots-availability']);
@@ -250,6 +252,8 @@ const AdminDashboard = () => {
         return <ActivityPointsFormManagement />;
       case '/admin/team':
         return <TeamManagement />;
+      case '/admin/chatbot-knowledge':
+        return <ChatbotKnowledgeManagement />;
       default:
         if (!isAdmin) return <EvaluatorsManagement />;
         return (

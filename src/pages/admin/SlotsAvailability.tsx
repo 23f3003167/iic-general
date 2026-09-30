@@ -17,6 +17,74 @@ const SUPER_ADMINS = ['sanjay_k@study.iitm.ac.in', 'jeyalakshmi_a@study.iitm.ac.
 
 type SlotSection = SlotAvailability['section'];
 
+type InstructorSlotReview = {
+  instructorNumber: string;
+  instructorName: string;
+  days: { date: string; slots: SlotAvailability[] }[];
+};
+
+const localDateKey = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const groupUpcomingSlots = (slots: SlotAvailability[], today: string): InstructorSlotReview[] => {
+  const instructors = new Map<string, Map<string, SlotAvailability[]>>();
+
+  slots.forEach((slot) => {
+    const date = slot.date || slot.startDate || '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < today) return;
+
+    const instructorKey = slot.instructorNumber || slot.instructorName || 'unknown';
+    const dates = instructors.get(instructorKey) || new Map<string, SlotAvailability[]>();
+    const daySlots = dates.get(date) || [];
+    daySlots.push(slot);
+    dates.set(date, daySlots);
+    instructors.set(instructorKey, dates);
+  });
+
+  return [...instructors.entries()]
+    .map(([instructorNumber, dates]) => ({
+      instructorNumber,
+      instructorName: [...dates.values()][0]?.[0]?.instructorName || 'Unknown instructor',
+      days: [...dates.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([date, daySlots]) => ({
+          date,
+          slots: daySlots.sort((left, right) => left.startTime.localeCompare(right.startTime)),
+        })),
+    }))
+    .sort((left, right) => left.instructorName.localeCompare(right.instructorName));
+};
+
+const formatReviewDate = (value: string): string => {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short' }).format(new Date(year, month - 1, day));
+};
+
+const formatReviewTime = (value: string): string => {
+  const match = value.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+  if (!match) return value;
+  let hours = Number(match[1]);
+  const minutes = match[2];
+  let meridiem = match[3]?.toUpperCase();
+  if (!meridiem) {
+    meridiem = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+  }
+  return `${hours}:${minutes} ${meridiem}`;
+};
+
+const areConsecutiveDates = (previous: string, current: string): boolean => {
+  const toDayNumber = (value: string) => {
+    const [year, month, day] = value.split('-').map(Number);
+    return Date.UTC(year, month - 1, day) / 86400000;
+  };
+  return toDayNumber(current) - toDayNumber(previous) === 1;
+};
+
 const parseCsv = (text: string): string[][] => {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -134,6 +202,8 @@ const SlotsAvailabilityPage = () => {
   const { toast } = useToast();
   const [availabilities, setAvailabilities] = useState<SlotAvailability[]>([]);
   const [section, setSection] = useState<'behavioral' | 'presentation' | 'oneOnOne'>('behavioral');
+  const [reviewSection, setReviewSection] = useState<SlotSection>('behavioral');
+  const [reviewAvailabilities, setReviewAvailabilities] = useState<SlotAvailability[]>([]);
   const [instructorNumber, setInstructorNumber] = useState('1');
   const [instructors, setInstructors] = useState<InstructorOption[]>([]);
   const [date, setDate] = useState('');
@@ -172,6 +242,26 @@ const SlotsAvailabilityPage = () => {
   }, [config]);
 
   const canCreateAvailability = editingEnabled;
+  const upcomingSlotReviews = useMemo(
+    () => groupUpcomingSlots(reviewAvailabilities, localDateKey(new Date())),
+    [reviewAvailabilities],
+  );
+
+  useEffect(() => {
+    let isCurrent = true;
+    listSlotsAvailability(reviewSection)
+      .then((list) => {
+        if (isCurrent) setReviewAvailabilities(list || []);
+      })
+      .catch((err) => {
+        console.error(err);
+        if (isCurrent) toast({ title: 'Could not load review availability', variant: 'destructive' });
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [reviewSection, toast]);
 
   useEffect(() => {
     const load = async () => {
@@ -236,6 +326,7 @@ const SlotsAvailabilityPage = () => {
       
       const list = await listSlotsAvailability(section);
       setAvailabilities(list || []);
+      if (reviewSection === section) setReviewAvailabilities(list || []);
     } catch (err) {
       console.error(err);
       toast({ title: 'Save failed', description: err instanceof Error ? err.message : 'Could not save', variant: 'destructive' });
@@ -249,6 +340,7 @@ const SlotsAvailabilityPage = () => {
       toast({ title: 'Deleted' });
       const list = await listSlotsAvailability(section);
       setAvailabilities(list || []);
+      if (reviewSection === section) setReviewAvailabilities(list || []);
     } catch (err) {
       console.error(err);
       toast({ title: 'Delete failed', variant: 'destructive' });
@@ -284,6 +376,9 @@ const SlotsAvailabilityPage = () => {
       await createSlotAvailabilityBulk(slots);
       if (slots.some((slot) => slot.section === section)) {
         setAvailabilities(await listSlotsAvailability(section));
+      }
+      if (slots.some((slot) => slot.section === reviewSection)) {
+        setReviewAvailabilities(await listSlotsAvailability(reviewSection));
       }
       toast({
         title: 'Bulk availability saved',
@@ -496,7 +591,56 @@ const SlotsAvailabilityPage = () => {
                 </div>
               ) : null}
 
-              <div className="mt-4 space-y-2">
+              <div className="mt-6 border-t pt-4">
+                <div className="mb-3 flex items-baseline justify-between gap-3">
+                  <h3 className="text-lg font-medium">Upcoming Availability Review</h3>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="review-section" className="text-sm text-muted-foreground">Review</label>
+                    <Select value={reviewSection} onValueChange={(value) => setReviewSection(value as SlotSection)}>
+                      <SelectTrigger id="review-section" className="w-40">
+                        <SelectValue placeholder="Choose section" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="behavioral">Behavioral</SelectItem>
+                        <SelectItem value="presentation">Presentation</SelectItem>
+                        <SelectItem value="oneOnOne">1on1</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                {upcomingSlotReviews.length ? (
+                  <div className="divide-y">
+                    {upcomingSlotReviews.map((instructor) => (
+                      <div key={instructor.instructorNumber} className="py-3 first:pt-0 last:pb-0">
+                        <div className="mb-1 font-medium">{instructor.instructorName}</div>
+                        <div className="space-y-1">
+                          {instructor.days.map((day, index) => (
+                            <div
+                              key={day.date}
+                              className={`grid grid-cols-[5rem_1fr] gap-3 text-sm ${
+                                index > 0 && !areConsecutiveDates(instructor.days[index - 1].date, day.date)
+                                  ? 'mt-2 border-t border-dashed pt-2'
+                                  : ''
+                              }`}
+                            >
+                              <span className="text-muted-foreground">{formatReviewDate(day.date)}</span>
+                              <span>
+                                {day.slots.map((slot) =>
+                                  `${formatReviewTime(slot.startTime)} to ${formatReviewTime(slot.endTime)}${slot.domain ? ` (${slot.domain})` : ''}`
+                                ).join(' & ')}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No upcoming slots have been provided for this section.</p>
+                )}
+              </div>
+
+              <div className="mt-6 space-y-2">
                 <h3 className="text-lg font-medium">Existing Availability</h3>
                 {availabilities.map((a) => (
                   <div key={a.id} className="rounded-md border p-3">

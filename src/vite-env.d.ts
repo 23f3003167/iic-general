@@ -20,6 +20,8 @@ interface ImportMetaEnv {
 	readonly VITE_AI_EVALUATION_SHEET_ID?: string;
 	readonly VITE_AI_EVALUATION_APPS_SCRIPT_WEB_APP_URL?: string;
 	readonly VITE_AI_EVALUATION_APPS_SCRIPT_API_TOKEN?: string;
+	readonly VITE_CHATBOT_APPS_SCRIPT_WEB_APP_URL?: string;
+	readonly VITE_CHATBOT_APPS_SCRIPT_API_TOKEN?: string;
 }
 
 interface ImportMeta {
