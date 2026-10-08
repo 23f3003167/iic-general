@@ -135,6 +135,8 @@ export type BookingWindow = {
   id?: string;
   type: 'behavioral' | 'presentation' | 'oneOnOne';
   availableDate: string;
+  availableStartDate?: string;
+  availableEndDate?: string;
   availableStartTime: string;
   availableEndTime: string;
   createdBy?: string;
@@ -165,7 +167,8 @@ export async function createBookingWindowIfNotExists(window: BookingWindow): Pro
     const q = query(
       collection(db, BOOKING_WINDOWS_COLLECTION),
       where('type', '==', window.type),
-      where('availableDate', '==', window.availableDate),
+      where('availableStartDate', '==', window.availableStartDate || window.availableDate),
+      where('availableEndDate', '==', window.availableEndDate || window.availableDate),
       where('availableStartTime', '==', window.availableStartTime),
       where('availableEndTime', '==', window.availableEndTime),
     );
@@ -182,6 +185,8 @@ export async function createBookingWindowIfNotExists(window: BookingWindow): Pro
     const docRef = await addDoc(collection(db, BOOKING_WINDOWS_COLLECTION), {
       type: window.type,
       availableDate: window.availableDate,
+      availableStartDate: window.availableStartDate || window.availableDate,
+      availableEndDate: window.availableEndDate || window.availableDate,
       availableStartTime: window.availableStartTime,
       availableEndTime: window.availableEndTime,
       createdBy: window.createdBy || '',
@@ -255,16 +260,26 @@ export async function isBookingWindowOpen(type: 'behavioral' | 'presentation' | 
     const window = latestDoc.data() as BookingWindow;
     console.log('Checking latest booking window:', window);
     
-    const [day, month, year] = window.availableDate.split('/').map(Number);
+    const startDate = window.availableStartDate || window.availableDate;
+    const endDate = window.availableEndDate || window.availableDate;
+    const parseDate = (value: string) => {
+      const parts = value.includes('-')
+        ? value.split('-').map(Number)
+        : value.split('/').map(Number).reverse();
+      const [year, month, day] = parts;
+      return { year, month, day };
+    };
+    const { year: startYear, month: startMonth, day: startDay } = parseDate(startDate);
+    const { year: endYear, month: endMonth, day: endDay } = parseDate(endDate);
     const [startHour, startMin] = window.availableStartTime.split(':').map(Number);
     const [endHour, endMin] = window.availableEndTime.split(':').map(Number);
     
-    console.log('Parsed date:', { day, month, year });
+    console.log('Parsed date range:', { startDate, endDate });
     console.log('Parsed time:', { startHour, startMin, endHour, endMin });
     
     const now = new Date();
-    const windowStart = new Date(year, month - 1, day, startHour, startMin, 0, 0);
-    const windowEnd = new Date(year, month - 1, day, endHour, endMin, 59, 999);
+    const windowStart = new Date(startYear, startMonth - 1, startDay, startHour, startMin, 0, 0);
+    const windowEnd = new Date(endYear, endMonth - 1, endDay, endHour, endMin, 59, 999);
     
     console.log('Window start:', windowStart);
     console.log('Window end:', windowEnd);

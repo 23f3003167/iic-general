@@ -653,9 +653,9 @@ export const activityPointsFormConfig: FormConfig =
         { "fieldId": "placementScActivityTitle", "equals": ["Bash Track on Exercism - Solved 30 problems", "Bash Track on Exercism - Reputation points is over 100"] }
       ] },
       "fields": [{
-        "id": "scHackerrankProfile", "label": "Link to HackerRank Profile", "type": "shortAnswer", "required": true,
-        "placeholder": "https://www.hackerrank.com/profile/username",
-        "validation": { "pattern": "^https?://(www\\.)?hackerrank\\.com/.+", "message": "Please provide a valid HackerRank profile URL" }
+        "id": "scHackerrankProfile", "label": "Link to Exercism Profile", "type": "shortAnswer", "required": true,
+        "placeholder": "https://exercism.org/profiles/username",
+        "validation": { "pattern": "^https?://(www\\.)?exercism\\.org/profiles/[^/?#]+/?(?:[?#].*)?$", "message": "Please provide a valid Exercism profile URL" }
       }]
     },
     {

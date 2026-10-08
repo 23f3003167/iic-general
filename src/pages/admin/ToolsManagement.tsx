@@ -239,13 +239,16 @@ const ToolsManagement = () => {
   const [oneOnOneInstructors, setOneOnOneInstructors] = useState<InstructorOption[]>([]);
 
   // Booking Window Timeline state
-  const [baBookingDate, setBaBookingDate] = useState('');
+  const [baBookingStartDate, setBaBookingStartDate] = useState('');
+  const [baBookingEndDate, setBaBookingEndDate] = useState('');
   const [baBookingStartTime, setBaBookingStartTime] = useState('');
   const [baBookingEndTime, setBaBookingEndTime] = useState('');
-  const [presentationBookingDate, setPresentationBookingDate] = useState('');
+  const [presentationBookingStartDate, setPresentationBookingStartDate] = useState('');
+  const [presentationBookingEndDate, setPresentationBookingEndDate] = useState('');
   const [presentationBookingStartTime, setPresentationBookingStartTime] = useState('');
   const [presentationBookingEndTime, setPresentationBookingEndTime] = useState('');
-  const [oneOnOneBookingDate, setOneOnOneBookingDate] = useState('');
+  const [oneOnOneBookingStartDate, setOneOnOneBookingStartDate] = useState('');
+  const [oneOnOneBookingEndDate, setOneOnOneBookingEndDate] = useState('');
   const [oneOnOneBookingStartTime, setOneOnOneBookingStartTime] = useState('');
   const [oneOnOneBookingEndTime, setOneOnOneBookingEndTime] = useState('');
   const [isUpdatingBookingWindow, setIsUpdatingBookingWindow] = useState(false);
@@ -322,17 +325,20 @@ const ToolsManagement = () => {
         const presentationWindow = bookingWindows.find((window) => window.type === 'presentation');
         const oneOnOneWindow = bookingWindows.find((window) => window.type === 'oneOnOne');
         if (behavioralWindow) {
-          setBaBookingDate(toIsoDate(behavioralWindow.availableDate));
+          setBaBookingStartDate(toIsoDate(behavioralWindow.availableStartDate || behavioralWindow.availableDate));
+          setBaBookingEndDate(toIsoDate(behavioralWindow.availableEndDate || behavioralWindow.availableDate));
           setBaBookingStartTime(behavioralWindow.availableStartTime);
           setBaBookingEndTime(behavioralWindow.availableEndTime);
         }
         if (presentationWindow) {
-          setPresentationBookingDate(toIsoDate(presentationWindow.availableDate));
+          setPresentationBookingStartDate(toIsoDate(presentationWindow.availableStartDate || presentationWindow.availableDate));
+          setPresentationBookingEndDate(toIsoDate(presentationWindow.availableEndDate || presentationWindow.availableDate));
           setPresentationBookingStartTime(presentationWindow.availableStartTime);
           setPresentationBookingEndTime(presentationWindow.availableEndTime);
         }
         if (oneOnOneWindow) {
-          setOneOnOneBookingDate(toIsoDate(oneOnOneWindow.availableDate));
+          setOneOnOneBookingStartDate(toIsoDate(oneOnOneWindow.availableStartDate || oneOnOneWindow.availableDate));
+          setOneOnOneBookingEndDate(toIsoDate(oneOnOneWindow.availableEndDate || oneOnOneWindow.availableDate));
           setOneOnOneBookingStartTime(oneOnOneWindow.availableStartTime);
           setOneOnOneBookingEndTime(oneOnOneWindow.availableEndTime);
         }
@@ -683,7 +689,7 @@ const ToolsManagement = () => {
       return;
     }
 
-    if (!baBookingDate || !baBookingStartTime || !baBookingEndTime) {
+    if (!baBookingStartDate || !baBookingEndDate || !baBookingStartTime || !baBookingEndTime) {
       toast({
         title: 'Missing booking window',
         description: 'Set the Behavioral booking window date, start time, and end time before releasing slots.',
@@ -692,7 +698,7 @@ const ToolsManagement = () => {
       return;
     }
 
-    if (baBookingEndTime <= baBookingStartTime) {
+    if (baBookingEndDate < baBookingStartDate || (baBookingEndDate === baBookingStartDate && baBookingEndTime <= baBookingStartTime)) {
       toast({
         title: 'Invalid booking window',
         description: 'Booking window end time should be after start time.',
@@ -716,7 +722,9 @@ const ToolsManagement = () => {
       endTime: toAmPmFrom24Hour(endTime),
       durationMinutes: BA_SLOT_DURATION_MINUTES,
       instructorNumber: instructorNumber.trim(),
-      bookingWindowDate: toDdMmYyyy(baBookingDate),
+      bookingWindowDate: toDdMmYyyy(baBookingStartDate),
+      bookingWindowStartDate: toDdMmYyyy(baBookingStartDate),
+      bookingWindowEndDate: toDdMmYyyy(baBookingEndDate),
       bookingWindowStartTime: toAmPmFrom24Hour(baBookingStartTime),
       bookingWindowEndTime: toAmPmFrom24Hour(baBookingEndTime),
       syncToForm: true,
@@ -844,14 +852,32 @@ const ToolsManagement = () => {
   const handleUpdateBookingWindow = async () => {
     setIsUpdatingBookingWindow(true);
     try {
+      const windows = [
+        { name: 'Behavioral', startDate: baBookingStartDate, endDate: baBookingEndDate, startTime: baBookingStartTime, endTime: baBookingEndTime },
+        { name: 'Presentation', startDate: presentationBookingStartDate, endDate: presentationBookingEndDate, startTime: presentationBookingStartTime, endTime: presentationBookingEndTime },
+        { name: '1on1', startDate: oneOnOneBookingStartDate, endDate: oneOnOneBookingEndDate, startTime: oneOnOneBookingStartTime, endTime: oneOnOneBookingEndTime },
+      ];
+      const invalidWindow = windows.find((window) => {
+        const hasAnyValue = window.startDate || window.endDate || window.startTime || window.endTime;
+        if (!hasAnyValue) return false;
+        return !window.startDate || !window.endDate || !window.startTime || !window.endTime ||
+          window.endDate < window.startDate ||
+          (window.endDate === window.startDate && window.endTime <= window.startTime);
+      });
+      if (invalidWindow) {
+        throw new Error(`${invalidWindow.name} booking window needs valid start/end dates and times, with the end after the start.`);
+      }
+
       const updates = [];
 
       // Update Behavioral booking window
-      if (baBookingDate && baBookingStartTime && baBookingEndTime) {
+      if (baBookingStartDate && baBookingEndDate && baBookingStartTime && baBookingEndTime) {
         updates.push(
           createBookingWindowIfNotExists({
             type: 'behavioral',
-            availableDate: toDdMmYyyy(baBookingDate),
+            availableDate: toDdMmYyyy(baBookingStartDate),
+            availableStartDate: toDdMmYyyy(baBookingStartDate),
+            availableEndDate: toDdMmYyyy(baBookingEndDate),
             availableStartTime: baBookingStartTime,
             availableEndTime: baBookingEndTime,
             createdBy: auth.currentUser?.email || '',
@@ -862,7 +888,9 @@ const ToolsManagement = () => {
         updates.push(
           callBehavioralAppsScript({
             action: 'setBookingWindow',
-            date: toDdMmYyyy(baBookingDate),
+            date: toDdMmYyyy(baBookingStartDate),
+            startDate: toDdMmYyyy(baBookingStartDate),
+            endDate: toDdMmYyyy(baBookingEndDate),
             startTime: baBookingStartTime,
             endTime: baBookingEndTime,
           })
@@ -870,11 +898,13 @@ const ToolsManagement = () => {
       }
 
       // Update Presentation booking window
-      if (presentationBookingDate && presentationBookingStartTime && presentationBookingEndTime) {
+      if (presentationBookingStartDate && presentationBookingEndDate && presentationBookingStartTime && presentationBookingEndTime) {
         updates.push(
           createBookingWindowIfNotExists({
             type: 'presentation',
-            availableDate: toDdMmYyyy(presentationBookingDate),
+            availableDate: toDdMmYyyy(presentationBookingStartDate),
+            availableStartDate: toDdMmYyyy(presentationBookingStartDate),
+            availableEndDate: toDdMmYyyy(presentationBookingEndDate),
             availableStartTime: presentationBookingStartTime,
             availableEndTime: presentationBookingEndTime,
             createdBy: auth.currentUser?.email || '',
@@ -885,7 +915,9 @@ const ToolsManagement = () => {
         updates.push(
           callPresentationAppsScript({
             action: 'setBookingWindow',
-            date: toDdMmYyyy(presentationBookingDate),
+            date: toDdMmYyyy(presentationBookingStartDate),
+            startDate: toDdMmYyyy(presentationBookingStartDate),
+            endDate: toDdMmYyyy(presentationBookingEndDate),
             startTime: presentationBookingStartTime,
             endTime: presentationBookingEndTime,
           })
@@ -893,11 +925,13 @@ const ToolsManagement = () => {
       }
 
       // Update 1on1 booking window
-      if (oneOnOneBookingDate && oneOnOneBookingStartTime && oneOnOneBookingEndTime) {
+      if (oneOnOneBookingStartDate && oneOnOneBookingEndDate && oneOnOneBookingStartTime && oneOnOneBookingEndTime) {
         updates.push(
           createBookingWindowIfNotExists({
             type: 'oneOnOne',
-            availableDate: toDdMmYyyy(oneOnOneBookingDate),
+            availableDate: toDdMmYyyy(oneOnOneBookingStartDate),
+            availableStartDate: toDdMmYyyy(oneOnOneBookingStartDate),
+            availableEndDate: toDdMmYyyy(oneOnOneBookingEndDate),
             availableStartTime: oneOnOneBookingStartTime,
             availableEndTime: oneOnOneBookingEndTime,
             createdBy: auth.currentUser?.email || '',
@@ -1229,10 +1263,14 @@ const ToolsManagement = () => {
             {/* Behavioral Booking Window */}
             <div className="space-y-3">
               <h3 className="text-lg font-medium">Behavioral Assessment</h3>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Booking Window Date</label>
-                  <Input type="date" value={baBookingDate} onChange={(e) => setBaBookingDate(e.target.value)} />
+                  <label className="text-sm font-medium">Start Date</label>
+                  <Input type="date" value={baBookingStartDate} onChange={(e) => setBaBookingStartDate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">End Date</label>
+                  <Input type="date" value={baBookingEndDate} onChange={(e) => setBaBookingEndDate(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Start Time</label>
@@ -1248,10 +1286,14 @@ const ToolsManagement = () => {
             {/* Presentation Booking Window */}
             <div className="space-y-3">
               <h3 className="text-lg font-medium">Presentation</h3>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Booking Window Date</label>
-                  <Input type="date" value={presentationBookingDate} onChange={(e) => setPresentationBookingDate(e.target.value)} />
+                  <label className="text-sm font-medium">Start Date</label>
+                  <Input type="date" value={presentationBookingStartDate} onChange={(e) => setPresentationBookingStartDate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">End Date</label>
+                  <Input type="date" value={presentationBookingEndDate} onChange={(e) => setPresentationBookingEndDate(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Start Time</label>
@@ -1267,10 +1309,14 @@ const ToolsManagement = () => {
             {/* 1on1 Booking Window */}
             <div className="space-y-3">
               <h3 className="text-lg font-medium">1on1 Session</h3>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Booking Window Date</label>
-                  <Input type="date" value={oneOnOneBookingDate} onChange={(e) => setOneOnOneBookingDate(e.target.value)} />
+                  <label className="text-sm font-medium">Start Date</label>
+                  <Input type="date" value={oneOnOneBookingStartDate} onChange={(e) => setOneOnOneBookingStartDate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">End Date</label>
+                  <Input type="date" value={oneOnOneBookingEndDate} onChange={(e) => setOneOnOneBookingEndDate(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Start Time</label>

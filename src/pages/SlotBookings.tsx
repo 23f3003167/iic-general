@@ -646,7 +646,7 @@ const SlotBookings = () => {
               {behavioralBookingWindow ? (
                 <div className="rounded-md border p-3 bg-muted/10 text-sm">
                   <div className="font-medium">Booking Window (Behavioral)</div>
-                  <div>{behavioralBookingWindow.availableDate || '—'}</div>
+                  <div>{behavioralBookingWindow.availableStartDate || behavioralBookingWindow.availableDate || '—'} to {behavioralBookingWindow.availableEndDate || behavioralBookingWindow.availableDate || '—'}</div>
                   <div>{behavioralBookingWindow.availableStartTime || '—'} to {behavioralBookingWindow.availableEndTime || '—'}</div>
                 </div>
               ) : null}
@@ -727,7 +727,7 @@ const SlotBookings = () => {
               {presentationBookingWindow ? (
                 <div className="rounded-md border p-3 bg-muted/10 text-sm">
                   <div className="font-medium">Booking Window (Presentation)</div>
-                  <div>{presentationBookingWindow.availableDate || '—'}</div>
+                  <div>{presentationBookingWindow.availableStartDate || presentationBookingWindow.availableDate || '—'} to {presentationBookingWindow.availableEndDate || presentationBookingWindow.availableDate || '—'}</div>
                   <div>{presentationBookingWindow.availableStartTime || '—'} to {presentationBookingWindow.availableEndTime || '—'}</div>
                 </div>
               ) : null}
@@ -822,7 +822,7 @@ const SlotBookings = () => {
               {oneOnOneBookingWindow ? (
                 <div className="rounded-md border p-3 bg-muted/10 text-sm">
                   <div className="font-medium">Booking Window (1on1)</div>
-                  <div>{oneOnOneBookingWindow.availableDate || '—'}</div>
+                  <div>{oneOnOneBookingWindow.availableStartDate || oneOnOneBookingWindow.availableDate || '—'} to {oneOnOneBookingWindow.availableEndDate || oneOnOneBookingWindow.availableDate || '—'}</div>
                   <div>{oneOnOneBookingWindow.availableStartTime || '—'} to {oneOnOneBookingWindow.availableEndTime || '—'}</div>
                 </div>
               ) : null}

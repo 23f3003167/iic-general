@@ -96,7 +96,7 @@ function refreshSummary() {
       const key = email + " | " + slot;
       if (existing[key]) {
         if (contact && !existing[key].contact) {
-          summarySheet.getRange(existing[key].rowNumber, 14).setValue(contact);
+          summarySheet.getRange(existing[key].rowNumber, 13).setValue(contact);
           existing[key].contact = contact;
         }
         continue;
@@ -119,8 +119,8 @@ function refreshSummary() {
         "",
         "",
         "",
-        "",
         contact,
+        "",
         ""
       ]);
     }
@@ -139,8 +139,13 @@ function refreshSummary() {
 }
 
 function ensureSummaryContactRatingHeaders_(summarySheet) {
-  summarySheet.getRange(1, 14).setValue("Contact");
-  summarySheet.getRange(1, 15).setValue("Rating");
+  const lastRow = summarySheet.getLastRow();
+  for (let rowNumber = 2; rowNumber <= lastRow; rowNumber++) {
+    const row = summarySheet.getRange(rowNumber, 1, 1, 15).getValues()[0];
+    normalizePresentationContactRating_(summarySheet, rowNumber, row);
+  }
+
+  summarySheet.getRange(1, 13, 1, 3).setValues([["Contact", "Rating", ""]]);
 }
 
 function sortSummaryBySlot_(summarySheet) {
@@ -191,7 +196,7 @@ function getExistingIds(summarySheet) {
   data.forEach((r, idx) => {
     const email = String(r[4] || "").trim(); // Column E
     const slot  = String(r[2] || "").trim(); // Column C
-    const contact = String(r[13] || r[12] || "").trim(); // Contact may be in M or N depending on history
+    const contact = String(r[12] || "").trim(); // Column M after contact/rating normalization
 
     if (email && slot) {
       map[email + " | " + slot] = {

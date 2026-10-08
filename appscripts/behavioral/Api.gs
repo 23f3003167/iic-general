@@ -116,6 +116,8 @@ function releaseBehaviouralSlots_(payload) {
   var durationMinutes = Number(payload.durationMinutes || 0);
   var instructorNumber = String(payload.instructorNumber || '').trim();
   var bookingWindowDate = String(payload.bookingWindowDate || '').trim();
+  var bookingWindowStartDate = String(payload.bookingWindowStartDate || bookingWindowDate).trim();
+  var bookingWindowEndDate = String(payload.bookingWindowEndDate || bookingWindowDate).trim();
   var bookingWindowStartTime = String(payload.bookingWindowStartTime || '').trim();
   var bookingWindowEndTime = String(payload.bookingWindowEndTime || '').trim();
   var syncToForm = payload.syncToForm !== false;
@@ -126,22 +128,26 @@ function releaseBehaviouralSlots_(payload) {
   if (!date || !startTime || !endTime || !durationMinutes || !instructorNumber) {
     throw new Error('Missing slot details');
   }
-  if (!bookingWindowDate || !bookingWindowStartTime || !bookingWindowEndTime) {
-    throw new Error('Booking window date and time are required');
+  if (!bookingWindowStartDate || !bookingWindowEndDate || !bookingWindowStartTime || !bookingWindowEndTime) {
+    throw new Error('Booking window start/end dates and times are required');
   }
-  if (parseClockTimeMinutes_(bookingWindowEndTime) <= parseClockTimeMinutes_(bookingWindowStartTime)) {
+  var bookingStartDateKey = bookingWindowDateKey_(bookingWindowStartDate);
+  var bookingEndDateKey = bookingWindowDateKey_(bookingWindowEndDate);
+  if (bookingStartDateKey === null || bookingEndDateKey === null || bookingEndDateKey < bookingStartDateKey || (bookingEndDateKey === bookingStartDateKey && parseClockTimeMinutes_(bookingWindowEndTime) <= parseClockTimeMinutes_(bookingWindowStartTime))) {
     throw new Error('Booking window end time should be after start time');
   }
 
   setBehavioralBookingWindow_({
     date: bookingWindowDate,
+    startDate: bookingWindowStartDate,
+    endDate: bookingWindowEndDate,
     startTime: bookingWindowStartTime,
     endTime: bookingWindowEndTime
   });
 
   // Attempt to sync booking window to Firestore via REST API (optional)
   try {
-    syncBookingWindowToFirestore_('behavioral', bookingWindowDate, bookingWindowStartTime, bookingWindowEndTime);
+    syncBookingWindowToFirestore_('behavioral', bookingWindowStartDate, bookingWindowEndDate, bookingWindowStartTime, bookingWindowEndTime);
   } catch (_err) {
     // non-fatal
     Logger.log('Failed to sync behavioral booking window: %s', _err && _err.message ? _err.message : String(_err));
@@ -513,21 +519,31 @@ function checkSlot_(payload) {
 
   var sheet = getSummarySheet_();
   var values = sheet.getDataRange().getValues();
+  var latestRow = null;
+  var latestSlotDate = null;
 
   for (var i = 1; i < values.length; i++) {
     var row = values[i];
     var rowEmail = String(row[4] || '').trim().toLowerCase();
 
     if (rowEmail === email) {
-      return {
-        found: true,
-        email: email,
-        name: String(row[3] || '').trim(),
-        instructor: String(row[1] || '').trim(),
-        slot: String(row[2] || '').trim(),
-        status: String(row[5] || '').trim()
-      };
+      var slotDate = parseSlotToDate(String(row[2] || '').trim());
+      if (!latestRow || (slotDate && (!latestSlotDate || slotDate >= latestSlotDate))) {
+        latestRow = row;
+        latestSlotDate = slotDate;
+      }
     }
+  }
+
+  if (latestRow) {
+    return {
+      found: true,
+      email: email,
+      name: String(latestRow[3] || '').trim(),
+      instructor: String(latestRow[1] || '').trim(),
+      slot: String(latestRow[2] || '').trim(),
+      status: String(latestRow[5] || '').trim()
+    };
   }
 
   return {
@@ -803,16 +819,34 @@ function setBehavioralBookingWindow_(windowConfig) {
   PropertiesService
     .getScriptProperties()
     .setProperties({
-      BEHAVIORAL_BOOKING_WINDOW_DATE: String(windowConfig.date || '').trim(),
+      BEHAVIORAL_BOOKING_WINDOW_DATE: String(windowConfig.startDate || windowConfig.date || '').trim(),
+      BEHAVIORAL_BOOKING_WINDOW_START_DATE: String(windowConfig.startDate || windowConfig.date || '').trim(),
+      BEHAVIORAL_BOOKING_WINDOW_END_DATE: String(windowConfig.endDate || windowConfig.date || '').trim(),
       BEHAVIORAL_BOOKING_WINDOW_START_TIME: String(windowConfig.startTime || '').trim(),
       BEHAVIORAL_BOOKING_WINDOW_END_TIME: String(windowConfig.endTime || '').trim()
     }, true);
+}
+
+function bookingWindowDateKey_(value) {
+  var parts = String(value || '').split('/').map(Number);
+  if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return null;
+  return parts[2] * 10000 + parts[1] * 100 + parts[0];
+}
+
+function bookingWindowTime24Hour_(value) {
+  var minutes = parseClockTimeMinutes_(value);
+  if (isNaN(minutes)) return String(value || '').trim();
+  var hours = Math.floor(minutes / 60);
+  var remainingMinutes = minutes % 60;
+  return (hours < 10 ? '0' : '') + hours + ':' + (remainingMinutes < 10 ? '0' : '') + remainingMinutes;
 }
 
 function getBehavioralBookingWindow_() {
   var props = PropertiesService.getScriptProperties();
   return {
     date: String(props.getProperty('BEHAVIORAL_BOOKING_WINDOW_DATE') || '').trim(),
+    startDate: String(props.getProperty('BEHAVIORAL_BOOKING_WINDOW_START_DATE') || props.getProperty('BEHAVIORAL_BOOKING_WINDOW_DATE') || '').trim(),
+    endDate: String(props.getProperty('BEHAVIORAL_BOOKING_WINDOW_END_DATE') || props.getProperty('BEHAVIORAL_BOOKING_WINDOW_DATE') || '').trim(),
     startTime: String(props.getProperty('BEHAVIORAL_BOOKING_WINDOW_START_TIME') || '').trim(),
     endTime: String(props.getProperty('BEHAVIORAL_BOOKING_WINDOW_END_TIME') || '').trim()
   };
@@ -823,23 +857,28 @@ function getLastBookingWindow_() {
 }
 
 function setBookingWindow_(payload) {
-  var date = String(payload.date || '').trim();
+  var startDate = String(payload.startDate || payload.date || '').trim();
+  var endDate = String(payload.endDate || payload.date || '').trim();
   var startTime = String(payload.startTime || '').trim();
   var endTime = String(payload.endTime || '').trim();
   
-  if (!date || !startTime || !endTime) {
-    throw new Error('Date, startTime, and endTime are required');
+  if (!startDate || !endDate || !startTime || !endTime) {
+    throw new Error('Start date, end date, startTime, and endTime are required');
   }
   
   setBehavioralBookingWindow_({
-    date: date,
+    date: startDate,
+    startDate: startDate,
+    endDate: endDate,
     startTime: startTime,
     endTime: endTime
   });
   
   return {
     success: true,
-    date: date,
+    date: startDate,
+    startDate: startDate,
+    endDate: endDate,
     startTime: startTime,
     endTime: endTime
   };
@@ -912,11 +951,13 @@ function normalizeEmail_(value) {
   return String(value || '').trim().toLowerCase();
 }
 
-function syncBookingWindowToFirestore_(type, date, startTime, endTime) {
+function syncBookingWindowToFirestore_(type, startDate, endDate, startTime, endTime) {
   var projectId = PropertiesService.getScriptProperties().getProperty('FIREBASE_PROJECT_ID');
   var apiKey = PropertiesService.getScriptProperties().getProperty('FIREBASE_API_KEY');
+  var firestoreStartTime = bookingWindowTime24Hour_(startTime);
+  var firestoreEndTime = bookingWindowTime24Hour_(endTime);
   
-  Logger.log('syncBookingWindowToFirestore_ called with type=%s, date=%s, startTime=%s, endTime=%s', type, date, startTime, endTime);
+  Logger.log('syncBookingWindowToFirestore_ called with type=%s, startDate=%s, endDate=%s, startTime=%s, endTime=%s', type, startDate, endDate, startTime, endTime);
   Logger.log('Project ID: %s, API Key configured: %s', projectId || 'NOT SET', apiKey ? 'YES' : 'NO');
   
   if (!projectId || !apiKey) {
@@ -933,9 +974,10 @@ function syncBookingWindowToFirestore_(type, date, startTime, endTime) {
       op: 'AND',
       filters: [
         { fieldFilter: { field: { fieldPath: 'type' }, op: 'EQUAL', value: { stringValue: type } } },
-        { fieldFilter: { field: { fieldPath: 'availableDate' }, op: 'EQUAL', value: { stringValue: String(date || '').trim() } } },
-        { fieldFilter: { field: { fieldPath: 'availableStartTime' }, op: 'EQUAL', value: { stringValue: String(startTime || '').trim() } } },
-        { fieldFilter: { field: { fieldPath: 'availableEndTime' }, op: 'EQUAL', value: { stringValue: String(endTime || '').trim() } } }
+        { fieldFilter: { field: { fieldPath: 'availableStartDate' }, op: 'EQUAL', value: { stringValue: String(startDate || '').trim() } } },
+        { fieldFilter: { field: { fieldPath: 'availableEndDate' }, op: 'EQUAL', value: { stringValue: String(endDate || '').trim() } } },
+        { fieldFilter: { field: { fieldPath: 'availableStartTime' }, op: 'EQUAL', value: { stringValue: firestoreStartTime } } },
+        { fieldFilter: { field: { fieldPath: 'availableEndTime' }, op: 'EQUAL', value: { stringValue: firestoreEndTime } } }
       ]
     }
   }));
@@ -966,9 +1008,11 @@ function syncBookingWindowToFirestore_(type, date, startTime, endTime) {
   var documentData = {
     fields: {
       type: { stringValue: type },
-      availableDate: { stringValue: String(date || '').trim() },
-      availableStartTime: { stringValue: String(startTime || '').trim() },
-      availableEndTime: { stringValue: String(endTime || '').trim() },
+      availableDate: { stringValue: String(startDate || '').trim() },
+      availableStartDate: { stringValue: String(startDate || '').trim() },
+      availableEndDate: { stringValue: String(endDate || '').trim() },
+      availableStartTime: { stringValue: firestoreStartTime },
+      availableEndTime: { stringValue: firestoreEndTime },
       createdBy: { stringValue: Session.getActiveUser().getEmail ? Session.getActiveUser().getEmail() : '' },
       createdAt: { timestampValue: new Date().toISOString() }
     }

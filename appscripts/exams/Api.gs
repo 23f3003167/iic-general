@@ -242,7 +242,7 @@ function submitAttempt_(payload) {
     throw new Error('attemptId, examId, and email are required');
   }
 
-  var lock = LockService.getDocumentLock();
+  var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
     var sheet = getAttemptedSheet_();

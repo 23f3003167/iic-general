@@ -15,7 +15,7 @@ import { auth } from '@/lib/firebase';
 import type { ExamAttempt, ExamConfig, ExamQuestion } from '@/types';
 import { AlertCircle, Clock3, Loader2, ShieldAlert } from 'lucide-react';
 
-type Screen = 'loading' | 'waiting' | 'ready' | 'running' | 'submitted';
+type Screen = 'loading' | 'waiting' | 'ready' | 'error' | 'running' | 'submitted';
 
 function formatDateTime(value?: string): string {
   if (!value) return 'N/A';
@@ -64,6 +64,7 @@ export default function ExamPage() {
   const { toast } = useToast();
   const [screen, setScreen] = useState<Screen>('loading');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [exams, setExams] = useState<ExamConfig[]>([]);
   const [activeExam, setActiveExam] = useState<ExamConfig | null>(null);
   const [email, setEmail] = useState('');
@@ -137,18 +138,15 @@ export default function ExamPage() {
     try {
       setLoading(true);
       const examList = await getExams(userEmail);
+      setLoadError('');
       setExams(examList || []);
 
       const hasOpenExam = (examList || []).some((exam) => exam.status === 'OPEN');
       setScreen(hasOpenExam ? 'ready' : 'waiting');
     } catch (error) {
       console.error(error);
-      toast({
-        title: 'Could not load assessment',
-        description: error instanceof Error ? error.message : 'Please try again later.',
-        variant: 'destructive',
-      });
-      setScreen('waiting');
+      setLoadError(error instanceof Error ? error.message : 'Please try again later.');
+      setScreen('error');
     } finally {
       setLoading(false);
     }
@@ -444,6 +442,20 @@ export default function ExamPage() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {screen === 'error' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Could not load assessments</CardTitle>
+              <CardDescription>{loadError}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => void loadExamData(auth.currentUser?.email || undefined)}>
+                Retry
+              </Button>
             </CardContent>
           </Card>
         )}

@@ -17,6 +17,7 @@ import {
   BarChart3,
   FileEdit,
   Users,
+  MessageSquare,
 } from 'lucide-react';
 import { CheckCircle2 } from 'lucide-react';
 import {
@@ -52,6 +53,7 @@ import FAQsManagement from './FAQsManagement';
 import ResourcesManagement from './ResourcesManagement';
 import ToolsManagement from './ToolsManagement';
 import EvaluatorsManagement from './EvaluatorsManagement';
+import EvaluatorFeedbackReview from './EvaluatorFeedbackReview';
 import ExamsManagement from './ExamsManagement';
 import SlotsAvailabilityPage from './SlotsAvailability';
 import DatabaseManagement from './DatabaseManagement';
@@ -71,6 +73,7 @@ const adminNavItems = [
   { path: '/admin/exams', label: 'Exams', icon: ClipboardList },
   { path: '/admin/slots-availability', label: 'Slots Availability', icon: Calendar },
   { path: '/admin/evaluators', label: 'Evaluators', icon: CheckCircle2 },
+  { path: '/admin/review', label: 'Review', icon: MessageSquare },
   { path: '/admin/recruiters', label: 'Recruiters', icon: MailCheck },
   { path: '/admin/company-outreach', label: 'Company Outreach', icon: Bell },
   { path: '/admin/database', label: 'Database', icon: Database },
@@ -240,6 +243,8 @@ const AdminDashboard = () => {
         return <SlotsAvailabilityPage />;
       case '/admin/evaluators':
         return <EvaluatorsManagement />;
+      case '/admin/review':
+        return <EvaluatorFeedbackReview />;
       case '/admin/recruiters':
         return <RecruitersManagement />;
       case '/admin/company-outreach':
