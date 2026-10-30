@@ -20,7 +20,6 @@ type ExamFormState = {
   examId: string;
   title: string;
   description: string;
-  status: ExamStatus;
   assessmentType: AssessmentType;
   startAt: string;
   endAt: string;
@@ -32,7 +31,6 @@ const emptyFormState: ExamFormState = {
   examId: '',
   title: '',
   description: '',
-  status: 'DRAFT',
   assessmentType: 'PREPLACEMENT',
   startAt: '',
   endAt: '',
@@ -126,6 +124,7 @@ export default function ExamsManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<ExamConfig | null>(null);
   const [exams, setExams] = useState<ExamConfig[]>([]);
+  const [statusFilter, setStatusFilter] = useState<ExamStatus | 'ALL'>('ALL');
   const [formData, setFormData] = useState<ExamFormState>(emptyFormState);
 
   useEffect(() => {
@@ -192,7 +191,6 @@ export default function ExamsManagement() {
       examId: exam.examId,
       title: exam.title,
       description: exam.description,
-      status: exam.status,
       assessmentType: exam.assessmentType || 'PREPLACEMENT',
       startAt: toDateTimeLocalInput(exam.startAt),
       endAt: toDateTimeLocalInput(exam.endAt),
@@ -211,6 +209,10 @@ export default function ExamsManagement() {
   const activeExam = useMemo(
     () => exams.find((exam) => exam.status === 'OPEN') || null,
     [exams],
+  );
+  const filteredExams = useMemo(
+    () => statusFilter === 'ALL' ? exams : exams.filter((exam) => exam.status === statusFilter),
+    [exams, statusFilter],
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -233,16 +235,16 @@ export default function ExamsManagement() {
       }
 
       const updated = await upsertExam({
+        operation: editingExam ? 'UPDATE' : 'CREATE',
+        sheetRow: editingExam?.sheetRow,
         examId,
         title: formData.title.trim(),
         description: formData.description.trim(),
-        status: formData.status,
         assessmentType: formData.assessmentType,
         startAt: normalizeDateTimeForSave(formData.startAt),
         endAt: normalizeDateTimeForSave(formData.endAt),
         durationMinutes: (formData.assessmentType === 'CSM' || formData.assessmentType === 'PREPLACEMENT') ? 0 : Number(formData.durationMinutes || 0),
         eligibleEmails,
-        forceCreate: !editingExam,
       });
 
       toast({
@@ -278,7 +280,7 @@ export default function ExamsManagement() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold">Assessments Management</h2>
-          <p className="text-muted-foreground">Create Preplacement, Aptitude, or Tech MCQ assessments, define the active window, and push eligible emails to the next Students column.</p>
+          <p className="text-muted-foreground">Create an assessment, define its active window, and maintain eligibility under the matching Students header.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={loadExams} disabled={loading}>
@@ -306,17 +308,35 @@ export default function ExamsManagement() {
         </Card>
       )}
 
+      <div className="flex items-center gap-3">
+        <Label htmlFor="examStatusFilter">Filter assessments</Label>
+        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as ExamStatus | 'ALL')}>
+          <SelectTrigger id="examStatusFilter" className="w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All assessments</SelectItem>
+            <SelectItem value="OPEN">Currently open</SelectItem>
+            <SelectItem value="UPCOMING">Upcoming</SelectItem>
+            <SelectItem value="CLOSED">Closed</SelectItem>
+            <SelectItem value="DRAFT">Needs valid dates</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {loading ? (
         <p className="text-center text-muted-foreground py-8">Loading assessments...</p>
-      ) : exams.length === 0 ? (
+      ) : filteredExams.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">No assessments created yet. Create your first assessment.</p>
+            <p className="text-muted-foreground">
+              {exams.length === 0 ? 'No assessments created yet. Create your first assessment.' : 'No assessments match this filter.'}
+            </p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {exams.map((exam) => (
+          {filteredExams.map((exam) => (
             <Card key={exam.id}>
               <CardHeader className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
@@ -337,7 +357,7 @@ export default function ExamsManagement() {
                 </p>
                 <p><span className="font-medium">Duration:</span> {exam.durationMinutes} minutes</p>
                 <p><span className="font-medium">Questions:</span> {exam.questions?.length || 0}</p>
-                <p><span className="font-medium">Eligible emails:</span> {exam.eligibleEmails?.length || 0}</p>
+                <p><span className="font-medium">Eligible emails:</span> {exam.eligibleCount ?? exam.eligibleEmails?.length ?? 0}</p>
                 <div className="pt-2">
                   <Button variant="outline" className="w-full" onClick={() => openEditDialog(exam)}>
                     <Pencil className="mr-2 h-4 w-4" />
@@ -405,22 +425,9 @@ export default function ExamsManagement() {
                   </SelectContent>
                 </Select>
               </div>
-              {formData.assessmentType !== 'CSM' ? (
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value as ExamStatus })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="DRAFT">DRAFT</SelectItem>
-                      <SelectItem value="UPCOMING">UPCOMING</SelectItem>
-                      <SelectItem value="OPEN">OPEN</SelectItem>
-                      <SelectItem value="CLOSED">CLOSED</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : null}
+              <div className="flex items-end text-sm text-muted-foreground">
+                Status is calculated automatically from the current time and assessment window.
+              </div>
             </div>
 
             <div className="space-y-2">

@@ -1,4 +1,6 @@
 import type { ExamAttempt, ExamConfig, ExamStatus } from '@/types';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 
 type ApiEnvelope<T> = {
   success: boolean;
@@ -16,30 +18,43 @@ type GetActiveExamResponse = {
 };
 
 type UpsertExamRequest = {
+  operation: 'CREATE' | 'UPDATE';
+  sheetRow?: number;
   examId: string;
   title: string;
   description?: string;
-  status: ExamStatus;
   startAt: string;
   endAt: string;
   durationMinutes: number;
   assessmentType?: string;
   eligibleEmails: string[];
-  forceCreate?: boolean;
 };
 
 type StartAttemptRequest = {
   examId: string;
+  sheetRow?: number;
   email: string;
 };
 
 type SubmitAttemptRequest = {
   attemptId: string;
   examId: string;
+  sheetRow?: number;
   email: string;
   name?: string;
   responses?: string[];
   score: number;
+  tabSwitchCount: number;
+  startAt: string;
+  endAt: string;
+};
+
+export type QueueExamSubmissionRequest = {
+  attemptId: string;
+  examId: string;
+  sheetRow?: number;
+  name?: string;
+  responses: string[];
   tabSwitchCount: number;
   startAt: string;
   endAt: string;
@@ -83,16 +98,30 @@ async function callExamsAppsScript<T>(payload: Record<string, unknown>): Promise
     throw new Error('Missing exams Apps Script URL in environment.');
   }
 
-  const response = await fetch(normalizeWebAppUrl(examsWebAppUrl), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8',
-    },
-    body: JSON.stringify({
-      ...payload,
-      apiToken: examsApiToken,
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 30_000);
+
+  let response: Response;
+  try {
+    response = await fetch(normalizeWebAppUrl(examsWebAppUrl), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify({
+        ...payload,
+        apiToken: examsApiToken,
+      }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Exams service timed out after 30 seconds. Check the Apps Script deployment and spreadsheet access.');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     throw new Error(`Apps Script request failed (${response.status})`);
@@ -147,13 +176,26 @@ export async function getActiveExam(email?: string): Promise<ExamConfig | null> 
 export async function upsertExam(exam: UpsertExamRequest): Promise<ExamConfig> {
   const data = await callExamsAppsScript<{ exam: ExamConfig }>({
     action: 'upsertExam',
-    ...exam,
+    operation: exam.operation,
+    sheetRow: exam.sheetRow,
+    examId: exam.examId,
+    title: exam.title,
+    description: exam.description,
+    startAt: exam.startAt,
+    endAt: exam.endAt,
+    durationMinutes: exam.durationMinutes,
+    assessmentType: exam.assessmentType,
+    eligibleEmails: exam.eligibleEmails,
   });
 
   return data.exam;
 }
 
 function generateAttemptId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
   // Generate a UUID-like ID locally to avoid lock contention
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
@@ -181,19 +223,21 @@ export async function startExamAttempt(request: StartAttemptRequest): Promise<St
   };
 }
 
-export async function getLastSubmission(examId: string, email: string): Promise<string> {
+export async function getLastSubmission(examId: string, email: string, sheetRow?: number): Promise<string> {
   const data = await callExamsAppsScript<GetLastSubmissionResponse>({
     action: 'getLastSubmission',
     examId,
+    sheetRow,
     email,
   });
   return data.lastSubmissionAt || '';
 }
 
-export async function getPreviousSubmissions(examId: string, email: string): Promise<string[]> {
+export async function getPreviousSubmissions(examId: string, email: string, sheetRow?: number): Promise<string[]> {
   const data = await callExamsAppsScript<GetPreviousSubmissionsResponse>({
     action: 'getPreviousSubmissions',
     examId,
+    sheetRow,
     email,
   });
   return Array.isArray(data.submissions) ? data.submissions : [];
@@ -203,5 +247,26 @@ export async function submitExamAttempt(request: SubmitAttemptRequest): Promise<
   return callExamsAppsScript<SubmitAttemptResponse>({
     action: 'submitAttempt',
     ...request,
+  });
+}
+
+export async function queueExamSubmission(request: QueueExamSubmissionRequest): Promise<void> {
+  const user = auth.currentUser;
+  if (!user?.email || !user.emailVerified) {
+    throw new Error('Sign in with a verified student account before submitting.');
+  }
+
+  await setDoc(doc(db, 'examSubmissions', request.attemptId), {
+    attemptId: request.attemptId,
+    examId: request.examId,
+    ...(request.sheetRow === undefined ? {} : { sheetRow: request.sheetRow }),
+    email: user.email,
+    name: request.name || '',
+    responses: request.responses,
+    tabSwitchCount: request.tabSwitchCount,
+    startAt: request.startAt,
+    endAt: request.endAt,
+    status: 'pending',
+    submittedAt: serverTimestamp(),
   });
 }

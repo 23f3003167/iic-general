@@ -167,6 +167,7 @@ export interface ExamQuestion {
 export interface ExamConfig {
   id: string;
   examId: string;
+  sheetRow?: number;
   title: string;
   description: string;
   status: ExamStatus;
@@ -176,7 +177,7 @@ export interface ExamConfig {
   questions: ExamQuestion[];
   assessmentType?: AssessmentType;
   eligibleEmails: string[];
-  eligibleColumn?: string;
+  eligibleCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -267,7 +268,7 @@ export interface OneOnOneEvaluation extends BaseEvaluation {
   technicalDataScience?: number | string;
   communication?: number | string;
   readiness?: string;
-  exceptional?: string;
+  rating?: 'Excellent' | 'Good' | 'Average' | 'Poor';
   tasks?: string;
   roles?: string;
   detailedFeedback1?: string;

@@ -37,7 +37,7 @@ type OneOnOneSubmitEvaluationArgs = {
   technicalDataScience: number;
   communication: number;
   readiness: string;
-  exceptional: string;
+  rating: 'Excellent' | 'Good' | 'Average' | 'Poor';
   tasks: string;
   roles: string;
   detailedFeedback1: string;
@@ -52,6 +52,17 @@ type EvaluatorsConfig = {
   webAppUrl?: string;
   apiToken?: string;
 };
+
+type PresentationEvaluatorData = {
+  fetchedAt: number;
+  instructors: string[];
+  evaluations: PresentationEvaluation[];
+};
+
+const presentationEvaluatorCacheKey = 'iic.presentation-evaluator-data.v1';
+const presentationEvaluatorCacheTtlMs = 5 * 60 * 1000;
+let presentationEvaluatorRequest: Promise<PresentationEvaluatorData> | null = null;
+let presentationEvaluatorCacheGeneration = 0;
 
 const evaluatorsConfig: Record<EvaluationSection, EvaluatorsConfig> = {
   behavioral: {
@@ -129,6 +140,75 @@ async function callEvaluatorsAppsScript<T>(
   return result.data;
 }
 
+function readPresentationEvaluatorCache(): PresentationEvaluatorData | null {
+  try {
+    const cached = sessionStorage.getItem(presentationEvaluatorCacheKey);
+    if (!cached) return null;
+
+    const data = JSON.parse(cached) as PresentationEvaluatorData;
+    if (
+      !Number.isFinite(data.fetchedAt) ||
+      !Array.isArray(data.instructors) ||
+      !Array.isArray(data.evaluations) ||
+      Date.now() - data.fetchedAt > presentationEvaluatorCacheTtlMs
+    ) {
+      sessionStorage.removeItem(presentationEvaluatorCacheKey);
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function clearPresentationEvaluatorCache(): void {
+  presentationEvaluatorCacheGeneration += 1;
+  try {
+    sessionStorage.removeItem(presentationEvaluatorCacheKey);
+  } catch {
+    // Session storage may be unavailable in restricted browser contexts.
+  }
+}
+
+async function getPresentationEvaluatorData(refresh = false): Promise<PresentationEvaluatorData> {
+  if (!refresh) {
+    const cached = readPresentationEvaluatorCache();
+    if (cached) return cached;
+    if (presentationEvaluatorRequest) return presentationEvaluatorRequest;
+  }
+
+  const cacheGeneration = presentationEvaluatorCacheGeneration;
+  const request = callEvaluatorsAppsScript<{
+    instructors: string[];
+    evaluations: PresentationEvaluation[];
+  }>('presentation', { action: 'getEvaluatorDashboardData' }).then((data) => {
+    const cachedData = { ...data, fetchedAt: Date.now() };
+    if (cacheGeneration === presentationEvaluatorCacheGeneration) {
+      try {
+        sessionStorage.setItem(presentationEvaluatorCacheKey, JSON.stringify(cachedData));
+      } catch {
+        // Continue with in-memory data if session storage is unavailable.
+      }
+    }
+    return cachedData;
+  });
+  const trackedRequest = request.finally(() => {
+    if (presentationEvaluatorRequest === trackedRequest) {
+      presentationEvaluatorRequest = null;
+    }
+  });
+  presentationEvaluatorRequest = trackedRequest;
+  return trackedRequest;
+}
+
+export function prefetchPresentationEvaluatorData(): Promise<void> {
+  return getPresentationEvaluatorData().then(() => undefined);
+}
+
+export function clearEvaluatorSessionData(): void {
+  clearPresentationEvaluatorCache();
+}
+
 export async function getPendingEvaluations(
   section: 'behavioral',
   instructorName: string,
@@ -136,6 +216,7 @@ export async function getPendingEvaluations(
 export async function getPendingEvaluations(
   section: 'presentation',
   instructorName: string,
+  options?: { refresh?: boolean },
 ): Promise<PresentationEvaluation[]>;
 export async function getPendingEvaluations(
   section: 'oneOnOne',
@@ -144,7 +225,18 @@ export async function getPendingEvaluations(
 export async function getPendingEvaluations(
   section: EvaluationSection,
   instructorName: string,
+  options?: { refresh?: boolean },
+): Promise<Array<BehavioralEvaluation | PresentationEvaluation | OneOnOneEvaluation>>;
+export async function getPendingEvaluations(
+  section: EvaluationSection,
+  instructorName: string,
+  options: { refresh?: boolean } = {},
 ): Promise<Array<BehavioralEvaluation | PresentationEvaluation | OneOnOneEvaluation>> {
+  if (section === 'presentation') {
+    const data = await getPresentationEvaluatorData(options.refresh);
+    return data.evaluations.filter((evaluation) => evaluation.instructor === instructorName);
+  }
+
   return callEvaluatorsAppsScript<Array<BehavioralEvaluation | PresentationEvaluation | OneOnOneEvaluation>>(section, {
     action: 'getPendingEvaluations',
     instructorName,
@@ -156,9 +248,14 @@ export async function submitEvaluation(section: EvaluationSection, args: SubmitE
     action: 'submitEvaluation',
     ...args,
   });
+  if (section === 'presentation') clearPresentationEvaluatorCache();
 }
 
 export async function getUniqueInstructors(section: EvaluationSection): Promise<string[]> {
+  if (section === 'presentation') {
+    return (await getPresentationEvaluatorData()).instructors;
+  }
+
   return callEvaluatorsAppsScript<string[]>(section, {
     action: 'getUniqueInstructors',
   });

@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { lookupStudentActivityPoints, type StudentActivityPointsLookup } from '@/lib/toolsService';
 import { getStoredVerifiedEmail } from '@/lib/emailVerificationService';
 import ActivityPointsForm from '@/components/ActivityPointsForm';
+import { useSearchParams } from 'react-router-dom';
 
 interface Submission {
   date: string;
@@ -143,7 +144,10 @@ function buildActivityPointsSummary(result: StudentActivityPointsLookup | null):
 
 const ActivityPoints = () => {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'submit' | 'lookup' | 'submissions'>('submit');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'submit' | 'lookup' | 'submissions'>(
+    searchParams.get('tab') === 'submissions' ? 'submissions' : 'submit'
+  );
   
   // Submissions state
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -256,6 +260,17 @@ const ActivityPoints = () => {
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Fill out this form to claim activity points after completing activities.
             </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-base">Total activity points</CardTitle></CardHeader>
+              <CardContent className="text-2xl font-semibold">{activityPointsSummary?.total || '—'}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-base">CMA score</CardTitle></CardHeader>
+              <CardContent className="text-2xl font-semibold">{activityPointsSummary?.cma || '—'}</CardContent>
+            </Card>
           </div>
 
           {/* Tabs for Submit, Lookup, and Submissions */}

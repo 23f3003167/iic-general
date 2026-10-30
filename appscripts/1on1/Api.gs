@@ -259,13 +259,14 @@ function bookingResponse_(booking, alreadyProcessed) {
 }
 
 function summarySheet_() { return getRequiredSheet_('Summary'); }
-function summaryHeaders_() { return ['ID', 'Email', 'Name', 'Resume', 'Progress Card', 'Domain', 'Plan', 'Instructor', 'Slot', 'Status', 'Skillsets of student', 'Technical skills in programming (Rate from 1 to 5)', 'Technical skills in data science (Rate from 1 to 5)', 'Communication skills (Rate from 1 to 5)', 'Readiness of the student for placement', 'Performing Exceptionally good', 'If not ready, please mention the list of tasks students should do', 'What roles they are suitable for? (Recommondations by instructor)', 'Feedback', 'Remarks']; }
+function summaryHeaders_() { return ['ID', 'Email', 'Name', 'Resume', 'Progress Card', 'Domain', 'Plan', 'Instructor', 'Slot', 'Status', 'Technical skills in programming (Rate from 1 to 5)', 'Technical skills in data science (Rate from 1 to 5)', 'Communication skills (Rate from 1 to 5)', 'Readiness of the student for placement', 'Rating', 'If not ready, please mention the list of tasks students should do', 'What roles they are suitable for? (Recommondations by instructor)', 'Feedback']; }
 function ensureSummaryHeader_(sheet) { if (!sheet.getLastRow()) sheet.appendRow(summaryHeaders_()); }
 function upsertSummary_(booking, instructor, resume, progressCard) {
   var sheet = summarySheet_(); ensureSummaryHeader_(sheet); var values = sheet.getDataRange().getValues(), target = -1;
   for (var i = 1; i < values.length; i++) if (normalizeEmail_(values[i][1]) === booking.email) { target = i + 1; break; }
   var instructorName = resolveInstructorName_(instructor);
-  var row = [Utilities.getUuid(), booking.email, booking.name, resume, progressCard, booking.domain, booking.plan, instructorName, booking.slot, 'Pending', '', '', '', '', '', '', '', '', '', ''];
+  var bookingColumns = [Utilities.getUuid(), booking.email, booking.name, resume, progressCard, booking.domain, booking.plan, instructorName, booking.slot, 'Pending'];
+  var row = buildOneOnOneSummaryRow_(sheet, bookingColumns, ['', '', '', '', '', '', '', '']);
   if (target > 0) {
     var existing = values[target - 1];
     for (var column = 1; column < 10; column++) existing[column] = row[column];
@@ -284,36 +285,72 @@ function resolveInstructorName_(instructorEmail) {
 
 function getUniqueInstructors_() {
   var values = summarySheet_().getDataRange().getValues(), seen = {}, result = [];
-  for (var i = 1; i < values.length; i++) { var instructor = String(values[i][7] || '').trim(); if (instructor && isSlotToday_(values[i][8]) && !seen[instructor]) { seen[instructor] = true; result.push(instructor); } }
+  for (var i = 1; i < values.length; i++) { var instructor = String(values[i][7] || '').trim(); if (instructor && isSlotTodayOrTomorrow_(values[i][8]) && !seen[instructor]) { seen[instructor] = true; result.push(instructor); } }
   return result.sort();
 }
 function getPendingEvaluations_(payload) {
-  var instructor = String(payload.instructorName || '').trim(), values = summarySheet_().getDataRange().getValues(), result = [];
+  var instructor = String(payload.instructorName || '').trim(), sheet = summarySheet_();
+  var values = sheet.getDataRange().getValues(), result = [];
+  var offset = getOneOnOneSummarySkillsetsOffset_(sheet);
   if (!instructor) throw new Error('Instructor name is required');
-  for (var i = 1; i < values.length; i++) { var r = values[i]; if (String(r[7] || '').trim().toLowerCase() === instructor.toLowerCase()) result.push({ id: String(r[1]), instructor: String(r[7]), name: String(r[2]), email: String(r[1]), resumeUrl: String(r[3]), progressCard: String(r[4]), domain: String(r[5]), plan: String(r[6]), slot: String(r[8]), slotTime: String(r[8]), technicalProgramming: r[11] || '', technicalDataScience: r[12] || '', communication: r[13] || '', readiness: r[14] || '', exceptional: r[15] || '', tasks: r[16] || '', roles: r[17] || '', detailedFeedback1: r[18] || '', status: String(r[9] || 'Pending') }); }
+  for (var i = 1; i < values.length; i++) { var r = values[i]; if (String(r[7] || '').trim().toLowerCase() === instructor.toLowerCase()) result.push({ id: String(r[1]), instructor: String(r[7]), name: String(r[2]), email: String(r[1]), resumeUrl: String(r[3]), progressCard: String(r[4]), domain: String(r[5]), plan: String(r[6]), slot: String(r[8]), slotTime: String(r[8]), technicalProgramming: r[10 + offset] || '', technicalDataScience: r[11 + offset] || '', communication: r[12 + offset] || '', readiness: r[13 + offset] || '', rating: r[14 + offset] || '', tasks: r[15 + offset] || '', roles: r[16 + offset] || '', detailedFeedback1: r[17 + offset] || '', status: String(r[9] || 'Pending') }); }
   return result;
 }
 
-function isSlotToday_(slot) {
+function isSlotTodayOrTomorrow_(slot) {
   var value = String(slot || '');
   var slashDate = value.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   var isoDate = value.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (!slashDate && !isoDate) return false;
+
   var slotDate = slashDate
-    ? slashDate[1].padStart(2, '0') + '/' + slashDate[2].padStart(2, '0') + '/' + slashDate[3]
-    : isoDate
-      ? isoDate[3].padStart(2, '0') + '/' + isoDate[2].padStart(2, '0') + '/' + isoDate[1]
-      : '';
-  return slotDate === Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+    ? slashDate[3] + '-' + slashDate[2].padStart(2, '0') + '-' + slashDate[1].padStart(2, '0')
+    : isoDate[1] + '-' + isoDate[2].padStart(2, '0') + '-' + isoDate[3].padStart(2, '0');
+  var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var todayParts = today.split('-').map(Number);
+  var tomorrowDate = new Date(Date.UTC(todayParts[0], todayParts[1] - 1, todayParts[2] + 1));
+  var tomorrow = [
+    tomorrowDate.getUTCFullYear(),
+    String(tomorrowDate.getUTCMonth() + 1).padStart(2, '0'),
+    String(tomorrowDate.getUTCDate()).padStart(2, '0')
+  ].join('-');
+  return slotDate === today || slotDate === tomorrow;
 }
 function submitEvaluation_(payload) {
-  var email = normalizeEmail_(payload.id), sheet = summarySheet_(), values = sheet.getDataRange().getValues();
+  var email = normalizeEmail_(payload.id);
+  var rating = String(payload.rating || '').trim();
   if (!email) throw new Error('Evaluation ID is required');
-  for (var i = 1; i < values.length; i++) if (normalizeEmail_(values[i][1]) === email) { sheet.getRange(i + 1, 10).setValue('Completed'); sheet.getRange(i + 1, 12, 1, 8).setValues([[Number(payload.technicalProgramming || 0), Number(payload.technicalDataScience || 0), Number(payload.communication || 0), String(payload.readiness || ''), String(payload.exceptional || ''), String(payload.tasks || ''), String(payload.roles || ''), String(payload.detailedFeedback1 || '')]]); return { updated: true, row: i + 1 }; }
-  throw new Error('Student not found for ID: ' + email);
+  if (['Excellent', 'Good', 'Average', 'Poor'].indexOf(rating) === -1) throw new Error('Select Excellent, Good, Average, or Poor for the rating.');
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = summarySheet_(), values = sheet.getDataRange().getValues();
+    var offset = getOneOnOneSummarySkillsetsOffset_(sheet);
+    for (var i = 1; i < values.length; i++) {
+      if (normalizeEmail_(values[i][1]) !== email) continue;
+      sheet.getRange(i + 1, 10).setValue('Completed');
+      sheet.getRange(i + 1, 11 + offset, 1, 8).setValues([[
+        Number(payload.technicalProgramming || 0),
+        Number(payload.technicalDataScience || 0),
+        Number(payload.communication || 0),
+        String(payload.readiness || ''),
+        rating,
+        String(payload.tasks || ''),
+        String(payload.roles || ''),
+        String(payload.detailedFeedback1 || '')
+      ]]);
+      return { updated: true, row: i + 1 };
+    }
+    throw new Error('Student not found for ID: ' + email);
+  } finally {
+    lock.releaseLock();
+  }
 }
 function getOneOnOneStats_() {
-  var values = summarySheet_().getDataRange().getValues(), stats = {};
-  for (var i = 1; i < values.length; i++) { var instructor = String(values[i][7] || '').trim(); if (!instructor) continue; if (!stats[instructor]) stats[instructor] = { instructorName: instructor, instructorNumber: instructor, slotsAllocated: 0, slotsWithFeedback: 0, absentees: 0 }; stats[instructor].slotsAllocated++; if (String(values[i][9] || '').trim().toLowerCase() === 'completed') stats[instructor].slotsWithFeedback++; if (String(values[i][14] || '').trim().toLowerCase() === 'absent') stats[instructor].absentees++; }
+  var sheet = summarySheet_(), values = sheet.getDataRange().getValues(), stats = {};
+  var readinessColumn = 13 + getOneOnOneSummarySkillsetsOffset_(sheet);
+  for (var i = 1; i < values.length; i++) { var instructor = String(values[i][7] || '').trim(); if (!instructor) continue; if (!stats[instructor]) stats[instructor] = { instructorName: instructor, instructorNumber: instructor, slotsAllocated: 0, slotsWithFeedback: 0, absentees: 0 }; stats[instructor].slotsAllocated++; if (String(values[i][9] || '').trim().toLowerCase() === 'completed') stats[instructor].slotsWithFeedback++; if (String(values[i][readinessColumn] || '').trim().toLowerCase() === 'absent') stats[instructor].absentees++; }
   return Object.keys(stats).map(function (key) { return stats[key]; });
 }
 function extractDomain_(slot) { var match = String(slot || '').match(/\(([^)]+)\)$/); return match ? match[1] : ''; }

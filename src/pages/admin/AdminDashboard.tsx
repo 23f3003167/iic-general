@@ -41,6 +41,7 @@ import {
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { getAdminPortalRole, type AdminPortalRole } from '@/lib/adminAuth';
+import { clearEvaluatorSessionData, prefetchPresentationEvaluatorData } from '@/lib/evaluatorsService';
 import { useToast } from '@/components/ui/use-toast';
 import {
   getAnnouncements,
@@ -100,6 +101,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
+        clearEvaluatorSessionData();
         setRole(null);
         setChecking(false);
         navigate('/admin');
@@ -107,6 +109,7 @@ const AdminDashboard = () => {
       }
       const nextRole = await getAdminPortalRole(user);
       if (!nextRole) {
+        clearEvaluatorSessionData();
         await signOut(auth);
         toast({
           title: 'Unauthorized',
@@ -118,6 +121,9 @@ const AdminDashboard = () => {
         setChecking(false);
         return;
       }
+      void prefetchPresentationEvaluatorData().catch((error) => {
+        console.error('Could not prefetch presentation evaluator data:', error);
+      });
       setRole(nextRole);
       if (nextRole === 'evaluator' && !evaluatorPaths.has(location.pathname)) {
         navigate('/admin/evaluators');
@@ -149,6 +155,7 @@ const AdminDashboard = () => {
   };
 
   const handleLogout = async () => {
+    clearEvaluatorSessionData();
     await signOut(auth);
     navigate('/admin');
   };

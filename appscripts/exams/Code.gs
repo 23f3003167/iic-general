@@ -2,12 +2,10 @@ var EXAM_HEADERS = [
   'exam_id',
   'title',
   'description',
-  'status',
   'start_at',
   'end_at',
   'duration_minutes',
   'questions_json',
-  'eligible_column',
   'eligible_count',
   'created_at',
   'updated_at',
@@ -40,9 +38,58 @@ var ATTEMPT_HEADERS = [
   'end_at',
   'submitted_at',
   'duration_minutes',
-  'exam_status',
-  'last_updated_at'
+  'last_updated_at',
+  'exam_row'
 ];
+
+function getHeaderMap_(sheet) {
+  var lastColumn = sheet.getLastColumn();
+  var headers = lastColumn > 0 ? sheet.getRange(1, 1, 1, lastColumn).getValues()[0] : [];
+  var map = {};
+  for (var i = 0; i < headers.length; i++) {
+    var header = normalizeText_(headers[i]).toLowerCase();
+    if (header && !Object.prototype.hasOwnProperty.call(map, header)) {
+      map[header] = i + 1;
+    }
+  }
+  return map;
+}
+
+function normalizeText_(value) {
+  return String(value == null ? '' : value)
+    .replace(/[\u0000-\u001F\u007F\u00A0\u200B-\u200D\uFEFF]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeEmail_(value) {
+  return normalizeText_(value).toLowerCase();
+}
+
+function getHeaderValue_(row, headerMap, name, fallbackIndex) {
+  var index = headerMap && Object.prototype.hasOwnProperty.call(headerMap, name) ? headerMap[name] - 1 : fallbackIndex;
+  return index >= 0 && index < row.length ? row[index] : '';
+}
+
+function rowValuesForHeaders_(sheet, valuesByHeader) {
+  var headerMap = getHeaderMap_(sheet);
+  var row = new Array(sheet.getLastColumn()).fill('');
+  Object.keys(valuesByHeader).forEach(function(name) {
+    if (Object.prototype.hasOwnProperty.call(headerMap, name)) {
+      row[headerMap[name] - 1] = valuesByHeader[name];
+    }
+  });
+  return row;
+}
+
+function writeValuesByHeaders_(sheet, rowIndex, valuesByHeader) {
+  var headerMap = getHeaderMap_(sheet);
+  Object.keys(valuesByHeader).forEach(function(name) {
+    if (Object.prototype.hasOwnProperty.call(headerMap, name)) {
+      sheet.getRange(rowIndex, headerMap[name]).setValue(valuesByHeader[name]);
+    }
+  });
+}
 
 function parsePayload_(e) {
   if (!e || !e.postData || !e.postData.contents) {
@@ -111,7 +158,33 @@ function getExamsSheet_() {
 }
 
 function getAttemptedSheet_() {
-  return getSheetByNameOrCreate_(ATTEMPTED_SHEET_NAME, ATTEMPT_HEADERS);
+  var sheet = getSheetByNameOrCreate_(ATTEMPTED_SHEET_NAME, ATTEMPT_HEADERS);
+  if (!Object.prototype.hasOwnProperty.call(getHeaderMap_(sheet), 'exam_row')) {
+    sheet.getRange(1, sheet.getLastColumn() + 1).setValue('exam_row');
+  }
+  return sheet;
+}
+
+function attemptValues_(attempt) {
+  return {
+    attempt_id: attempt.attemptId,
+    exam_id: attempt.examId,
+    exam_title: attempt.examTitle,
+    entered_email: attempt.email,
+    eligible: attempt.eligible ? 'YES' : 'NO',
+    tab_switch_count: attempt.tabSwitchCount,
+    score: attempt.score,
+    start_at: attempt.startAt,
+    end_at: attempt.endAt,
+    submitted_at: attempt.submittedAt,
+    duration_minutes: attempt.durationMinutes,
+    last_updated_at: attempt.lastUpdatedAt,
+    exam_row: attempt.sheetRow
+  };
+}
+
+function writeAttempt_(sheet, rowIndex, attempt) {
+  writeValuesByHeaders_(sheet, rowIndex, attemptValues_(attempt));
 }
 
 function getStudentsSheet_() {
@@ -144,7 +217,7 @@ function findCsmRowByEmail_(sheet, email) {
 
   var values = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
   for (var i = 0; i < values.length; i++) {
-    if (String(values[i][0] || '').trim().toLowerCase() === email.toLowerCase()) {
+    if (normalizeEmail_(values[i][0]) === normalizeEmail_(email)) {
       return i + 2;
     }
   }
@@ -218,7 +291,7 @@ function normalizeAuthorizationEmails_(emailInput) {
   var regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   for (var i = 0; i < tokens.length; i++) {
-    var email = String(tokens[i] || '').trim().toLowerCase();
+    var email = normalizeEmail_(tokens[i]);
     if (!email) continue;
     if (!regex.test(email)) continue;
     if (seen[email]) continue;
@@ -322,63 +395,109 @@ function mapCorrectOptionToIndex_(correctOptionRaw) {
   return -1;
 }
 
-function rowToExam_(row) {
+function rowToExam_(row, eligibleEmailsByExam, headerMap, sheetRow) {
   if (!row || !row.length) {
     return null;
   }
 
-  var examId = String(row[0] || '').trim();
+  var examId = normalizeText_(getHeaderValue_(row, headerMap, 'exam_id', 0));
   if (!examId) {
     return null;
   }
 
   var questions = [];
   try {
-    questions = JSON.parse(String(row[7] || '[]'));
+    questions = JSON.parse(String(getHeaderValue_(row, headerMap, 'questions_json', 7) || '[]'));
   } catch (_err) {
     questions = [];
   }
 
+  var title = normalizeText_(getHeaderValue_(row, headerMap, 'title', 1));
+  var eligibilityKey = examId + ' | ' + title;
   var eligibleEmails = [];
-  try {
-    // Match exam by exam_id | title format in students sheet headers
-    var examId = String(row[0] || '').trim();
-    var title = String(row[1] || '').trim();
-    eligibleEmails = getEligibleEmailsForExam_(examId, title);
-  } catch (_err2) {
-    eligibleEmails = [];
+  if (eligibleEmailsByExam && Object.prototype.hasOwnProperty.call(eligibleEmailsByExam, eligibilityKey)) {
+    eligibleEmails = eligibleEmailsByExam[eligibilityKey];
+  } else {
+    try {
+      eligibleEmails = getEligibleEmailsForExam_(examId, title);
+    } catch (_err2) {
+      eligibleEmails = [];
+    }
   }
 
-  var configuredStatus = String(row[3] || 'DRAFT');
-  var computedStatus = deriveExamStatus_(configuredStatus, String(row[4] || ''), String(row[5] || ''));
+  var startAt = String(getHeaderValue_(row, headerMap, 'start_at', 3) || '');
+  var endAt = String(getHeaderValue_(row, headerMap, 'end_at', 4) || '');
+  var computedStatus = deriveExamStatus_(startAt, endAt);
 
   return {
-    id: examId,
+    id: String(sheetRow || examId),
     examId: examId,
-    title: String(row[1] || ''),
-    description: String(row[2] || ''),
+    sheetRow: sheetRow || null,
+    title: title,
+    description: String(getHeaderValue_(row, headerMap, 'description', 2) || ''),
     status: computedStatus,
-    configuredStatus: configuredStatus,
-    startAt: String(row[4] || ''),
-    endAt: String(row[5] || ''),
-    durationMinutes: Number(row[6] || 0),
+    startAt: startAt,
+    endAt: endAt,
+    durationMinutes: Number(getHeaderValue_(row, headerMap, 'duration_minutes', 5) || 0),
     questions: questions,
     eligibleEmails: eligibleEmails,
-    eligibleColumn: String(row[8] || ''),
-    eligibleCount: Number(row[9] || eligibleEmails.length || 0),
-    createdAt: String(row[10] || ''),
-    updatedAt: String(row[11] || ''),
-    assessmentType: String(row[12] || 'STANDARD').toUpperCase()
+    eligibleCount: eligibleEmails.length,
+    createdAt: String(getHeaderValue_(row, headerMap, 'created_at', 9) || ''),
+    updatedAt: String(getHeaderValue_(row, headerMap, 'updated_at', 10) || ''),
+    assessmentType: String(getHeaderValue_(row, headerMap, 'assessment_type', 11) || 'STANDARD').toUpperCase()
   };
 }
 
-function deriveExamStatus_(configuredStatus, startAt, endAt) {
-  var status = String(configuredStatus || '').trim().toUpperCase();
+function getEligibleEmailsByExam_(examRows) {
+  var eligibleEmailsByExam = {};
 
+  try {
+    var sheet = getStudentsSheet_();
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return eligibleEmailsByExam;
+    }
+
+    var emailsByColumn = {};
+
+    for (var examIndex = 0; examIndex < examRows.length; examIndex++) {
+      var examRow = examRows[examIndex];
+      var examId = normalizeText_(examRow[0]);
+      var title = normalizeText_(examRow[1]);
+      var key = examId + ' | ' + title;
+      if (!examId || Object.prototype.hasOwnProperty.call(eligibleEmailsByExam, key)) continue;
+
+      var column = findLatestEligibleColumn_(sheet, examId, title);
+
+      if (column < 1) {
+        eligibleEmailsByExam[key] = [];
+        continue;
+      }
+
+      if (!Object.prototype.hasOwnProperty.call(emailsByColumn, column)) {
+        var values = sheet.getRange(2, column, lastRow - 1, 1).getValues();
+        var emails = [];
+        for (var rowIndex = 0; rowIndex < values.length; rowIndex++) {
+          var email = normalizeEmail_(values[rowIndex][0]);
+          if (email) emails.push(email);
+        }
+        emailsByColumn[column] = emails;
+      }
+
+      eligibleEmailsByExam[key] = emailsByColumn[column];
+    }
+  } catch (_err) {
+    // Keep listing exams if the optional eligibility sheet is unavailable.
+  }
+
+  return eligibleEmailsByExam;
+}
+
+function deriveExamStatus_(startAt, endAt) {
   var start = new Date(startAt);
   var end = new Date(endAt);
   if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-    return status || 'DRAFT';
+    return 'DRAFT';
   }
 
   var now = new Date();
@@ -389,6 +508,20 @@ function deriveExamStatus_(configuredStatus, startAt, endAt) {
     return 'CLOSED';
   }
   return 'OPEN';
+}
+
+function findLatestEligibleColumn_(sheet, examId, title) {
+  var lastColumn = sheet.getLastColumn();
+  if (lastColumn < 1) return -1;
+
+  var headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+  var expectedHeader = normalizeText_(examId + ' | ' + title).toLowerCase();
+  for (var i = headers.length - 1; i >= 0; i--) {
+    if (normalizeText_(headers[i]).toLowerCase() === expectedHeader) {
+      return i + 1;
+    }
+  }
+  return -1;
 }
 
 function getEligibleEmailsForExam_(examId, title) {
@@ -402,20 +535,7 @@ function getEligibleEmailsForExam_(examId, title) {
     return [];
   }
 
-  // Get header row to find matching column
-  var headerRow = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
-  var targetColumn = -1;
-  
-  // Match by "exam_id | title" format
-  var expectedHeader = examId + ' | ' + title;
-  
-  for (var i = 0; i < headerRow.length; i++) {
-    var header = String(headerRow[i] || '').trim();
-    if (header === expectedHeader) {
-      targetColumn = i + 1;
-      break;
-    }
-  }
+  var targetColumn = findLatestEligibleColumn_(sheet, examId, title);
   
   if (targetColumn < 1) {
     return [];
@@ -429,7 +549,7 @@ function getEligibleEmailsForExam_(examId, title) {
   var values = sheet.getRange(2, targetColumn, lastRow - 1, 1).getValues();
   var emails = [];
   for (var i = 0; i < values.length; i++) {
-    var email = String(values[i][0] || '').trim().toLowerCase();
+    var email = normalizeEmail_(values[i][0]);
     if (email) {
       emails.push(email);
     }
@@ -488,19 +608,20 @@ function findExamRow_(sheet, examId) {
     return { rowIndex: -1, exam: null };
   }
 
-  var values = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+  var values = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  var headerMap = getHeaderMap_(sheet);
   var matches = [];
   for (var i = 0; i < values.length; i++) {
-    if (String(values[i][0] || '').trim() === examId) {
-      var examObj = rowToExam_(values[i]);
-      var startAt = new Date(String(values[i][4] || ''));
+    if (normalizeText_(getHeaderValue_(values[i], headerMap, 'exam_id', 0)) === examId) {
+      var examObj = rowToExam_(values[i], null, headerMap, i + 2);
+      var startAt = new Date(examObj.startAt);
       matches.push({ rowIndex: i + 2, exam: examObj, startAt: isNaN(startAt.getTime()) ? null : startAt });
     }
   }
 
   if (matches.length === 0) return { rowIndex: -1, exam: null };
 
-  // Prefer an exam that's currently OPEN. If multiple OPEN, pick the one with latest startAt.
+  // Prefer a currently open row. If duplicates exist, use the latest start time.
   var openMatches = matches.filter(function(m) {
     return String(m.exam && m.exam.status || '').toUpperCase() === 'OPEN';
   });
@@ -516,7 +637,6 @@ function findExamRow_(sheet, examId) {
     openMatches.sort(comparator);
     chosen = openMatches[openMatches.length - 1];
   } else {
-    // No OPEN exams — pick the one with the latest startAt (most recent configuration)
     matches.sort(comparator);
     chosen = matches[matches.length - 1];
   }
@@ -540,33 +660,39 @@ function findAttemptRow_(sheet, attemptId) {
   return -1;
 }
 
-function findLatestAttemptRow_(sheet, examId, email) {
+function findLatestAttemptRow_(sheet, examId, email, sheetRow) {
   if (!examId || !email) {
     return -1;
   }
 
-  var normalizedEmail = String(email || '').trim().toLowerCase();
+  var normalizedEmail = normalizeEmail_(email);
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) {
     return -1;
   }
 
-  var values = sheet.getRange(2, 1, lastRow - 1, ATTEMPT_HEADERS.length).getValues();
+  var values = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  var headerMap = getHeaderMap_(sheet);
   
   // Find the most recent attempt (submitted or not) for this email and exam
   var foundRowIndex = -1;
   var latestStartAt = 0;
 
   for (var i = 0; i < values.length; i++) {
-    if (String(values[i][1] || '').trim() !== examId) {
+    if (String(getHeaderValue_(values[i], headerMap, 'exam_id', 1) || '').trim() !== examId) {
       continue;
     }
 
-    if (String(values[i][3] || '').trim().toLowerCase() !== normalizedEmail) {
+    if (normalizeEmail_(getHeaderValue_(values[i], headerMap, 'entered_email', 3)) !== normalizedEmail) {
       continue;
     }
 
-    var startAt = String(values[i][7] || '').trim();
+    var recordedExamRow = Number(getHeaderValue_(values[i], headerMap, 'exam_row', -1));
+    if (sheetRow && recordedExamRow !== Number(sheetRow)) {
+      continue;
+    }
+
+    var startAt = String(getHeaderValue_(values[i], headerMap, 'start_at', 7) || '').trim();
     var startTime = new Date(startAt).getTime();
     if (!isNaN(startTime) && startTime > latestStartAt) {
       latestStartAt = startTime;
@@ -577,31 +703,37 @@ function findLatestAttemptRow_(sheet, examId, email) {
   return foundRowIndex;
 }
 
-function findLastSubmittedAttemptAt_(sheet, examId, email) {
+function findLastSubmittedAttemptAt_(sheet, examId, email, sheetRow) {
   if (!examId || !email) {
     return '';
   }
 
-  var normalizedEmail = String(email || '').trim().toLowerCase();
+  var normalizedEmail = normalizeEmail_(email);
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) {
     return '';
   }
 
-  var values = sheet.getRange(2, 1, lastRow - 1, ATTEMPT_HEADERS.length).getValues();
+  var values = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  var headerMap = getHeaderMap_(sheet);
   var latestTimestamp = '';
   var latestTime = 0;
 
   for (var i = 0; i < values.length; i++) {
-    if (String(values[i][1] || '').trim() !== examId) {
+    if (String(getHeaderValue_(values[i], headerMap, 'exam_id', 1) || '').trim() !== examId) {
       continue;
     }
 
-    if (String(values[i][3] || '').trim().toLowerCase() !== normalizedEmail) {
+    if (normalizeEmail_(getHeaderValue_(values[i], headerMap, 'entered_email', 3)) !== normalizedEmail) {
       continue;
     }
 
-    var submittedAt = String(values[i][9] || '').trim();
+    var recordedExamRow = Number(getHeaderValue_(values[i], headerMap, 'exam_row', -1));
+    if (sheetRow && recordedExamRow !== Number(sheetRow)) {
+      continue;
+    }
+
+    var submittedAt = String(getHeaderValue_(values[i], headerMap, 'submitted_at', 9) || '').trim();
     if (!submittedAt) {
       continue;
     }
@@ -620,30 +752,36 @@ function findLastSubmittedAttemptAt_(sheet, examId, email) {
   return latestTimestamp;
 }
 
-function findSubmittedAttemptTimestamps_(sheet, examId, email) {
+function findSubmittedAttemptTimestamps_(sheet, examId, email, sheetRow) {
   if (!examId || !email) {
     return [];
   }
 
-  var normalizedEmail = String(email || '').trim().toLowerCase();
+  var normalizedEmail = normalizeEmail_(email);
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) {
     return [];
   }
 
-  var values = sheet.getRange(2, 1, lastRow - 1, ATTEMPT_HEADERS.length).getValues();
+  var values = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  var headerMap = getHeaderMap_(sheet);
   var timestamps = [];
 
   for (var i = 0; i < values.length; i++) {
-    if (String(values[i][1] || '').trim() !== examId) {
+    if (String(getHeaderValue_(values[i], headerMap, 'exam_id', 1) || '').trim() !== examId) {
       continue;
     }
 
-    if (String(values[i][3] || '').trim().toLowerCase() !== normalizedEmail) {
+    if (normalizeEmail_(getHeaderValue_(values[i], headerMap, 'entered_email', 3)) !== normalizedEmail) {
       continue;
     }
 
-    var submittedAt = String(values[i][9] || '').trim();
+    var recordedExamRow = Number(getHeaderValue_(values[i], headerMap, 'exam_row', -1));
+    if (sheetRow && recordedExamRow !== Number(sheetRow)) {
+      continue;
+    }
+
+    var submittedAt = String(getHeaderValue_(values[i], headerMap, 'submitted_at', 9) || '').trim();
     if (!submittedAt) {
       continue;
     }
@@ -663,14 +801,17 @@ function findSubmittedAttemptTimestamps_(sheet, examId, email) {
   return timestamps;
 }
 
-function writeEligibleStudents_(examId, title, eligibleEmails, existingColumnRef) {
+function writeEligibleStudents_(examId, title, eligibleEmails, createNewColumn) {
   var sheet = getStudentsSheet_();
-  var column = existingColumnRef ? resolveColumnIndex_(sheet, existingColumnRef) : findFirstBlankColumn_(sheet);
+  var column = createNewColumn ? -1 : findLatestEligibleColumn_(sheet, examId, title);
+  if (column < 1) {
+    column = findFirstBlankColumn_(sheet);
+  }
   if (column < 1) {
     column = sheet.getLastColumn() + 1;
   }
 
-  sheet.getRange(1, column).setValue(examId + ' | ' + title);
+  sheet.getRange(1, column).setValue(normalizeText_(examId + ' | ' + title));
 
   if (eligibleEmails.length === 0) {
     return columnIndexToLetter_(column);

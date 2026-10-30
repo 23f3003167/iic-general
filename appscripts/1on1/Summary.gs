@@ -31,7 +31,7 @@ function refreshOneOnOneSummary() {
       if (!booking.email || !booking.slot || booking.status === 'Cancelled') continue;
       if (existingEmails[booking.email]) continue;
 
-      rowsToAppend.push([
+      var bookingColumns = [
         Utilities.getUuid(),
         booking.email,
         booking.name,
@@ -41,18 +41,30 @@ function refreshOneOnOneSummary() {
         booking.plan,
         instructorMap[slotInstructorMap[booking.slot] || booking.instructorEmail] || slotInstructorMap[booking.slot] || booking.instructorEmail,
         booking.slot,
-        'Pending', '', '', '', '', '', '', '', '', ''
-      ]);
+        'Pending'
+      ];
+      rowsToAppend.push(buildOneOnOneSummaryRow_(summarySheet, bookingColumns, ['', '', '', '', '', '', '', '']));
       existingEmails[booking.email] = true;
     }
 
     if (rowsToAppend.length) {
-      summarySheet.getRange(summarySheet.getLastRow() + 1, 1, rowsToAppend.length, 20).setValues(rowsToAppend);
+      summarySheet.getRange(summarySheet.getLastRow() + 1, 1, rowsToAppend.length, rowsToAppend[0].length).setValues(rowsToAppend);
     }
     sortOneOnOneSummaryBySlot_(summarySheet);
   } finally {
     lock.releaseLock();
   }
+}
+
+function buildOneOnOneSummaryRow_(sheet, bookingColumns, evaluationColumns) {
+  var row = bookingColumns.slice(0, 10);
+  if (getOneOnOneSummarySkillsetsOffset_(sheet)) row.push('');
+  return row.concat(evaluationColumns);
+}
+
+function getOneOnOneSummarySkillsetsOffset_(sheet) {
+  if (sheet.getLastRow() < 1 || sheet.getLastColumn() < 11) return 0;
+  return /skillsets?/i.test(String(sheet.getRange(1, 11).getValue() || '')) ? 1 : 0;
 }
 
 /** Sorts Summary rows by the date and start time encoded in the Slot column. */
@@ -66,14 +78,18 @@ function sortOneOnOneSummaryBySlot_(sheet) {
     return {
       row: row,
       index: index,
+      instructor: String(row[7] || '').trim(),
       time: getOneOnOneSlotStartTime_(row[8])
     };
   });
 
   sortableRows.sort(function (first, second) {
-    var firstTime = first.time ? first.time.getTime() : Number.MAX_SAFE_INTEGER;
-    var secondTime = second.time ? second.time.getTime() : Number.MAX_SAFE_INTEGER;
-    return firstTime - secondTime || first.index - second.index;
+    var firstDate = first.time ? new Date(first.time.getFullYear(), first.time.getMonth(), first.time.getDate()).getTime() : Number.MAX_SAFE_INTEGER;
+    var secondDate = second.time ? new Date(second.time.getFullYear(), second.time.getMonth(), second.time.getDate()).getTime() : Number.MAX_SAFE_INTEGER;
+    return firstDate - secondDate ||
+      first.instructor.localeCompare(second.instructor) ||
+      (first.time ? first.time.getTime() : Number.MAX_SAFE_INTEGER) - (second.time ? second.time.getTime() : Number.MAX_SAFE_INTEGER) ||
+      first.index - second.index;
   });
 
   sheet.getRange(2, 1, rowCount, columnCount).setValues(
@@ -125,12 +141,12 @@ function ensureOneOnOneSummaryHeader_(sheet) {
   if (sheet.getLastRow()) return;
   sheet.appendRow([
     'ID', 'Email', 'Name', 'Resume', 'Progress Card', 'Domain', 'Plan', 'Instructor',
-    'Slot', 'Status', 'Skillsets of student', 'Technical skills in programming (Rate from 1 to 5)',
+    'Slot', 'Status', 'Technical skills in programming (Rate from 1 to 5)',
     'Technical skills in data science (Rate from 1 to 5)', 'Communication skills (Rate from 1 to 5)',
-    'Readiness of the student for placement', 'Performing Exceptionally good',
+    'Readiness of the student for placement', 'Rating',
     'If not ready, please mention the list of tasks students should do',
     'What roles they are suitable for? (Recommondations by instructor)',
-    'Detailed feedback from instructor 1', 'Any additional remarks'
+    'Feedback'
   ]);
 }
 

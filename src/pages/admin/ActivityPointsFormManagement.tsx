@@ -8,77 +8,206 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, Settings, Loader2, Upload } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, Settings, Loader2, Upload, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { 
   activityPointsFormConfig, 
-  ensureStudentNameSection,
+  pruneRemovedActivityPointsItems,
   type FormSection, 
   type FormField,
   type FieldType 
 } from '@/lib/activityPointsFormConfig';
+
+const CMA_SECTION_IDS = new Set([
+  'student-name',
+  'activity-type-selection',
+  'common-mandatory-course',
+  'dbms',
+  'pdsa',
+  'sc',
+  'cloud-devops-cma',
+  'cloud-devops',
+]);
+
+const isCmaSection = (section: FormSection) =>
+  CMA_SECTION_IDS.has(section.id) || section.id.startsWith('cma-section-');
+
+const getFieldLabel = (fieldId: string, sections: FormSection[]) =>
+  sections.flatMap(section => section.fields).find(field => field.id === fieldId)?.label || fieldId;
+
+type ActivityPointsConfigResponse = {
+  success: boolean;
+  error?: string;
+  message?: string;
+  data?: {
+    config?: { sections?: FormSection[] };
+    lastUpdated?: string | null;
+  };
+};
+
+const requestActivityPointsConfig = async (
+  apiUrl: string,
+  action: 'getFormConfig' | 'saveFormConfig',
+  sections?: FormSection[],
+) => {
+  const formData = new FormData();
+  formData.append('action', action);
+  if (sections) formData.append('config', JSON.stringify({ sections }));
+
+  const response = await fetch(apiUrl, { method: 'POST', body: formData });
+  if (!response.ok) throw new Error(`Request failed (${response.status}).`);
+
+  const result = await response.json() as ActivityPointsConfigResponse;
+  if (!result.success) throw new Error(result.error || result.message || 'The server rejected the request.');
+  return result.data;
+};
+
+const serializeConfigForComparison = (sections: FormSection[]) => {
+  const sortObjectKeys = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(sortObjectKeys);
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value).sort(([first], [second]) => first.localeCompare(second))
+          .map(([key, item]) => [key, sortObjectKeys(item)])
+      );
+    }
+    return value;
+  };
+  return JSON.stringify(sortObjectKeys({ sections }));
+};
+
+const parseAnswerList = (value: string) => value.split(/[\n,]/).map(answer => answer.trim()).filter(Boolean);
+
+const findFieldById = (fieldId: string, sections: FormSection[]) =>
+  sections.flatMap(section => section.fields).find(field => field.id === fieldId);
+
+const selectAnswer = (currentValue: string, answer: string, selected: boolean) => {
+  const answers = parseAnswerList(currentValue).filter(value => value !== answer);
+  if (selected) answers.push(answer);
+  return answers.join(', ');
+};
+
+const ConditionalAnswerEditor = ({
+  field,
+  value,
+  onChange,
+  id,
+}: {
+  field?: FormField;
+  value: string;
+  onChange: (value: string) => void;
+  id: string;
+}) => {
+  if (field?.options?.length) {
+    const selectedAnswers = parseAnswerList(value);
+    const availableAnswers = [...new Set([...field.options, ...selectedAnswers])];
+    return (
+      <div className="space-y-2">
+        <p className="text-xs text-muted-foreground">Choose the answer or answers that reveal this section.</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {availableAnswers.map((answer, index) => (
+            <label key={`${answer}-${index}`} className="flex items-start gap-2 text-sm">
+              <Checkbox
+                checked={selectedAnswers.includes(answer)}
+                onCheckedChange={checked => onChange(selectAnswer(value, answer, checked === true))}
+              />
+              <span>{answer}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      <Textarea
+        id={id}
+        value={value}
+        onChange={event => onChange(event.target.value)}
+        rows={2}
+        placeholder="Enter the exact answer shown to students"
+      />
+      <p className="text-xs text-muted-foreground">Enter one exact answer per line. You can paste multiple answers.</p>
+    </div>
+  );
+};
+
+const createUniqueId = (label: string, existingIds: string[], prefix = '') => {
+  const slug = label.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'item';
+  const baseId = prefix ? `${prefix}-${slug}` : slug;
+  let id = baseId;
+  let suffix = 2;
+  while (existingIds.includes(id)) {
+    id = `${baseId}-${suffix}`;
+    suffix += 1;
+  }
+  return id;
+};
 
 const ActivityPointsFormManagement = () => {
   const { toast } = useToast();
   const [sections, setSections] = useState<FormSection[]>([]);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [editingSection, setEditingSection] = useState<FormSection | null>(null);
-  const [editingField, setEditingField] = useState<{ sectionId: string; field: FormField } | null>(null);
+  const [editingField, setEditingField] = useState<{ sectionId: string; field: FormField | null } | null>(null);
+  const [activeScope, setActiveScope] = useState<'cma' | 'additional'>('cma');
   const [isSectionDialogOpen, setIsSectionDialogOpen] = useState(false);
   const [isFieldDialogOpen, setIsFieldDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [originalConfig, setOriginalConfig] = useState<FormSection[]>([]);
   const [hasUnsavedDefaultConfig, setHasUnsavedDefaultConfig] = useState(false);
+  const [configLoadMessage, setConfigLoadMessage] = useState('');
+  const [configLastUpdated, setConfigLastUpdated] = useState<string | null>(null);
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
 
   useEffect(() => {
     loadConfig();
   }, []);
 
   const loadConfig = async () => {
+    setIsLoadingConfig(true);
     try {
       const apiUrl = import.meta.env.VITE_ACTIVITY_POINTS_API_URL;
       if (!apiUrl) {
         // Fallback to local config if no API URL
         setSections(activityPointsFormConfig.sections);
         setOriginalConfig(activityPointsFormConfig.sections);
+        setHasUnsavedDefaultConfig(true);
+        setConfigLoadMessage('Showing built-in defaults. Configure the Activity Points API URL to load or save shared settings.');
         return;
       }
 
-      const formData = new FormData();
-      formData.append('action', 'getFormConfig');
+      const savedConfig = await requestActivityPointsConfig(apiUrl, 'getFormConfig');
+      setConfigLastUpdated(savedConfig?.lastUpdated || null);
 
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        body: formData
-      });
-
-      const result = await response.json();
-
-      if (result.success && result.data?.config && Array.isArray(result.data.config.sections)) {
-        const configSections = result.data.config.sections.filter(
-          (section: FormSection) => section.id !== 'certificate-upload'
-        );
-        const configToLoad = configSections.length > 0
-          ? ensureStudentNameSection(configSections)
-          : activityPointsFormConfig.sections;
-        setSections(configToLoad);
-        setOriginalConfig(configToLoad);
-        setHasUnsavedDefaultConfig(
-          configSections.length === 0 ||
-          !configSections.some((section: FormSection) => section.id === 'student-name')
-        );
+      if (savedConfig?.config && Array.isArray(savedConfig.config.sections)) {
+        const savedSections = savedConfig.config.sections;
+        const cleanedSections = pruneRemovedActivityPointsItems({ sections: savedSections }).sections;
+        const hasRemovedItems = JSON.stringify(savedSections) !== JSON.stringify(cleanedSections);
+        setSections(cleanedSections);
+        setOriginalConfig(cleanedSections);
+        setConfigLoadMessage(hasRemovedItems
+          ? 'Obsolete Internship System Commands items and Application Development profile fields were removed from this view. Save to persist the cleanup.'
+          : '');
+        setHasUnsavedDefaultConfig(hasRemovedItems || cleanedSections.length === 0);
       } else {
         // Fallback to local config
         setSections(activityPointsFormConfig.sections);
         setOriginalConfig(activityPointsFormConfig.sections);
-        setHasUnsavedDefaultConfig(false);
+        setHasUnsavedDefaultConfig(true);
+        setConfigLoadMessage('The server returned no saved sections. Showing built-in defaults; save to create the shared config.');
       }
     } catch (error) {
       console.error('Failed to load config:', error);
       // Fallback to local config on error
       setSections(activityPointsFormConfig.sections);
       setOriginalConfig(activityPointsFormConfig.sections);
-      setHasUnsavedDefaultConfig(false);
+      setHasUnsavedDefaultConfig(true);
+      setConfigLoadMessage(`Could not load the saved config. Showing built-in defaults. ${error instanceof Error ? error.message : 'Check the API connection.'}`);
+    } finally {
+      setIsLoadingConfig(false);
     }
   };
 
@@ -96,7 +225,11 @@ const ActivityPointsFormManagement = () => {
 
   const handleAddSection = (sectionData: Partial<FormSection>) => {
     const newSection: FormSection = {
-      id: sectionData.id || `section-${Date.now()}`,
+      id: sectionData.id || createUniqueId(
+        sectionData.title || 'section',
+        sections.map(section => section.id),
+        activeScope === 'cma' ? 'cma-section' : 'section'
+      ),
       title: sectionData.title || 'New Section',
       description: sectionData.description,
       fields: [],
@@ -140,8 +273,9 @@ const ActivityPointsFormManagement = () => {
   };
 
   const handleAddField = (sectionId: string, fieldData: Partial<FormField>) => {
+    const existingFieldIds = sections.flatMap(section => section.fields.map(field => field.id));
     const newField: FormField = {
-      id: fieldData.id || `field-${Date.now()}`,
+      id: fieldData.id || createUniqueId(fieldData.label || 'field', existingFieldIds),
       label: fieldData.label || 'New Field',
       type: fieldData.type || 'shortAnswer',
       required: fieldData.required || false,
@@ -162,13 +296,13 @@ const ActivityPointsFormManagement = () => {
   };
 
   const handleEditField = (fieldData: Partial<FormField>) => {
-    if (!editingField) return;
+    if (!editingField?.field) return;
     setSections(sections.map(s => 
       s.id === editingField.sectionId 
         ? { 
             ...s, 
             fields: s.fields.map(f => 
-              f.id === editingField.field.id ? { ...f, ...fieldData } : f
+              f.id === editingField.field?.id ? { ...f, ...fieldData } : f
             ) 
           } 
         : s
@@ -208,10 +342,14 @@ const ActivityPointsFormManagement = () => {
     if (field) {
       setEditingField({ sectionId, field });
     } else {
-      setEditingField({ sectionId, field: { id: '', label: '', type: 'shortAnswer', required: false } });
+      setEditingField({ sectionId, field: null });
     }
     setIsFieldDialogOpen(true);
   };
+
+  const visibleSections = sections.filter(section =>
+    activeScope === 'cma' ? isCmaSection(section) : !isCmaSection(section)
+  );
 
   const saveConfig = async () => {
     setIsSaving(true);
@@ -227,27 +365,23 @@ const ActivityPointsFormManagement = () => {
         return;
       }
 
-      const formData = new FormData();
-      formData.append('action', 'saveFormConfig');
-      formData.append('config', JSON.stringify({ sections }));
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        body: formData
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setOriginalConfig(sections);
-        setHasUnsavedDefaultConfig(false);
-        toast({
-          title: 'Configuration Saved',
-          description: 'Form configuration has been saved and will reflect immediately in the general portal.',
-        });
-      } else {
-        throw new Error(result.error || 'Save failed');
+      await requestActivityPointsConfig(apiUrl, 'saveFormConfig', sections);
+      const verifiedConfig = await requestActivityPointsConfig(apiUrl, 'getFormConfig');
+      const savedSections = verifiedConfig?.config?.sections;
+      if (!Array.isArray(savedSections) ||
+          serializeConfigForComparison(savedSections) !== serializeConfigForComparison(sections)) {
+        throw new Error('The server accepted the save, but the reloaded config does not match. Your edits are still on this page. Check the Apps Script deployment and spreadsheet, then retry.');
       }
+
+      setSections(savedSections);
+      setOriginalConfig(savedSections);
+      setHasUnsavedDefaultConfig(false);
+      setConfigLastUpdated(verifiedConfig?.lastUpdated || null);
+      setConfigLoadMessage('');
+      toast({
+        title: 'Configuration saved and verified',
+        description: 'The saved config was reloaded from the server and matches your changes.',
+      });
     } catch (error) {
       toast({
         title: 'Save Failed',
@@ -275,7 +409,7 @@ const ActivityPointsFormManagement = () => {
         <div>
           <h1 className="text-2xl font-bold">Activity Points Form Management</h1>
           <p className="text-muted-foreground">
-            Manage form sections, fields, and conditional logic
+            Choose an activity group, then edit its student-facing questions and requirements.
           </p>
         </div>
         <div className="flex gap-2">
@@ -285,7 +419,7 @@ const ActivityPointsFormManagement = () => {
           </Button>
           <Button
             onClick={saveConfig}
-            disabled={isSaving || (!hasUnsavedDefaultConfig && JSON.stringify(sections) === JSON.stringify(originalConfig))}
+            disabled={isSaving || isLoadingConfig || (!hasUnsavedDefaultConfig && JSON.stringify(sections) === JSON.stringify(originalConfig))}
           >
             {isSaving ? (
               <>
@@ -299,6 +433,10 @@ const ActivityPointsFormManagement = () => {
               </>
             )}
           </Button>
+          <Button type="button" variant="outline" onClick={loadConfig} disabled={isSaving || isLoadingConfig}>
+            {isLoadingConfig ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+            Reload Saved Config
+          </Button>
           <Button onClick={() => openSectionDialog()}>
             <Plus className="mr-2 h-4 w-4" />
             Add Section
@@ -306,8 +444,44 @@ const ActivityPointsFormManagement = () => {
         </div>
       </div>
 
+      <div className="space-y-1" role="status" aria-live="polite">
+        {configLoadMessage && <p className="text-sm text-destructive">{configLoadMessage}</p>}
+        {configLastUpdated && !configLoadMessage && (
+          <p className="text-sm text-muted-foreground">
+            Last saved: {new Date(configLastUpdated).toLocaleString()}
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Activity group">
+        <Button
+          type="button"
+          role="tab"
+          aria-selected={activeScope === 'cma'}
+          variant={activeScope === 'cma' ? 'default' : 'outline'}
+          onClick={() => setActiveScope('cma')}
+        >
+          Common Mandatory Activities (CMA)
+        </Button>
+        <Button
+          type="button"
+          role="tab"
+          aria-selected={activeScope === 'additional'}
+          variant={activeScope === 'additional' ? 'default' : 'outline'}
+          onClick={() => setActiveScope('additional')}
+        >
+          Internship and Placement
+        </Button>
+      </div>
+
+      <p className="text-sm text-muted-foreground">
+        {activeScope === 'cma'
+          ? 'CMA contains DBMS, PDSA, System Commands, and Cloud & DevOps. The first section controls the student’s activity-type choice.'
+          : 'This group contains the internship- and placement-specific activity paths.'}
+      </p>
+
       <div className="space-y-4">
-        {sections.map((section) => (
+        {visibleSections.map((section) => (
           <Card key={section.id}>
             <CardHeader>
               <div className="flex items-start justify-between">
@@ -367,7 +541,7 @@ const ActivityPointsFormManagement = () => {
                     <div className="space-y-1">
                       {section.conditionalLogic.showWhen.map((condition, idx) => (
                         <div key={idx} className="text-sm text-muted-foreground">
-                          Show when <span className="font-mono">{condition.fieldId}</span>
+                          Show when <span className="font-medium">{getFieldLabel(condition.fieldId, sections)}</span>
                           {condition.equals && (
                             <> equals <span className="font-mono">{Array.isArray(condition.equals) ? condition.equals.join(', ') : condition.equals}</span></>
                           )}
@@ -447,11 +621,14 @@ const ActivityPointsFormManagement = () => {
               {editingSection ? 'Edit Section' : 'Add New Section'}
             </DialogTitle>
             <DialogDescription>
-              {editingSection ? 'Update section details' : 'Create a new form section'}
+              {editingSection
+                ? 'Change the title, instructions, or when students see this section.'
+                : 'Create a group of questions. Add rules only when students should see it for specific answers.'}
             </DialogDescription>
           </DialogHeader>
           <SectionForm
             section={editingSection}
+            sections={sections}
             onSubmit={editingSection ? handleEditSection : handleAddSection}
             onCancel={() => setIsSectionDialogOpen(false)}
           />
@@ -486,10 +663,12 @@ const ActivityPointsFormManagement = () => {
 
 const SectionForm = ({ 
   section, 
+  sections,
   onSubmit, 
   onCancel 
 }: { 
   section: FormSection | null; 
+  sections: FormSection[];
   onSubmit: (data: Partial<FormSection>) => void;
   onCancel: () => void;
 }) => {
@@ -513,7 +692,7 @@ const SectionForm = ({
     const conditionalLogic = conditions.length > 0 ? {
       showWhen: conditions.map(c => ({
         fieldId: c.fieldId,
-        equals: c.equals ? c.equals.split(',').map(s => s.trim()) : undefined,
+        equals: c.equals ? parseAnswerList(c.equals) : undefined,
         notEquals: c.notEquals || undefined,
     }))
     } : undefined;
@@ -534,26 +713,17 @@ const SectionForm = ({
     ));
   };
 
+  const allFieldIds = [...new Set(sections.flatMap(currentSection => currentSection.fields.map(field => field.id)))];
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="sectionId">Section ID *</Label>
-        <Input
-          id="sectionId"
-          value={formData.id}
-          onChange={(e) => setFormData({ ...formData, id: e.target.value })}
-          placeholder="student-info"
-          required
-          disabled={!!section}
-        />
-      </div>
       <div className="space-y-2">
         <Label htmlFor="sectionTitle">Section Title *</Label>
         <Input
           id="sectionTitle"
           value={formData.title}
           onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-          placeholder="Student Information"
+          placeholder="For example: DBMS activities"
           required
         />
       </div>
@@ -564,13 +734,16 @@ const SectionForm = ({
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           rows={3}
-          placeholder="Section description..."
+          placeholder="Briefly describe what students should submit in this section."
         />
       </div>
       
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label>Conditional Logic</Label>
+          <div>
+            <Label>When should students see this section?</Label>
+            <p className="text-xs text-muted-foreground">When you add multiple rules, every answer must match.</p>
+          </div>
           <Button type="button" size="sm" variant="outline" onClick={addCondition}>
             <Plus className="mr-2 h-3 w-3" />
             Add Condition
@@ -591,32 +764,37 @@ const SectionForm = ({
             </div>
             <div className="space-y-2">
               <div className="space-y-1">
-                <Label htmlFor={`condition-field-${index}`} className="text-xs">Field ID</Label>
-                <Input
-                  id={`condition-field-${index}`}
-                  value={condition.fieldId}
-                  onChange={(e) => updateCondition(index, 'fieldId', e.target.value)}
-                  placeholder="activityType"
-                  className="text-sm"
-                />
+                <Label htmlFor={`condition-field-${index}`} className="text-xs">Show this section based on</Label>
+                <Select
+                  value={condition.fieldId || undefined}
+                  onValueChange={(value) => updateCondition(index, 'fieldId', value)}
+                >
+                  <SelectTrigger id={`condition-field-${index}`} className="text-sm">
+                    <SelectValue placeholder="Choose a question" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allFieldIds.map(fieldId => (
+                      <SelectItem key={fieldId} value={fieldId}>{getFieldLabel(fieldId, sections)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
-                <Label htmlFor={`condition-equals-${index}`} className="text-xs">Equals (comma-separated for multiple)</Label>
-                <Input
+                <Label className="text-xs">Answer that shows this section</Label>
+                <ConditionalAnswerEditor
                   id={`condition-equals-${index}`}
+                  field={findFieldById(condition.fieldId, sections)}
                   value={condition.equals}
-                  onChange={(e) => updateCondition(index, 'equals', e.target.value)}
-                  placeholder="Common Mandatory Activity Points"
-                  className="text-sm"
+                  onChange={value => updateCondition(index, 'equals', value)}
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor={`condition-not-equals-${index}`} className="text-xs">Not Equals</Label>
+                <Label htmlFor={`condition-not-equals-${index}`} className="text-xs">Hide for this answer (optional)</Label>
                 <Input
                   id={`condition-not-equals-${index}`}
                   value={condition.notEquals}
                   onChange={(e) => updateCondition(index, 'notEquals', e.target.value)}
-                  placeholder="Value to exclude"
+                  placeholder="Optional answer to exclude"
                   className="text-sm"
                 />
               </div>
@@ -654,7 +832,7 @@ const FieldForm = ({
     type: field?.type || 'shortAnswer' as FieldType,
     required: field?.required || false,
     placeholder: field?.placeholder || '',
-    options: field?.options?.join(', ') || '',
+    options: field?.options?.join('\n') || '',
   });
 
   const [conditions, setConditions] = useState(
@@ -668,14 +846,14 @@ const FieldForm = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const options = formData.options
-      .split(',')
-      .map(o => o.trim())
+      .split(/[\n,]/)
+      .map(option => option.trim())
       .filter(Boolean);
     
     const conditionalLogic = conditions.length > 0 ? {
       showWhen: conditions.map(c => ({
         fieldId: c.fieldId,
-        equals: c.equals ? c.equals.split(',').map(s => s.trim()) : undefined,
+        equals: c.equals ? parseAnswerList(c.equals) : undefined,
         notEquals: c.notEquals || undefined,
     }))
     } : undefined;
@@ -702,22 +880,13 @@ const FieldForm = ({
   };
 
   // Get all available field IDs for conditional logic
-  const allFieldIds = sections.flatMap(s => s.fields.map(f => f.id));
+  const allFieldIds = [...new Set(sections.flatMap(s => s.fields.map(f => f.id)))];
 
   const needsOptions = ['dropdown', 'radio', 'checkbox'].includes(formData.type);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="fieldId">Field ID *</Label>
-        <Input
-          id="fieldId"
-          value={formData.id}
-          onChange={(e) => setFormData({ ...formData, id: e.target.value })}
-          placeholder="studentName"
-          required
-          disabled={!!field}
-        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="fieldLabel">Field Label *</Label>
@@ -725,7 +894,7 @@ const FieldForm = ({
           id="fieldLabel"
           value={formData.label}
           onChange={(e) => setFormData({ ...formData, label: e.target.value })}
-          placeholder="Student Name"
+          placeholder="For example: Certificate URL"
           required
         />
       </div>
@@ -761,7 +930,7 @@ const FieldForm = ({
         </Label>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="fieldPlaceholder">Placeholder</Label>
+          <Label htmlFor="fieldPlaceholder">Hint shown inside the input</Label>
         <Input
           id="fieldPlaceholder"
           value={formData.placeholder}
@@ -771,21 +940,25 @@ const FieldForm = ({
       </div>
       {needsOptions && (
         <div className="space-y-2">
-          <Label htmlFor="fieldOptions">Options (comma-separated) *</Label>
+          <Label htmlFor="fieldOptions">Answer choices (one per line) *</Label>
           <Textarea
             id="fieldOptions"
             value={formData.options}
             onChange={(e) => setFormData({ ...formData, options: e.target.value })}
             rows={3}
-            placeholder="Option 1, Option 2, Option 3"
+            placeholder={'Option 1\nOption 2\nOption 3'}
             required
           />
+          <p className="text-xs text-muted-foreground">Each line becomes one choice students can select.</p>
         </div>
       )}
       
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label>Conditional Logic</Label>
+          <div>
+            <Label>When should students see this question?</Label>
+            <p className="text-xs text-muted-foreground">Every added rule must match for this question to appear.</p>
+          </div>
           <Button type="button" size="sm" variant="outline" onClick={addCondition}>
             <Plus className="mr-2 h-3 w-3" />
             Add Condition
@@ -806,7 +979,7 @@ const FieldForm = ({
             </div>
             <div className="space-y-2">
               <div className="space-y-1">
-                <Label htmlFor={`field-condition-field-${index}`} className="text-xs">Field ID</Label>
+                <Label htmlFor={`field-condition-field-${index}`} className="text-xs">Show this question based on</Label>
                 <Select
                   value={condition.fieldId}
                   onValueChange={(value) => updateCondition(index, 'fieldId', value)}
@@ -816,19 +989,18 @@ const FieldForm = ({
                   </SelectTrigger>
                   <SelectContent>
                     {allFieldIds.map(fieldId => (
-                      <SelectItem key={fieldId} value={fieldId}>{fieldId}</SelectItem>
+                      <SelectItem key={fieldId} value={fieldId}>{getFieldLabel(fieldId, sections)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label htmlFor={`field-condition-equals-${index}`} className="text-xs">Equals (comma-separated for multiple)</Label>
-                <Input
+                <Label className="text-xs">Answer that shows this question</Label>
+                <ConditionalAnswerEditor
                   id={`field-condition-equals-${index}`}
+                  field={findFieldById(condition.fieldId, sections)}
                   value={condition.equals}
-                  onChange={(e) => updateCondition(index, 'equals', e.target.value)}
-                  placeholder="Option value"
-                  className="text-sm"
+                  onChange={value => updateCondition(index, 'equals', value)}
                 />
               </div>
               <div className="space-y-1">

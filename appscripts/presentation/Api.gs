@@ -23,6 +23,8 @@ function handleRequest_(payload) {
       data = getInstructors_();
     } else if (action === 'getUniqueInstructors') {
       data = getUniqueInstructors_();
+    } else if (action === 'getEvaluatorDashboardData') {
+      data = getEvaluatorDashboardData_();
     } else if (action === 'getPendingEvaluations') {
       data = getPendingEvaluations_(payload);
     } else if (action === 'submitEvaluation') {
@@ -525,8 +527,55 @@ function normalizePresentationContactRating_(sheet, rowNumber, row) {
         ? thirdValue
         : '';
 
-  sheet.getRange(rowNumber, 13, 1, 3).setValues([[contact, rating, '']]);
+  if (
+    String(row[12] || '') !== contact ||
+    String(row[13] || '') !== rating ||
+    String(row[14] || '') !== ''
+  ) {
+    sheet.getRange(rowNumber, 13, 1, 3).setValues([[contact, rating, '']]);
+  }
   return { contact: contact, rating: rating };
+}
+
+function getEvaluatorDashboardData_() {
+  var sheet = getSummarySheet_();
+  ensureSummaryContactRatingHeaders_(sheet);
+  var values = sheet.getDataRange().getValues();
+  var seenInstructors = {};
+  var instructors = [];
+  var evaluations = [];
+
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    var id = String(row[0] || '').trim();
+    var instructor = String(row[1] || '').trim();
+    if (instructor && !seenInstructors[instructor]) {
+      seenInstructors[instructor] = true;
+      instructors.push(instructor);
+    }
+    if (!id) continue;
+
+    var contactRating = normalizePresentationContactRating_(sheet, i + 1, row);
+    evaluations.push({
+      id: id,
+      instructor: instructor,
+      slot: String(row[2] || '').trim(),
+      name: String(row[3] || '').trim(),
+      email: String(row[4] || '').trim(),
+      status: String(row[5] || '').trim() || 'Pending',
+      contact: contactRating.contact,
+      rating: contactRating.rating,
+      content: row[6] || null,
+      slideComposition: row[7] || null,
+      presentation: row[8] || null,
+      feedback: String(row[9] || '').trim(),
+      total: row[10] || null,
+      outOf30: row[11] || null
+    });
+  }
+
+  instructors.sort();
+  return { instructors: instructors, evaluations: evaluations };
 }
 
 function getPendingEvaluations_(payload) {

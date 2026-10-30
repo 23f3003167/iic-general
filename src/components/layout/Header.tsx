@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { FileText, Megaphone, HelpCircle, BookOpen, LifeBuoy, Mail, Menu, MessageSquare, ClipboardList, BarChart3, CalendarClock, Star, LogOut } from 'lucide-react';
+import { FileText, Megaphone, HelpCircle, BookOpen, LifeBuoy, Mail, Menu, MessageSquare, ClipboardList, BarChart3, CalendarClock, Star, LogOut, LayoutDashboard } from 'lucide-react';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { signOut as firebaseSignOut } from 'firebase/auth';
 import { useToast } from '@/components/ui/use-toast';
 
 const navItems = [
+  { path: '/', label: 'Home', icon: LayoutDashboard },
   { path: '/announcements', label: 'Announcements', icon: Megaphone },
   { path: '/faqs', label: 'FAQs', icon: HelpCircle },
   { path: '/resources', label: 'Resources', icon: BookOpen },

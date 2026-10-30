@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -10,12 +10,27 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { getExams, getPreviousSubmissions, startExamAttempt, submitExamAttempt } from '@/lib/examsService';
+import { getExams, getPreviousSubmissions, queueExamSubmission, startExamAttempt } from '@/lib/examsService';
 import { auth } from '@/lib/firebase';
 import type { ExamAttempt, ExamConfig, ExamQuestion } from '@/types';
 import { AlertCircle, Clock3, Loader2, ShieldAlert } from 'lucide-react';
 
 type Screen = 'loading' | 'waiting' | 'ready' | 'error' | 'running' | 'submitted';
+
+type PersistedExamAttempt = {
+  email: string;
+  exam: ExamConfig;
+  attempt: ExamAttempt;
+  name: string;
+  responses: (number | string | null)[];
+  currentIndex: number;
+  tabSwitchCount: number;
+};
+
+function attemptStorageKey(): string | null {
+  const user = auth.currentUser;
+  return user ? `iic_exam_attempt_${user.uid}` : null;
+}
 
 function formatDateTime(value?: string): string {
   if (!value) return 'N/A';
@@ -60,14 +75,19 @@ function parseLocalDateTime(value?: string): number {
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 }
 
+function isTimedAssessmentFor(exam: ExamConfig): boolean {
+  return exam.assessmentType !== 'CSM' && exam.assessmentType !== 'PREPLACEMENT';
+}
+
 export default function ExamPage() {
+  const [hideNavigation] = useState(() => new URLSearchParams(window.location.search).get('standalone') === '1');
   const { toast } = useToast();
   const [screen, setScreen] = useState<Screen>('loading');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [exams, setExams] = useState<ExamConfig[]>([]);
   const [activeExam, setActiveExam] = useState<ExamConfig | null>(null);
-  const [email, setEmail] = useState('');
+  const email = auth.currentUser?.email?.trim().toLowerCase() || '';
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [attempt, setAttempt] = useState<ExamAttempt | null>(null);
   const [attemptId, setAttemptId] = useState('');
@@ -89,15 +109,6 @@ export default function ExamPage() {
   const isTimedAssessment = useMemo(() => {
     return activeExam ? activeExam.assessmentType !== 'CSM' && activeExam.assessmentType !== 'PREPLACEMENT' : false;
   }, [activeExam]);
-
-  useEffect(() => {
-    const user = auth.currentUser;
-    const userEmail = user?.email || undefined;
-    console.log('[ExamPage] Initial load with auth user email:', userEmail);
-    loadExamData(userEmail);
-  }, []);
-
-  // Removed email-based reload to prevent page refresh while typing in dialog
 
   useEffect(() => {
     if (screen !== 'running' || !isTimedAssessment) return;
@@ -134,28 +145,103 @@ export default function ExamPage() {
     };
   }, [screen, isTimedAssessment]);
 
-  const loadExamData = async (userEmail?: string) => {
+  const loadExamData = useCallback(async (userEmail?: string) => {
+    let restoredAttempt = false;
     try {
       setLoading(true);
+      const storageKey = attemptStorageKey();
+      let savedAttempt: string | null = null;
+      try {
+        savedAttempt = storageKey ? sessionStorage.getItem(storageKey) : null;
+      } catch (error) {
+        console.warn('Unable to read the saved exam attempt', error);
+      }
+      if (savedAttempt) {
+        try {
+          const persisted = JSON.parse(savedAttempt) as PersistedExamAttempt;
+          if (persisted.email === userEmail && persisted.exam && persisted.attempt && Array.isArray(persisted.responses)) {
+            setActiveExam(persisted.exam);
+            setAttempt(persisted.attempt);
+            setAttemptId(persisted.attempt.attemptId);
+            setStartedAt(persisted.attempt.startAt);
+            setName(persisted.name || '');
+            setResponses(persisted.responses);
+            setCurrentIndex(persisted.currentIndex || 0);
+            setTabSwitchCount(persisted.tabSwitchCount || 0);
+            const deadline = Math.min(
+              parseLocalDateTime(persisted.exam.endAt),
+              parseLocalDateTime(persisted.attempt.startAt) + getEffectiveDuration(persisted.exam) * 60_000,
+            );
+            setSecondsLeft(isTimedAssessmentFor(persisted.exam)
+              ? Math.max(0, Math.floor((deadline - Date.now()) / 1000))
+              : 0);
+            setScreen('running');
+            restoredAttempt = true;
+            setLoading(false);
+            return;
+          } else if (storageKey) {
+            sessionStorage.removeItem(storageKey);
+          }
+        } catch (error) {
+          console.warn('Unable to restore saved exam attempt', error);
+          if (storageKey) sessionStorage.removeItem(storageKey);
+        }
+      }
+
       const examList = await getExams(userEmail);
       setLoadError('');
       setExams(examList || []);
-
       const hasOpenExam = (examList || []).some((exam) => exam.status === 'OPEN');
-      setScreen(hasOpenExam ? 'ready' : 'waiting');
+      const launchExamId = new URLSearchParams(window.location.search).get('start');
+      if (launchExamId) {
+        const launchExam = examList.find((exam) => exam.examId === launchExamId && exam.status === 'OPEN');
+        if (launchExam) {
+          setActiveExam(launchExam);
+          setEmailDialogOpen(true);
+          window.history.replaceState({}, '', hideNavigation ? '/exam?standalone=1' : '/exam');
+        }
+      }
+      if (!restoredAttempt) setScreen(hasOpenExam ? 'ready' : 'waiting');
     } catch (error) {
       console.error(error);
       setLoadError(error instanceof Error ? error.message : 'Please try again later.');
-      setScreen('error');
+      if (!restoredAttempt) setScreen('error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [hideNavigation]);
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    const userEmail = user?.email || undefined;
+    console.log('[ExamPage] Initial load with auth user email:', userEmail);
+    loadExamData(userEmail);
+  }, [loadExamData]);
 
   const eligibleMatch = useMemo(() => {
     if (!activeExam || !email.trim()) return null;
     return activeExam.eligibleEmails.some((item) => item.toLowerCase() === email.trim().toLowerCase());
   }, [activeExam, email]);
+
+  useEffect(() => {
+    if (screen !== 'running' || !activeExam || !attemptId || !startedAt || !email) return;
+    const storageKey = attemptStorageKey();
+    if (!storageKey) return;
+
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify({
+        email,
+        exam: activeExam,
+        attempt: { ...attempt, attemptId, startAt: startedAt },
+        name,
+        responses,
+        currentIndex,
+        tabSwitchCount,
+      } satisfies PersistedExamAttempt));
+    } catch (error) {
+      console.warn('Unable to save exam attempt in this browser session', error);
+    }
+  }, [screen, activeExam, attempt, attemptId, startedAt, email, name, responses, currentIndex, tabSwitchCount]);
 
   useEffect(() => {
     if (!emailDialogOpen) {
@@ -180,7 +266,7 @@ export default function ExamPage() {
     setPreviousSubmissions([]);
 
     try {
-      const submissions = await getPreviousSubmissions(activeExam.examId, email.trim().toLowerCase());
+      const submissions = await getPreviousSubmissions(activeExam.examId, email.trim().toLowerCase(), activeExam.sheetRow);
       setPreviousSubmissions(submissions || []);
     } catch (error) {
       console.error('Unable to load previous submissions', error);
@@ -232,7 +318,7 @@ export default function ExamPage() {
   const startExam = async () => {
     if (!activeExam) return;
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = email;
     if (!normalizedEmail) {
       toast({
         title: 'Email required',
@@ -255,6 +341,7 @@ export default function ExamPage() {
       setSubmitting(true);
       const response = await startExamAttempt({
         examId: activeExam.examId,
+        sheetRow: activeExam.sheetRow,
         email: normalizedEmail,
       });
 
@@ -277,12 +364,6 @@ export default function ExamPage() {
       }
       setScreen('running');
 
-      if (eligibleMatch === false) {
-        toast({
-          title: 'Email not listed for this cycle',
-          description: 'You can still attempt the assessment, but your email is not in the eligible list for this assessment.',
-        });
-      }
     } catch (error) {
       console.error(error);
       toast({
@@ -296,41 +377,43 @@ export default function ExamPage() {
   };
 
   const selectAnswer = (optionIndex: number) => {
-    setResponses((previous) => {
-      const next = [...previous];
-      next[currentIndex] = optionIndex;
-      return next;
-    });
+    const next = [...responses];
+    next[currentIndex] = optionIndex;
+    persistAttemptResponses(next);
+    setResponses(next);
   };
 
   const updateResponseText = (value: string) => {
-    setResponses((previous) => {
-      const next = [...previous];
-      next[currentIndex] = value;
-      return next;
-    });
+    const next = [...responses];
+    next[currentIndex] = value;
+    persistAttemptResponses(next);
+    setResponses(next);
   };
 
-  const calculateScore = () => {
-    if (!activeExam) return 0;
-    if (activeExam.assessmentType === 'CSM') {
-      return 0;
+  const persistAttemptResponses = (nextResponses: (number | string | null)[]) => {
+    const storageKey = attemptStorageKey();
+    if (!storageKey || !activeExam || !attemptId || !startedAt || !email) return;
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify({
+        email,
+        exam: activeExam,
+        attempt: { ...attempt, attemptId, startAt: startedAt },
+        name,
+        responses: nextResponses,
+        currentIndex,
+        tabSwitchCount,
+      } satisfies PersistedExamAttempt));
+    } catch (error) {
+      console.warn('Unable to save exam answer in this browser session', error);
     }
-    return activeExam.questions.reduce((total, question, index) => {
-      const selected = responses[index];
-      if (selected === question.answerIndex) {
-        return total + (Number(question.weight) || 1);
-      }
-      return total;
-    }, 0);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!activeExam || !attemptId || submitting) return;
 
     const responsesRequired = activeExam.questions.map((question, index) => {
       const response = responses[index];
-      return String(response || '').trim();
+      return response == null ? '' : String(response).trim();
     });
 
     if (activeExam.assessmentType === 'CSM' && responsesRequired.some((value) => !value)) {
@@ -345,24 +428,34 @@ export default function ExamPage() {
     try {
       setSubmitting(true);
       const endAt = new Date().toISOString();
-      const score = calculateScore();
-      const response = await submitExamAttempt({
+      await queueExamSubmission({
         attemptId,
         examId: activeExam.examId,
-        email: email.trim().toLowerCase(),
+        sheetRow: activeExam.sheetRow,
         name: name.trim(),
         responses: responsesRequired,
-        score,
         tabSwitchCount,
         startAt: startedAt,
         endAt,
       });
 
-      setAttempt(response.attempt);
+      const storageKey = attemptStorageKey();
+      if (storageKey) sessionStorage.removeItem(storageKey);
+      setAttempt({
+        attemptId,
+        examId: activeExam.examId,
+        email,
+        tabSwitchCount,
+        score: 0,
+        startAt: startedAt,
+        endAt,
+        submittedAt: endAt,
+        eligible: true,
+      });
       setScreen('submitted');
       toast({
-        title: 'Submission done',
-        description: 'Your response has been logged to the Attempted sheet. You can leave the meet.',
+        title: 'Submission received',
+        description: 'Your answers are safely received and will be recorded in the results sheet shortly.',
       });
     } catch (error) {
       console.error(error);
@@ -374,7 +467,7 @@ export default function ExamPage() {
     } finally {
       setSubmitting(false);
     }
-  };
+  }, [activeExam, attemptId, submitting, responses, email, name, tabSwitchCount, startedAt, toast]);
 
   useEffect(() => {
     submitAttemptRef.current = handleSubmit;
@@ -399,7 +492,7 @@ export default function ExamPage() {
 
   if (loading) {
     return (
-      <Layout>
+      <Layout hideHeader={hideNavigation}>
         <div className="container py-8">
           <p className="text-center text-muted-foreground">Loading assessment...</p>
         </div>
@@ -408,7 +501,7 @@ export default function ExamPage() {
   }
 
   return (
-    <Layout>
+    <Layout hideHeader={hideNavigation}>
       <div className="container py-8 space-y-6">
         {/* Assessment access banner removed per request */}
 
@@ -427,7 +520,7 @@ export default function ExamPage() {
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Upcoming assessments</p>
                   {upcomingExams.map((exam) => (
-                    <div key={exam.examId} className="rounded-md border p-3 text-sm">
+                    <div key={exam.id} className="rounded-md border p-3 text-sm">
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-medium">{exam.title}</p>
                         <Badge variant="secondary">{exam.status}</Badge>
@@ -472,7 +565,7 @@ export default function ExamPage() {
                   <p className="text-sm text-muted-foreground">No open assessments right now.</p>
                 ) : (
                   openExams.map((exam) => (
-                    <div key={exam.examId} className="rounded-md border p-4 space-y-3">
+                    <div key={exam.id} className="rounded-md border p-4 space-y-3">
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-medium">{exam.title}</p>
                         <Badge>{exam.status}</Badge>
@@ -517,7 +610,7 @@ export default function ExamPage() {
                   <p className="text-sm text-muted-foreground">No upcoming assessments found.</p>
                 ) : (
                   upcomingExams.map((exam) => (
-                    <div key={exam.examId} className="rounded-md border p-4 space-y-3">
+                    <div key={exam.id} className="rounded-md border p-4 space-y-3">
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-medium">{exam.title}</p>
                         <Badge variant="secondary">{exam.status}</Badge>
@@ -731,8 +824,8 @@ export default function ExamPage() {
         {screen === 'submitted' && attempt && activeExam && (
           <Card>
             <CardHeader>
-              <CardTitle>Submission done</CardTitle>
-              <CardDescription>Your response has been logged. You can leave the meet.</CardDescription>
+              <CardTitle>Submission received</CardTitle>
+              <CardDescription>Your answers are safely received. Results are syncing to the spreadsheet; you can leave this page.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-3 text-sm">
               <div className="rounded-md border p-3">
@@ -754,22 +847,13 @@ export default function ExamPage() {
         <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Enter Details</DialogTitle>
+              <DialogTitle>Start Assessment</DialogTitle>
               <DialogDescription>
-                Use your student email to start {activeExam?.title || 'the test'}. This email is logged in the Attempted sheet.
+                Your signed-in student account will be used for {activeExam?.title || 'this assessment'}.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="attempt-email">Email ID</Label>
-                <Input
-                  id="attempt-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="student@study.iitm.ac.in"
-                />
-              </div>
+              <p className="text-sm font-medium">{email}</p>
               {activeExam?.assessmentType === 'CSM' && (
                 <div className="space-y-2">
                   <Label htmlFor="attempt-name">Full Name</Label>
@@ -781,19 +865,15 @@ export default function ExamPage() {
                   />
                 </div>
               )}
-                      <p className="text-xs text-muted-foreground">
-                {eligibleMatch === false
-                  ? 'This email is not in the eligible list for this cycle. You may still attempt, but it will be flagged.'
-                  : eligibleMatch === true
-                    ? 'Email matches the eligible list for this cycle.'
-                    : 'Enter your email to check against the eligible list.'}
+              <p className="text-xs text-muted-foreground">
+                {eligibleMatch === true ? 'Your account is on the eligible list.' : 'Your account eligibility will be checked before the attempt starts.'}
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={fetchPreviousSubmissions}
-                  disabled={!email.trim() || previousSubmissionsLoading}
+                  disabled={!email || previousSubmissionsLoading}
                 >
                   {previousSubmissionsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Check Previous Submissions

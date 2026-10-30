@@ -35,7 +35,6 @@ type DraftScores = {
   technicalDataScience: string;
   communication: string;
   readiness: string;
-  exceptional: string;
   tasks: string;
   roles: string;
   detailedFeedback1: string;
@@ -60,7 +59,6 @@ function initialDraft(section: EvaluationSection, evaluation?: EvaluationRow): D
       technicalDataScience: '',
       communication: '',
       readiness: '',
-      exceptional: '',
       tasks: '',
       roles: '',
       detailedFeedback1: '',
@@ -74,7 +72,6 @@ function initialDraft(section: EvaluationSection, evaluation?: EvaluationRow): D
       clarity: '',
       analyticalSkills: '',
       grammar: '',
-      rating: '',
       content: '',
       slideComposition: '',
       presentation: '',
@@ -86,7 +83,9 @@ function initialDraft(section: EvaluationSection, evaluation?: EvaluationRow): D
       communication:
         oneOnOneEvaluation?.communication != null ? String(oneOnOneEvaluation.communication) : '',
       readiness: oneOnOneEvaluation?.readiness || oneOnOneEvaluation?.placementReadiness || '',
-      exceptional: oneOnOneEvaluation?.exceptional || '',
+      rating: ['Excellent', 'Good', 'Average', 'Poor'].includes(oneOnOneEvaluation?.rating || '')
+        ? oneOnOneEvaluation?.rating || ''
+        : '',
       tasks: oneOnOneEvaluation?.tasks || '',
       roles: oneOnOneEvaluation?.roles || '',
       detailedFeedback1: oneOnOneEvaluation?.detailedFeedback1 || '',
@@ -108,7 +107,6 @@ function initialDraft(section: EvaluationSection, evaluation?: EvaluationRow): D
     technicalDataScience: '',
     communication: '',
     readiness: '',
-    exceptional: '',
     tasks: '',
     roles: '',
     detailedFeedback1: '',
@@ -176,7 +174,7 @@ const EvaluatorsManagement = () => {
     }
   };
 
-  const loadPendingRows = async (currentSection: EvaluationSection, instructor: string) => {
+  const loadPendingRows = async (currentSection: EvaluationSection, instructor: string, refresh = false) => {
     if (!instructor) {
       setRows([]);
       setDrafts({});
@@ -185,7 +183,7 @@ const EvaluatorsManagement = () => {
 
     setLoadingRows(true);
     try {
-      const pending = await getPendingEvaluations(currentSection, instructor);
+      const pending = await getPendingEvaluations(currentSection, instructor, { refresh });
       setRows(pending);
 
       const nextDrafts: Record<string, DraftScores> = {};
@@ -340,6 +338,11 @@ const EvaluatorsManagement = () => {
             rating,
           });
         } else {
+          if (!['Excellent', 'Good', 'Average', 'Poor'].includes(draft.rating)) {
+            toast({ title: 'Missing rating', description: 'Select a rating before saving.', variant: 'destructive' });
+            return;
+          }
+
           const technicalProgramming = parseScore(draft.technicalProgramming);
           const technicalDataScience = parseScore(draft.technicalDataScience);
           const communication = parseScore(draft.communication);
@@ -383,7 +386,7 @@ const EvaluatorsManagement = () => {
             technicalDataScience,
             communication,
             readiness: draft.readiness,
-            exceptional: draft.exceptional,
+            rating: draft.rating as 'Excellent' | 'Good' | 'Average' | 'Poor',
             tasks: draft.tasks,
             roles: draft.roles,
             detailedFeedback1: draft.detailedFeedback1,
@@ -425,7 +428,7 @@ const EvaluatorsManagement = () => {
         </div>
         <Button
           variant="outline"
-          onClick={() => section && loadPendingRows(section, selectedInstructor)}
+          onClick={() => section && loadPendingRows(section, selectedInstructor, true)}
           disabled={loadingRows || !selectedInstructor || !section}
         >
           <RefreshCw className="h-4 w-4 mr-2" />
@@ -768,16 +771,16 @@ const EvaluatorsManagement = () => {
                           </Select>
                         </div>
                         <div className="space-y-1">
-                          <p className="text-sm font-medium">Performing Exceptionally Good</p>
-                          <Select value={draft.exceptional || 'BLANK'} onValueChange={(value) => updateDraft(row.id, { exceptional: value === 'BLANK' ? '' : value })}>
+                          <p className="text-sm font-medium">Rating</p>
+                          <Select value={draft.rating || undefined} onValueChange={(value) => updateDraft(row.id, { rating: value })}>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select option" />
+                              <SelectValue placeholder="Select rating" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Yes">Yes</SelectItem>
-                              <SelectItem value="No">No</SelectItem>
-                              <SelectItem value="Absent">Absent</SelectItem>
-                              <SelectItem value="BLANK">Blank</SelectItem>
+                              <SelectItem value="Excellent">Excellent</SelectItem>
+                              <SelectItem value="Good">Good</SelectItem>
+                              <SelectItem value="Average">Average</SelectItem>
+                              <SelectItem value="Poor">Poor</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>

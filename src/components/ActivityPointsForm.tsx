@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm, useWatch, type FieldPath } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Loader2, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
@@ -15,7 +16,9 @@ import {
   activityPointsFormConfig, 
   getVisibleSections, 
   getVisibleFields,
-  ensureStudentNameSection,
+  isFormFieldVisible,
+  getFieldsToReset,
+  pruneRemovedActivityPointsItems,
   type FormField,
   type FormSection,
   type FormConfig 
@@ -25,65 +28,6 @@ import { getStoredVerifiedEmail } from '@/lib/emailVerificationService';
 interface ActivityPointsFormProps {
   onSubmit?: (data: Record<string, string>) => Promise<void>;
 }
-
-const REQUIRED_ACTIVITY_SECTION_IDS = new Set([
-  'activity-type-selection',
-  'common-mandatory-course',
-  'subscription-type',
-  'internship-sd',
-  'internship-ds',
-  'placement-sd',
-  'placement-ds',
-  'dlp-nppe',
-  'cloud-devops',
-  'cloud-devops-cma',
-  'placement-cloud-devops',
-  'associate-certifications',
-  'sc',
-  'mad',
-  'mad-internship',
-  'mad-placement',
-  'se-cert',
-  'se-cert-internship',
-  'se-cert-placement',
-  'programming-workshop-1',
-  'programming-workshop-2',
-  'machine-learning-basics',
-  'data-science-workshop-1',
-  'data-science-workshop-2',
-  'placement-system-commands',
-  'placement-system-commands-vm',
-  'placement-system-commands-exercism',
-  'mlp',
-]);
-
-/**
- * The Apps Script may contain an older, admin-managed form configuration.
- * Replace the dependent activity branches with their bundled definitions so
- * newly deployed paths do not remain hidden behind an older saved config.
- */
-const withRequiredActivityPaths = (config: FormConfig): FormConfig => ({
-  ...config,
-  sections: (() => {
-    const savedSections = ensureStudentNameSection(config.sections);
-    const savedById = new Map(savedSections.map((section) => [section.id, section]));
-    const localIds = new Set(activityPointsFormConfig.sections.map((section) => section.id));
-
-    // Keep the local configuration's order. The saved configuration can still
-    // supply unrelated admin-managed sections, but it cannot move a dependent
-    // section (such as JAVA) above Activity Type or course selection.
-    const orderedSections = activityPointsFormConfig.sections.map((localSection) =>
-      REQUIRED_ACTIVITY_SECTION_IDS.has(localSection.id)
-        ? localSection
-        : savedById.get(localSection.id) || localSection
-    );
-
-    const extraSavedSections = savedSections.filter(
-      (section) => !localIds.has(section.id) && !REQUIRED_ACTIVITY_SECTION_IDS.has(section.id)
-    );
-    return [...orderedSections, ...extraSavedSections];
-  })(),
-});
 
 const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
   const { toast } = useToast();
@@ -98,7 +42,7 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
   const formConfigRef = useRef<FormConfig>(activityPointsFormConfig);
 
   const formSchema = z.object({
-    activityType: z.string().min(1, 'Please select activity points type'),
+    activityType: z.string().optional(),
     mandatoryCourse: z.string().optional(),
     subscriptionType: z.string().optional(),
     sdCourse: z.string().optional(),
@@ -111,15 +55,15 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
     placementCloudActivityTitle: z.string().optional(),
     certificateTitle: z.string().optional(),
     certificateLink: z.string().optional(),
-  }).superRefine((data, context) => {
-    const sections = getVisibleSections(data, formConfigRef.current);
+  }).passthrough().superRefine((data, context) => {
+    const sections = getVisibleSections(data as Record<string, string>, formConfigRef.current);
     const requiresUpload = sections.some(section => section.requiresCertificateUpload);
     const certificateLink = data.certificateLink?.trim();
 
     if (requiresUpload && !certificateLink) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Certificate link is required',
+        message: 'Evidence link is required',
         path: ['certificateLink'],
       });
     } else if (
@@ -133,6 +77,7 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
       });
     }
   });
+  type ActivityPointsFormValues = z.infer<typeof formSchema>;
 
   const {
     register,
@@ -140,6 +85,8 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
     control,
     getValues,
     setValue,
+    clearErrors,
+    reset,
     formState: { errors }
   } = useForm({
     resolver: zodResolver(formSchema),
@@ -187,6 +134,38 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
   }, [formConfig, getValues]);
 
   const requiresCertificateUpload = visibleSections.some(section => section.requiresCertificateUpload);
+  const isVmActivity = [formData.scActivityTitle, formData.placementScActivityTitle]
+    .some(activity => activity === 'VMT_1st series' || activity === 'VMT_2nd series');
+
+  const updateFieldValue = (fieldId: string, value: string) => {
+    const currentFormData = getValues() as Record<string, string>;
+    if (currentFormData[fieldId] === value) return;
+
+    const nextFormData = { ...currentFormData, [fieldId]: value };
+    const currentVisibleSections = getVisibleSections(currentFormData, formConfigRef.current);
+    const nextVisibleSections = getVisibleSections(nextFormData, formConfigRef.current);
+    const fieldsToReset = getFieldsToReset(currentFormData, nextFormData, formConfigRef.current);
+
+    setValue(fieldId as FieldPath<ActivityPointsFormValues>, value, { shouldDirty: true, shouldValidate: true });
+    fieldsToReset.forEach(id => {
+      const fieldPath = id as FieldPath<ActivityPointsFormValues>;
+      if (nextFormData[id]) setValue(fieldPath, '', { shouldDirty: true });
+      clearErrors(fieldPath);
+    });
+
+    const currentUploadSections = currentVisibleSections
+      .filter(section => section.requiresCertificateUpload)
+      .map(section => section.id)
+      .sort();
+    const nextUploadSections = nextVisibleSections
+      .filter(section => section.requiresCertificateUpload)
+      .map(section => section.id)
+      .sort();
+    if (JSON.stringify(currentUploadSections) !== JSON.stringify(nextUploadSections)) {
+      setValue('certificateLink', '', { shouldDirty: true });
+      clearErrors('certificateLink');
+    }
+  };
 
   const loadFormConfig = async () => {
     try {
@@ -208,16 +187,9 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
 
       const result = await response.json();
 
-      if (
-        result.success &&
-        result.data?.config &&
-        Array.isArray(result.data.config.sections) &&
-        result.data.config.sections.some((section: FormSection) => section.id !== 'certificate-upload')
-      ) {
-        const newConfig = withRequiredActivityPaths(result.data.config);
-        setFormConfig(newConfig);
+      if (result.success && result.data?.config && Array.isArray(result.data.config.sections)) {
+        setFormConfig(pruneRemovedActivityPointsItems(result.data.config));
       } else {
-        // An empty config is the Apps Script's uninitialized default.
         setFormConfig(activityPointsFormConfig);
       }
     } catch (error) {
@@ -259,18 +231,7 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
   const renderField = (section: FormSection, field: FormField) => {
     const fieldError = validateField(field, formData[field.id] || '');
     const showError = hasSubmitted && fieldError;
-    const isVisible = !field.conditionalLogic || field.conditionalLogic.showWhen.every(condition => {
-      const fieldValue = formData[condition.fieldId];
-      if (condition.equals) {
-        return Array.isArray(condition.equals) 
-          ? condition.equals.includes(fieldValue)
-          : fieldValue === condition.equals;
-      }
-      if (condition.notEquals) {
-        return fieldValue !== condition.notEquals;
-      }
-      return true;
-    });
+    const isVisible = isFormFieldVisible(field, formData, formConfigRef.current);
 
     if (!isVisible) return null;
 
@@ -287,7 +248,7 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
               id={field.id}
               type={field.type === 'email' ? 'email' : 'text'}
               placeholder={field.placeholder}
-              {...register(field.id as any)}
+              {...register(field.id as FieldPath<ActivityPointsFormValues>)}
               className={showError ? 'border-red-500' : ''}
             />
             {showError && (
@@ -307,7 +268,7 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
             <Select
-              onValueChange={(value) => setValue(field.id as any, value)}
+              onValueChange={(value) => updateFieldValue(field.id, value)}
               value={formData[field.id] || ''}
             >
               <SelectTrigger className={showError ? 'border-red-500' : ''}>
@@ -338,7 +299,7 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
             <RadioGroup
-              onValueChange={(value) => setValue(field.id as any, value)}
+              onValueChange={(value) => updateFieldValue(field.id, value)}
               value={formData[field.id] || ''}
             >
               {field.options?.map((option) => (
@@ -373,14 +334,14 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
                     id={`${field.id}-${option}`}
                     checked={(formData[field.id] || '').split(',').includes(option)}
                     onCheckedChange={(checked) => {
-                      const currentValues = (formData[field.id] || '').split(',').filter(Boolean);
+                      const currentValues = String(getValues(field.id as FieldPath<ActivityPointsFormValues>) || '').split(',').filter(Boolean);
                       if (checked) {
                         currentValues.push(option);
                       } else {
                         const index = currentValues.indexOf(option);
                         if (index > -1) currentValues.splice(index, 1);
                       }
-                      setValue(field.id as any, currentValues.join(','));
+                      updateFieldValue(field.id, currentValues.join(','));
                     }}
                   />
                   <Label htmlFor={`${field.id}-${option}`} className="font-normal cursor-pointer">
@@ -398,12 +359,34 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
           </div>
         );
 
+      case 'multiline':
+        return (
+          <div key={field.id} className="space-y-2">
+            <Label htmlFor={field.id}>
+              {field.label}
+              {field.required && <span className="text-red-500 ml-1">*</span>}
+            </Label>
+            <Textarea
+              id={field.id}
+              placeholder={field.placeholder}
+              {...register(field.id as FieldPath<ActivityPointsFormValues>)}
+              className={showError ? 'border-red-500' : ''}
+            />
+            {showError && (
+              <p className="text-sm text-red-500 flex items-center gap-1">
+                <AlertCircle className="h-4 w-4" />
+                {fieldError}
+              </p>
+            )}
+          </div>
+        );
+
       default:
         return null;
     }
   };
 
-  const onFormSubmit = async (data: any) => {
+  const onFormSubmit = async (data: ActivityPointsFormValues) => {
     setHasSubmitted(true);
     setIsSubmitting(true);
 
@@ -416,7 +399,7 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
       // Validate all visible fields
       let hasErrors = false;
       currentVisibleSections.forEach(section => {
-        const visibleFields = getVisibleFields(section, currentFormData);
+        const visibleFields = getVisibleFields(section, currentFormData, formConfigRef.current);
         visibleFields.forEach(field => {
           const error = validateField(field, currentFormData[field.id] || '');
           if (error) {
@@ -447,8 +430,23 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
         return;
       }
 
+      const visibleFieldIds = new Set(
+        currentVisibleSections.flatMap(section =>
+          getVisibleFields(section, currentFormData, formConfigRef.current).map(field => field.id)
+        )
+      );
+      const selectedBranchData = Object.fromEntries(
+        Array.from(visibleFieldIds)
+          .filter(fieldId => currentFormData[fieldId] !== undefined)
+          .map(fieldId => [fieldId, currentFormData[fieldId]])
+      );
+      const requiresUpload = currentVisibleSections.some(section => section.requiresCertificateUpload);
+
       const submissionData = {
-        ...currentFormData,
+        ...selectedBranchData,
+        ...(requiresUpload && currentFormData.certificateLink
+          ? { certificateLink: currentFormData.certificateLink }
+          : {}),
         email: studentEmail,
         studentEmailId: studentEmail,
       };
@@ -477,6 +475,8 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
               title: 'Success',
               description: 'Your activity points submission has been recorded.',
             });
+              reset();
+              setHasSubmitted(false);
           } else {
             throw new Error(result.error || 'Submission failed');
           }
@@ -530,7 +530,7 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
           </Card>
 
           {visibleSections.map((section) => {
-            const visibleFields = getVisibleFields(section, formData);
+            const visibleFields = getVisibleFields(section, formData, formConfigRef.current);
             if (visibleFields.length === 0 && !section.description) return null;
 
             return (
@@ -551,12 +551,14 @@ const ActivityPointsForm = ({ onSubmit }: ActivityPointsFormProps) => {
           {requiresCertificateUpload && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-xl">Certificate Upload & Submission</CardTitle>
+                <CardTitle className="text-xl">{isVmActivity ? 'VM Task Screenshot' : 'Activity Evidence'}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="certificateLink">
-                    Upload Certificate & Profile Progress Screenshot (Google Drive link)
+                    {isVmActivity
+                      ? 'Upload a screenshot of the status output from your terminal (Google Drive link)'
+                      : 'Upload the certificate or other activity evidence (Google Drive link)'}
                     <span className="text-red-500 ml-1">*</span>
                   </Label>
                   <Input
