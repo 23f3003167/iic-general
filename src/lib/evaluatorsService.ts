@@ -252,11 +252,10 @@ export async function submitEvaluation(section: EvaluationSection, args: SubmitE
 }
 
 export async function getUniqueInstructors(section: EvaluationSection): Promise<string[]> {
-  if (section === 'presentation') {
-    return (await getPresentationEvaluatorData()).instructors;
-  }
-
-  return callEvaluatorsAppsScript<string[]>(section, {
-    action: 'getUniqueInstructors',
+  const instructors = await callEvaluatorsAppsScript<Array<{ name: string }>>(section, {
+    action: 'getInstructors',
   });
+  return [...new Set(instructors.map((instructor) => instructor.name.trim()).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b),
+  );
 }

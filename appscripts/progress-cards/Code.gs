@@ -495,6 +495,7 @@ function renderProgressCardHtml_(data) {
     (student.plan ? '<div>Training plan: ' + escapeHtml_(student.plan) + '</div>' : '') +
     (student.domain ? '<div>Domain: ' + escapeHtml_(student.domain) + '</div>' : '') + '</div>' +
     '<p class="intro">This card summarizes the learner\'s progress across training levels including assessment results, attempts, and feedback for improvement.</p>' +
+    '<div style="border:1px solid #d6c6c3;background:#faf7f6;padding:8px 10px;margin:12px 0 16px;font-size:8.5pt;page-break-inside:avoid"><strong>Disclaimer:</strong> This provisional progress summary reflects performance observed across IIC training levels, based on assessment results, evaluator feedback, and records available on the date of issue. It is not a formal credential or standalone proof of professional competence, and it does not guarantee an internship, job, interview, or selection by any organization.</div>' +
     levelsHtml + '<section><h2>Feedback</h2>' + feedbackHtml + '</section>' +
     '<footer><div>Feel free to reach out to us in case of any mistakes in this progress card.</div>' +
     '<div>IITM BS Degree Office, 3rd Floor, ICSR Building, Indian Institute of Technology Madras, Chennai - 600 036</div>' +

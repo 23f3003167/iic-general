@@ -11,6 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/components/ui/use-toast';
 import { getPendingEvaluations, getUniqueInstructors, submitEvaluation } from '@/lib/evaluatorsService';
 import type {
@@ -19,7 +21,7 @@ import type {
   OneOnOneEvaluation,
   PresentationEvaluation,
 } from '@/types';
-import { Edit, Loader2, RefreshCw } from 'lucide-react';
+import { Check, ChevronsUpDown, Edit, Loader2, RefreshCw } from 'lucide-react';
 
 type DraftScores = {
   relevance: string;
@@ -139,6 +141,7 @@ const EvaluatorsManagement = () => {
   const [loadingRows, setLoadingRows] = useState(false);
   const [instructors, setInstructors] = useState<string[]>([]);
   const [selectedInstructor, setSelectedInstructor] = useState<string>('');
+  const [instructorPickerOpen, setInstructorPickerOpen] = useState(false);
   const [rows, setRows] = useState<EvaluationRow[]>([]);
   const [drafts, setDrafts] = useState<Record<string, DraftScores>>({});
   const [selectedDate, setSelectedDate] = useState('');
@@ -157,11 +160,7 @@ const EvaluatorsManagement = () => {
     try {
       const names = await getUniqueInstructors(section);
       setInstructors(names);
-      if (names.length === 0) {
-        setSelectedInstructor('');
-      } else if (!selectedInstructor || !names.includes(selectedInstructor)) {
-        setSelectedInstructor(names[0]);
-      }
+      setSelectedInstructor((current) => names.includes(current) ? current : '');
     } catch (error) {
       console.error(error);
       toast({
@@ -470,18 +469,44 @@ const EvaluatorsManagement = () => {
         <CardContent className="grid gap-4 md:grid-cols-[320px_1fr] items-end">
           <div className="space-y-2">
             <p className="text-sm font-medium">Evaluator Name</p>
-            <Select value={selectedInstructor} onValueChange={setSelectedInstructor} disabled={loadingInstructors}>
-              <SelectTrigger>
-                <SelectValue placeholder={loadingInstructors ? 'Loading evaluators...' : 'Select evaluator'} />
-              </SelectTrigger>
-              <SelectContent>
-                {instructors.map((name) => (
-                  <SelectItem key={name} value={name}>
-                    {name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={instructorPickerOpen} onOpenChange={setInstructorPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={instructorPickerOpen}
+                  className="w-full justify-between font-normal"
+                  disabled={loadingInstructors}
+                >
+                  {selectedInstructor || (loadingInstructors ? 'Loading instructors...' : 'Search instructors')}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search instructor name..." />
+                  <CommandList>
+                    <CommandEmpty>No instructor found.</CommandEmpty>
+                    <CommandGroup>
+                      {instructors.map((name) => (
+                        <CommandItem
+                          key={name}
+                          value={name}
+                          onSelect={() => {
+                            setSelectedInstructor(name);
+                            setInstructorPickerOpen(false);
+                          }}
+                        >
+                          <Check className={`mr-2 h-4 w-4 ${selectedInstructor === name ? 'opacity-100' : 'opacity-0'}`} />
+                          {name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
@@ -513,7 +538,7 @@ const EvaluatorsManagement = () => {
       ) : visibleRows.length === 0 ? (
         <Card>
           <CardContent className="py-8">
-            <p className="text-sm text-muted-foreground">No slots for you today.</p>
+            <p className="text-sm text-muted-foreground">No evaluations found for this instructor on this date.</p>
           </CardContent>
         </Card>
       ) : (
