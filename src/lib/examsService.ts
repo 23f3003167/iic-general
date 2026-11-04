@@ -20,6 +20,7 @@ type GetActiveExamResponse = {
 type UpsertExamRequest = {
   operation: 'CREATE' | 'UPDATE';
   sheetRow?: number;
+  originalExamId?: string;
   examId: string;
   title: string;
   description?: string;
@@ -178,6 +179,7 @@ export async function upsertExam(exam: UpsertExamRequest): Promise<ExamConfig> {
     action: 'upsertExam',
     operation: exam.operation,
     sheetRow: exam.sheetRow,
+    originalExamId: exam.originalExamId,
     examId: exam.examId,
     title: exam.title,
     description: exam.description,

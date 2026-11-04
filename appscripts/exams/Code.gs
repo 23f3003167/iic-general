@@ -228,13 +228,14 @@ function findCsmRowByEmail_(sheet, email) {
 function writeCsmResponse_(email, name, responses) {
   var sheet = getCsmSheet_();
   var rowIndex = findCsmRowByEmail_(sheet, email);
+  var normalizedResponses = Array.isArray(responses) ? responses : [];
   var rowValues = [
-    name || '',
-    email,
-    responses && responses.length > 0 ? String(responses[0] || '') : '',
-    responses && responses.length > 1 ? String(responses[1] || '') : '',
-    responses && responses.length > 2 ? String(responses[2] || '') : '',
-    responses && responses.length > 3 ? String(responses[3] || '') : ''
+    String(name || ''),
+    normalizeEmail_(email),
+    normalizedResponses.length > 0 ? String(normalizedResponses[0] || '') : '',
+    normalizedResponses.length > 1 ? String(normalizedResponses[1] || '') : '',
+    normalizedResponses.length > 2 ? String(normalizedResponses[2] || '') : '',
+    normalizedResponses.length > 3 ? String(normalizedResponses[3] || '') : ''
   ];
   if (rowIndex > 0) {
     sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);

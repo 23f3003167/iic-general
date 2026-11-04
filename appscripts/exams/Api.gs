@@ -98,6 +98,7 @@ function getActiveExam_(email) {
 function upsertExam_(payload) {
   var operation = String(payload.operation || 'CREATE').trim().toUpperCase();
   var examId = String(payload.examId || '').trim();
+  var originalExamId = String(payload.originalExamId || examId).trim();
   var assessmentType = String(payload.assessmentType || 'STANDARD').trim().toUpperCase();
   var title = String(payload.title || '').trim();
   var description = String(payload.description || '').trim();
@@ -142,7 +143,7 @@ function upsertExam_(payload) {
       throw new Error('Invalid assessment row. Refresh the assessment list and try again.');
     }
     var existingValues = sheet.getRange(rowIndex, 1, 1, sheet.getLastColumn()).getValues()[0];
-    if (normalizeText_(getHeaderValue_(existingValues, headerMap, 'exam_id', 0)) !== normalizeText_(examId)) {
+    if (normalizeText_(getHeaderValue_(existingValues, headerMap, 'exam_id', 0)) !== normalizeText_(originalExamId)) {
       throw new Error('Assessment row changed. Refresh the assessment list and try again.');
     }
     existingExam = rowToExam_(existingValues, null, headerMap, rowIndex);
@@ -307,7 +308,7 @@ function submitAttempt_(payload) {
       sheet.appendRow(rowValuesForHeaders_(sheet, attemptValues_(attempt)));
     }
 
-    if (exam && String(exam.assessmentType || '').toUpperCase() === 'CSM') {
+    if (exam && isCsmExam_(exam)) {
       writeCsmResponse_(email, name, responses);
     }
 

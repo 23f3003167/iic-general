@@ -85,7 +85,7 @@ function syncExamSubmission_(document) {
 }
 
 function calculateExamSubmissionScore_(exam, responses) {
-  if (exam.assessmentType === 'CSM') {
+  if (isCsmExam_(exam)) {
     return 0;
   }
 
@@ -95,6 +95,11 @@ function calculateExamSubmissionScore_(exam, responses) {
     }
     return total + (Number(question.weight) || 1);
   }, 0);
+}
+
+function isCsmExam_(exam) {
+  return String(exam.assessmentType || '').trim().toUpperCase() === 'CSM' ||
+    normalizeText_(exam.examId).toLowerCase() === 'csm';
 }
 
 function deleteFirestoreSubmission_(documentName) {

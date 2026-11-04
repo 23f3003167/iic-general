@@ -237,6 +237,7 @@ export default function ExamsManagement() {
       const updated = await upsertExam({
         operation: editingExam ? 'UPDATE' : 'CREATE',
         sheetRow: editingExam?.sheetRow,
+        originalExamId: editingExam?.examId,
         examId,
         title: formData.title.trim(),
         description: formData.description.trim(),
